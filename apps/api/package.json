@@ -22,7 +22,8 @@
     "prisma:seed": "prisma db seed",
     "db:start": "tsx scripts/db.mts start",
     "db:stop": "tsx scripts/db.mts stop",
-    "db:status": "tsx scripts/db.mts status"
+    "db:status": "tsx scripts/db.mts status",
+    "preprisma:seed": "npm run build:shared"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
