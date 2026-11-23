@@ -1,7 +1,7 @@
 {
   "name": "savemeal",
   "private": true,
-  "description": "LASTBITE: map-first PWA for reserving and picking up safe surplus food.",
+  "description": "SaveMeal: map-first PWA marketplace for reserving and picking up surplus food that is still safe.",
   "workspaces": [
     "packages/shared",
     "apps/api",

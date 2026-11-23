@@ -1,4 +1,4 @@
-# apps/web: LASTBITE PWA (frontend)
+# apps/web: SaveMeal PWA (frontend)
 
 This folder will hold the Next.js (App Router, TypeScript) mobile-first PWA for buyers and sellers.
 It is **not scaffolded yet**. The FE orchestrator session creates it on a `feat/fe-…` branch in its

@@ -1,4 +1,4 @@
-# Contributing to SaveMeal (LASTBITE)
+# Contributing to SaveMeal
 
 Read [`CLAUDE.md`](CLAUDE.md) first. Its rules apply to people and AI sessions alike.
 
@@ -48,7 +48,7 @@ Optional body: why, not what.
 
 - Types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`.
 - Scopes: `api` `web` `shared` `contract` `domain` `infra` `deps`.
-- Examples: `feat(api): reserve batch portions atomically`, `docs(contract): add pickup lookup`.
+- Examples: `feat(api): reserve listing portions atomically`, `docs(contract): add pickup lookup`.
 - Do not add trailers that credit AI tools.
 
 ## PR checklist
