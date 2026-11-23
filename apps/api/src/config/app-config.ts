@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { resolve } from 'node:path';
 import type { Category } from '@savemeal/shared';
 import type { Env, MaxListingAgeHours } from './env';
 
@@ -38,10 +39,13 @@ export class AppConfig {
   /** Root secret for auth keys; null means "generate a random one at boot" (non-production). */
   readonly authSecret: string | null;
   readonly otpProvider: Env['OTP_PROVIDER'];
+  /** Absolute directory for uploaded images. */
+  readonly uploadDir: string;
 
   constructor(env: Env) {
     this.authSecret = env.AUTH_SECRET?.trim() ? env.AUTH_SECRET.trim() : null;
     this.otpProvider = env.OTP_PROVIDER;
+    this.uploadDir = resolve(env.UPLOAD_DIR);
     this.nodeEnv = env.NODE_ENV;
     this.port = env.PORT;
     this.databaseUrl = env.DATABASE_URL;

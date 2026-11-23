@@ -109,6 +109,9 @@ export const envSchema = z
     AUTH_SECRET: z.string().optional(),
     // How OTP codes are delivered. `console` logs them (development only).
     OTP_PROVIDER: z.enum(['console']).default('console'),
+
+    // Where uploaded images are stored (local disk for the pilot; relative to apps/api).
+    UPLOAD_DIR: z.string().min(1).default('uploads'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

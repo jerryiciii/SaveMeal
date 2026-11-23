@@ -9,9 +9,12 @@ import { defaultMessage } from './error-messages';
 function codeForStatus(status: number): ErrorCode {
   switch (status) {
     case HttpStatus.BAD_REQUEST:
-    case HttpStatus.PAYLOAD_TOO_LARGE:
-    case HttpStatus.UNSUPPORTED_MEDIA_TYPE:
       return 'VALIDATION_FAILED';
+    // Only multipart uploads reach here (JSON body errors are handled in app.setup).
+    case HttpStatus.PAYLOAD_TOO_LARGE:
+      return 'IMAGE_TOO_LARGE';
+    case HttpStatus.UNSUPPORTED_MEDIA_TYPE:
+      return 'IMAGE_TYPE_UNSUPPORTED';
     case HttpStatus.UNAUTHORIZED:
       return 'UNAUTHENTICATED';
     case HttpStatus.FORBIDDEN:
@@ -26,7 +29,7 @@ function codeForStatus(status: number): ErrorCode {
   }
 }
 
-/** HTTP status that goes with a framework-mapped code (405 → 404, 413/415 → 400). */
+/** HTTP status that goes with a framework-mapped code (405 → 404). */
 function statusForMappedCode(code: ErrorCode, original: number): number {
   if (code === 'INTERNAL') return HttpStatus.INTERNAL_SERVER_ERROR;
   if (code === 'NOT_FOUND') return HttpStatus.NOT_FOUND;

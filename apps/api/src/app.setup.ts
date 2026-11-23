@@ -6,6 +6,7 @@ import { AppException } from './common/errors/app-exception';
 import { requestLoggerMiddleware } from './common/logging/request-logger';
 import { getRequestId, requestIdMiddleware } from './common/request-id';
 import { createValidationPipe } from './common/validation';
+import { AppConfig } from './config/app-config';
 
 export const API_PREFIX = 'api/v1';
 
@@ -31,6 +32,18 @@ export function configureApp(app: INestApplication): INestApplication {
   app.setGlobalPrefix(API_PREFIX);
   app.use(requestIdMiddleware);
   app.use(requestLoggerMiddleware);
+  // Uploaded images (IMG-1), already re-encoded and stripped of metadata. Unknown files fall
+  // through to the router and get the 404 envelope.
+  app.use(
+    `/${API_PREFIX}/media`,
+    express.static(app.get(AppConfig).uploadDir, {
+      index: false,
+      dotfiles: 'deny',
+      immutable: true,
+      maxAge: '7d',
+      setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+    }),
+  );
   app.use(express.json({ limit: '100kb' }));
   app.use(bodyParserErrorHandler);
   app.useGlobalPipes(createValidationPipe());
