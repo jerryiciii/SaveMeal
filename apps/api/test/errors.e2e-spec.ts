@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Query, type INestApplication } f
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min, MinLength, ValidateNested } from 'class-validator';
 import request from 'supertest';
+import { Public } from '../src/auth/auth.guard';
 import { AppException } from '../src/common/errors/app-exception';
 import { createTestApp } from './app';
 
@@ -32,6 +33,7 @@ class ProbeQueryDto {
 
 /** Test-only routes that exercise the global pipes, filter and middleware. */
 @Controller('__probe')
+@Public()
 class ProbeController {
   @Post('body')
   @HttpCode(200)
