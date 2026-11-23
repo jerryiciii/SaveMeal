@@ -1,0 +1,6 @@
+{
+  "name": "@savemeal/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Placeholder. The BE orchestrator replaces this when scaffolding NestJS."
+}

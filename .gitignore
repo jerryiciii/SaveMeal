@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Builds
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+
+# Env & secrets (commit only .env.example)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local uploads / data
+apps/api/uploads/
+.data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code: personal settings stay local, shared settings are committed
+.claude/settings.local.json
+
+# PWA build output
+apps/web/public/sw.js
+apps/web/public/workbox-*.js

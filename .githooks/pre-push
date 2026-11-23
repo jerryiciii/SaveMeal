@@ -1,0 +1,12 @@
+#!/bin/sh
+# Blocks pushes that update main. main only changes through merged PRs on GitHub.
+# Enable once per clone: git config core.hooksPath .githooks
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "pre-push: pushing to main is not allowed. Push a branch and open a PR (see CLAUDE.md §3)." >&2
+    exit 1
+  fi
+done
+
+exit 0
