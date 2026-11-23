@@ -9,6 +9,7 @@ import {
   type AppConfigResponse,
   type HealthResponse,
 } from '@savemeal/shared';
+import { Public } from '../auth/auth.guard';
 import { AppException } from '../common/errors/app-exception';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,6 +25,7 @@ const DEFAULT_CENTER = { lat: 16.0544, lng: 108.2022, label: 'Đà Nẵng' };
 const POPULAR_SEARCHES = ['Bánh mì', 'Bánh ngọt', 'Cơm trưa', 'Món miễn phí'];
 
 @Controller()
+@Public()
 export class SystemController {
   private readonly logger = new Logger(SystemController.name);
 

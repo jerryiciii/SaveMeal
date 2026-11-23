@@ -69,8 +69,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(`${requestId} ${err.name}: ${err.message}`, err.stack);
     }
 
-    if (status === HttpStatus.TOO_MANY_REQUESTS && !response.getHeader('Retry-After')) {
-      response.setHeader('Retry-After', '60');
+    if (status === HttpStatus.TOO_MANY_REQUESTS) {
+      const retryAfter = exception instanceof AppException && exception.retryAfterSec ? exception.retryAfterSec : 60;
+      response.setHeader('Retry-After', String(retryAfter));
     }
 
     response.status(status).json({ error: body } satisfies ApiErrorBody);
