@@ -5,13 +5,13 @@ This package holds TypeScript enums, request/response types, error codes and sma
 
 ## What goes here
 
-- The enums from `docs/API_CONTRACT.md` §1 and `docs/DOMAIN.md`: `BatchStatus`,
-  `ReservationStatus`, `Category`, `Allergen`, `Storage`, `StoreType`, `StoreVerification`,
-  `CancelReason`, `IncidentType`, `NotificationType`, `SafetyItemKey`, `SystemCheckKey`.
-- DTO types such as `BatchCard`, `BatchDetail`, `Reservation`, `Me` and `ApiError`, plus the
+- The enums from `docs/API_CONTRACT.md` §1 and `docs/DOMAIN.md`: `ListingStatus`,
+  `ReservationStatus`, `Category`, `Allergen`, `Storage`, `SellerType`,
+  `CancelReason`, `ReportType`, `DeclarationKey`, `ChecklistKey`.
+- DTO types such as `ListingCard`, `ListingDetail`, `Reservation`, `Me` and `ApiError`, plus the
   `ErrorCode` union.
 - Optional zod schemas for request bodies, so both sides validate the same way.
-- Helpers: `formatVnd(18000) → "18.000đ"`, `formatOrderCode("4281") → "LB–4281"`, and time-window
+- Helpers: `formatVnd(18000) → "18.000đ"`, `formatOrderCode("4281") → "SM–4281"`, and time-window
   formatting in `Asia/Ho_Chi_Minh`.
 
 ## Rules

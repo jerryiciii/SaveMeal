@@ -1,6 +1,6 @@
 ## What & why
 
-<!-- One or two sentences. Link the Figma V2 frame (V2 / NN) and/or contract section. -->
+<!-- One or two sentences. Link the Figma V1 frame (page 0:1, screen NN) and/or contract section. -->
 
 ## Area
 
@@ -23,6 +23,6 @@
 - [ ] Privacy: no new personal data beyond what is needed, nothing precise logged, and store
       scoping is respected.
 - [ ] No secrets committed (`.env.example` only).
-- [ ] FE: matches Figma V2 and handles empty, loading and error states. Screenshots are below.
+- [ ] FE: matches Figma V1 and handles empty, loading and error states. Screenshots are below.
 
 ## Screenshots / notes

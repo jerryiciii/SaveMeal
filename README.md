@@ -1,6 +1,6 @@
-# SaveMeal: LASTBITE
+# SaveMeal
 
-*Give good food a second chance.* LASTBITE is a map-first mobile PWA. Verified cafés, bakeries,
+*Share food, save resources.* SaveMeal is a map-first mobile PWA marketplace. Cafés, bakeries,
 canteens and individual sellers post surplus food that is still safe. Students reserve a portion and
 pick it up at the counter with a QR code. There is no delivery, no hardware and no AI in the MVP. It
 is piloting near a university in Đà Nẵng (Smart Campus 2026).

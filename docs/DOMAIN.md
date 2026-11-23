@@ -1,237 +1,269 @@
-# Domain model
+# Domain model: SaveMeal (v1.1)
 
-This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` defines how
-they are exposed. When the code disagrees with this file, the code is wrong.
+This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` (v1.1) defines
+how they are exposed. When the code disagrees with this file, the code is wrong.
+
+**Product spec (source of truth since v1.1):** the competition dossier
+(Google Doc `1iDYFYzvzIvq0EYeW5WbR5xJkG2lH2isRLgfXXHuFeP4`; "LastFood" is only the paper's title,
+and **the product is SaveMeal**). It outranks the older concept paper
+(`1ATLucNflZVs9cqfspVfIaZFR6b5d_toVrAcym4XqBlw`) wherever they conflict. References below like
+"spec §3.3" point to the dossier. The UI is Figma **V1** (page `0:1`).
+
+## 0. Scope: MVP vs Later (spec §2.3)
+
+| MVP (build now) | Later (designed, not built; behind flags or not started) |
+|---|---|
+| Phone/email OTP login; one account that both buys and sells; map, search and filters (price, food type, distance, pickup time); posting a listing with the required-info checklist; portions; pickup window; atomic reservation; QR handover; order status; violation reports; admin block/suspend; KPIs | Online payment and deposits (`PAYMENTS_ENABLED`), chat, push and in-app notifications, store dashboard and staff accounts, scheduled promotions, saved items, feedback/ratings, waste logs, Google login, CSV export, pause/resume of listings |
+
+**There is no money flow in the MVP.** The buyer pays the seller directly at pickup, in cash or by
+bank transfer as the two of them agree. SaveMeal holds no money and promises no refunds
+(spec §2.3). The QR confirms the handover only. It is not a payment QR, and it is not a safety
+certificate.
 
 ## 1. Actors and roles
 
 | Role | Who | How it is granted |
 |---|---|---|
-| `GUEST` | Not signed in | Can browse published batches, store profiles and config |
-| `USER` | Any signed-in account | Phone or email OTP. **One account both buys and sells** (Figma V2/10, V2/35). |
-| `STORE_OWNER` | A user who created a store (seller profile) | `POST /stores`. A user owns at most **1** store in the MVP. |
-| `STORE_STAFF` | A user the owner added to the store | Can verify pickups, see the store's reservations and manage batches, but cannot edit the store or its members |
-| `ADMIN` | The pilot operations team | Set in the DB or seed only. There is no endpoint to grant it. |
-| `SYSTEM` | Scheduled jobs | DOMAIN §7 |
+| `GUEST` | Not signed in | Can browse published listings and public seller profiles |
+| `USER` | Any signed-in, `ACTIVE` account | OTP login. **The same account buys and sells.** Individuals can sell (spec §1.3). |
+| `SELLER` | The `USER` who owns a listing | Ownership is per listing (`food_listings.seller_id`). There is no separate store entity in the MVP (D1). |
+| `BUYER` | The `USER` who made a reservation | Per reservation |
+| `ADMIN` | The pilot operations team | Set in the DB or seed only |
+| `SYSTEM` | Scheduled jobs | §7 |
 
-"Store member" means `STORE_OWNER` or `STORE_STAFF` of that specific store. All seller permissions
-are **store-scoped**.
+## 2. Entities (spec §3.1–3.2 names)
 
-## 2. Entities
+The table names are snake_case and the Prisma models PascalCase (`FoodListing` → `food_listings`).
 
-Fields are listed by meaning. Names in Prisma use camelCase, and the tables use snake_case
-(`@@map`).
-
-| Entity | Key fields |
+| Table | Key fields |
 |---|---|
-| **users** | id, phone? (E.164, unique), email? (unique), displayName, avatarImageId?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, notificationPrefs (json), createdAt, deletedAt? |
-| **otp_requests** | id, channel `SMS\|EMAIL`, identifierHash, codeHash, attempts, expiresAt, consumedAt? |
-| **refresh_tokens** | id, userId, tokenHash, familyId, expiresAt, revokedAt?, userAgent? |
-| **stores** (= seller profile) | id, ownerId, name, type `CAFE\|BAKERY\|CANTEEN\|RESTAURANT\|INDIVIDUAL`, description?, address, area (ward/district text), lat, lng, pickupInstructions?, contactPhone? (private), coverImageId?, verificationStatus `PENDING\|VERIFIED\|REJECTED\|SUSPENDED`, verificationNote?, verifiedAt?, verifiedBy? |
-| **store_members** | storeId, userId, role `OWNER\|STAFF`, createdAt |
-| **products** | id, storeId, name, category, allergens[], ingredients?, storage. This is a store-level template that `POST /batches` reuses or creates. |
-| **surplus_batches** | id, storeId, productId, title, description?, category, imageIds[], allergens[], ingredients?, storage `ROOM_TEMP\|CHILLED`, preparedAt, bestBefore, quantityTotal, quantityAvailable, originalPrice, rescuePrice (0 = free), pickupStart, pickupEnd, status, pausedAt?, pauseReason? `SELLER\|INCIDENT`, safetyCheckId?, publishedAt?, closedAt?, closeReason?, createdBy |
-| **safety_checks** | id, batchId, items (json: 6 seller items → boolean), systemChecks (json), note?, evidenceImageIds[], checkedBy, checkedAt. **Immutable** once written (it is the spec §8 item 7 evidence). |
-| **reservations** | id, batchId, storeId, userId, quantity, unitPrice, totalPrice, code (display `LB–NNNN`), pickupCodeHash, status, paymentMode `AT_COUNTER\|DEPOSIT\|FULL`, cancelReason?, cancelledBy?, createdAt, reservedAt?, pickedUpAt?, closedAt?, idempotencyKey |
-| **pickup_events** | id, reservationId, storeId, verifiedBy, method `QR\|SHORT_CODE`, quantity, at |
-| **payments** (flag) | id, reservationId, type `DEPOSIT\|FULL`, method `BANK_TRANSFER\|VIETQR`, amount, transferContent, status `PENDING\|SENT\|CONFIRMED\|REFUND_DUE\|REFUNDED\|FORFEITED\|EXPIRED`, confirmedBy?, confirmedAt? |
-| **waste_logs** | id, storeId, batchId?, date (local), category, eligibleSurplus, listed, pickedUp, discarded, discardedWeightGrams?, reason?, createdBy |
-| **incidents** | id, reporterId, storeId, batchId?, reservationId?, type `WRONG_INFO\|UNSAFE_FOOD\|NOT_RECEIVED\|SELLER_ABSENT\|OTHER`, description, imageIds[], status `OPEN\|INVESTIGATING\|RESOLVED\|DISMISSED`, resolution?, handledBy?, createdAt |
-| **reviews** | id, reservationId (unique), storeId, userId, rating 1–5, comment?, createdAt |
-| **saved_items** | userId, targetType `BATCH\|STORE`, targetId, createdAt (pk = all three) |
-| **chat_messages** | id, reservationId, senderId, senderSide `BUYER\|STORE`, body (≤ 1000 chars), createdAt, readAt? |
-| **notifications** | id, userId, type, title, body, data (json), readAt?, createdAt |
-| **push_subscriptions** | id, userId, endpoint (unique), p256dh, auth, createdAt |
-| **images** | id, ownerId, purpose `BATCH\|STORE\|INCIDENT\|AVATAR\|SAFETY_EVIDENCE`, storageKey, width, height, bytes, createdAt |
-| **audit_logs** | id, actorId?, action, entityType, entityId, data (json), at. This records every state transition and admin action. |
+| **accounts** | id, phone? (E.164, unique), email? (unique), display_name, avatar_image_id?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, suspended_reason?, **seller fields** (all optional): seller_name, seller_type `INDIVIDUAL\|SHOP\|CAFE\|BAKERY\|CANTEEN`, seller_verified_at?, seller_verified_by?, default_pickup_address?, default_pickup_lat?, default_pickup_lng?, created_at, deleted_at? |
+| otp_requests, refresh_tokens | Auth support tables (hashed codes and tokens; see the contract §0) |
+| **food_listings** | id, seller_id → accounts, title, description?, category, origin (nguồn gốc, required), prepared_at (chế biến/đóng gói, required), storage `ROOM_TEMP\|CHILLED\|FROZEN`, storage_note?, ingredients?, allergens[] (optional info), original_price? (reference price, optional), price (sale price ≥ 0), quantity_total, quantity_available, pickup_start, pickup_end, pickup_address, pickup_lat, pickup_lng, declaration (json of the 6 seller attestations), declared_at?, status, under_review (bool), published_at?, closed_at?, close_reason?, blocked_reason?, created_at |
+| **listing_images** | id, listing_id? (null until attached), uploader_id, storage_key, width, height, bytes, position, created_at. EXIF/GPS is stripped on upload. |
+| **reservations** | id, listing_id, buyer_id, seller_id, quantity, unit_price, total_price, code (4 digits, unique among the seller's active reservations, shown as `SM–4281`), code_hash, status, cancel_reason?, created_at, completed_at?, closed_at?, idempotency_key |
+| **pickup_tokens** | id, reservation_id, token_hash (SHA-256), expires_at, used_at?, revoked_at?, created_at. The token is random and carries **no personal data** (spec §3.3). |
+| **reports** | id, reporter_id, type, listing_id?, reservation_id?, reported_account_id, description, image_ids[], status `OPEN\|IN_REVIEW\|RESOLVED\|DISMISSED`, action `NONE\|WARNING\|LISTING_BLOCKED\|ACCOUNT_SUSPENDED`?, resolution?, handled_by?, handled_at?, created_at |
+| **event_logs** | id, actor_id?, actor_type `USER\|ADMIN\|SYSTEM`, event (e.g. `LISTING_PUBLISHED`, `RESERVATION_COMPLETED`), entity_type, entity_id, data (json), at. This is append-only, and every state transition writes one. |
+| **feedback** (Later) | id, reservation_id (unique), author_id, seller_id, rating 1–5, comment?, created_at |
+| **transaction_metrics** | (date, seller_id) primary key: listings_published, listings_expired_with_stock, portions_listed, portions_reserved, portions_handed_over, reservations_created, reservations_completed, reservations_cancelled, reservations_expired, discount_rate_sum, discount_samples. JOB-4 rebuilds it nightly from `event_logs`. |
 
 ### Enums
 
-- `Category`: `BAKERY` (Bánh), `SAVORY` (Đồ mặn), `DRINK` (Đồ uống), `PACKAGED` (Đóng gói), `OTHER`.
-- `Allergen`: `GLUTEN`, `MILK`, `EGG`, `PEANUT`, `TREE_NUT`, `SOY`, `FISH`, `SHELLFISH`, `SESAME`.
-  Use `ingredients` free text for anything else.
-- `Storage`: `ROOM_TEMP` (Nhiệt độ phòng), `CHILLED` (Ngăn mát). Frozen or complex cold-chain food
-  is out of scope (spec §3).
+- `Category` (food type, V1/12): `BAKERY` (Bánh), `MEAL` (Cơm / đồ mặn), `DRINK` (Đồ uống),
+  `PACKAGED` (Đóng gói), `OTHER` (Khác).
+- `Storage`: `ROOM_TEMP` (Nhiệt độ phòng), `CHILLED` (Ngăn mát), `FROZEN` (Ngăn đông). `storage_note`
+  holds details.
+- `Allergen` (optional, informational only, never a filter or a gate): `GLUTEN`, `MILK`, `EGG`,
+  `PEANUT`, `TREE_NUT`, `SOY`, `FISH`, `SHELLFISH`, `SESAME`.
+- `ReportType` (V1/23): `WRONG_INFO`, `UNSAFE_FOOD`, `NOT_RECEIVED`, `SELLER_ABSENT`, `OTHER`.
 
-## 3. Batch state machine
+## 3. Listing state machine
 
 ```
-            PATCH (any field)            PATCH safety-relevant field
-   ┌────────────┐   safety-check   ┌────────────────┐ ───────────────► back to DRAFT
-   │   DRAFT    │ ───────────────► │ SAFETY_CHECKED │
-   └────────────┘                  └────────────────┘
-     │ cancel/delete                  │ publish (check ≤ 60 min old, system checks pass)
-     ▼                                ▼
-  CANCELLED                     ┌───────────┐ ── now ≥ pickupEnd (job) ──► EXPIRED
-                                │ PUBLISHED │ ── seller cancel ─────────► CANCELLED
-                                └───────────┘ ── remove-unsafe ─────────► REMOVED_UNSAFE
-                                  pause/resume is a flag (pausedAt), not a state
+ POST /listings          PATCH (any field)
+ ─────────────► DRAFT ◄──────────┐
+                 │  publish (checklist complete + 6 declarations true)
+                 ▼
+             PUBLISHED ── now ≥ pickup_end (JOB-1) ─────────► EXPIRED
+                 │  ── owner withdraws (any reason, e.g. storage no longer OK) ─► WITHDRAWN
+                 │  ── admin blocks ───────────────────────────────────────────► BLOCKED
+   visible on map only while PUBLISHED, quantity_available > 0, now < pickup_end,
+   under_review = false and the seller is ACTIVE ("auto-hide", spec §2.2 and §3.3)
 ```
 
 | From → To | Trigger | Actor | Guards | Side effects |
 |---|---|---|---|---|
-| — → `DRAFT` | `POST /batches` | Store member | The store exists and is not `SUSPENDED` or `REJECTED` (a `PENDING` store may draft) | Audit |
-| `DRAFT` → `DRAFT` | `PATCH` | Store member | — | — |
-| `DRAFT` → `SAFETY_CHECKED` | `POST /batches/:id/safety-check` | Store member | All 6 seller items are `true`. The required fields are present. The system checks pass (§5). | Write an immutable `safety_checks` row |
-| `SAFETY_CHECKED` → `DRAFT` | `PATCH` of a safety-relevant field | Store member | — | The safety check is invalidated |
-| `SAFETY_CHECKED` → `PUBLISHED` | `POST /batches/:id/publish` | Store member | The store is `VERIFIED`. The check is ≤ `SAFETY_CHECK_TTL_MIN` old. The system checks are re-run and pass. `pickupEnd` is in the future. | `quantityAvailable = quantityTotal`, publishedAt, audit |
-| `PUBLISHED` (pause flag) | `/pause`, `/resume` | Store member (pause by `INCIDENT` is cleared only by an admin) | Resume requires `now < pickupEnd` | A paused batch is hidden from search and cannot be reserved. Existing reservations stay valid. |
-| `PUBLISHED` → `EXPIRED` | JOB-1, when `now ≥ pickupEnd` | System | — | closedAt. Remaining reservations are handled by JOB-2. The seller is asked for a waste log. |
-| `DRAFT\|SAFETY_CHECKED\|PUBLISHED` → `CANCELLED` | `POST /batches/:id/cancel` | Store member | — | Every `PENDING_PAYMENT\|RESERVED` reservation → `CANCELLED` (`SELLER_CANCELLED`), with a notification and refund handling |
-| `SAFETY_CHECKED\|PUBLISHED` → `REMOVED_UNSAFE` | `POST /batches/:id/remove-unsafe` | Store member or admin | A reason is required | As for cancel, but the reason is `BATCH_REMOVED_UNSAFE`. It is counted in KPI 7. If it came from an incident, the incident is linked. |
+| — → `DRAFT` | `POST /listings` | USER | The account is `ACTIVE`. The seller has at most `MAX_ACTIVE_LISTINGS` (5) non-terminal listings. | event_log |
+| `DRAFT` → `DRAFT` | `PATCH` | Owner | — | — |
+| `DRAFT` → `PUBLISHED` | `POST /listings/:id/publish` | Owner | **Required-info checklist** (§5) complete. All 6 declarations `true`. Window valid (§5). | Sets `quantity_available = quantity_total`, `published_at` and `declared_at`, and writes an event_log (which serves as evidence) |
+| `PUBLISHED` → `PUBLISHED` | `PATCH` (restricted, below) | Owner | — | — |
+| `PUBLISHED` → `EXPIRED` | JOB-1 at `pickup_end` | SYSTEM | — | `closed_at`. Remaining `RESERVED` orders are handled by JOB-2. |
+| `DRAFT\|PUBLISHED` → `WITHDRAWN` | `POST /listings/:id/withdraw` | Owner | — | Every `RESERVED` order → `CANCELLED` (`SELLER_WITHDREW`), and its pickup tokens are revoked |
+| `PUBLISHED\|EXPIRED` → `BLOCKED` | `POST /admin/listings/:id/block`, or a report action | ADMIN | A reason is required | As for withdraw, but the reason is `LISTING_BLOCKED`. It counts in the safety KPI. |
+| `PUBLISHED` (`under_review` flag) | An `UNSAFE_FOOD` report | SYSTEM | — | The listing is hidden immediately and new reservations are refused. Existing ones stay valid. Only an admin clears it (ADM-2), or blocks the listing. |
 
-`DRAFT` batches can be deleted (`DELETE`). Terminal states are `EXPIRED`, `CANCELLED` and
-`REMOVED_UNSAFE`. "Sold out" is **derived** (`PUBLISHED && quantityAvailable == 0`) and is not a
-status.
+`DRAFT` can be hard-deleted. Terminal states are `EXPIRED`, `WITHDRAWN` and `BLOCKED`. "Sold out"
+is **derived** (`quantity_available = 0`) and is not a status; a cancellation can bring stock back.
 
-**Editing a `PUBLISHED` batch** (Figma V2/33) is restricted, because safety facts cannot change
-after the check:
+**Editing a `PUBLISHED` listing** (V1/33):
 
-- These fields are editable: `title`, `description`, `imageIds`, `quantityTotal` (never below
-  `quantityTotal − quantityAvailable`, the reserved count), `rescuePrice` (it can only go down),
-  and `pickupEnd` (it can only move earlier, and never before `now`).
-- These fields are locked: `category`, `allergens`, `ingredients`, `storage`, `preparedAt`,
-  `bestBefore` and `pickupStart`. To change them, the seller cancels the batch and posts a new one.
+- **Editable:**
+  - `title`, `description`, `images`;
+  - `quantity_total`, never below the reserved count (spec: the seller "updates portions");
+  - `price`, which can only go down;
+  - `pickup_end`, which can only move earlier, and never before now.
+- **Locked:** `category`, `origin`, `prepared_at`, `storage`, `storage_note`, `ingredients`,
+  `allergens`, `pickup_start` and the pickup location. To change these, withdraw the listing and
+  post a new one.
 
 ## 4. Reservation state machine
 
 ```
- POST /reservations ──► PENDING_PAYMENT ──(payment confirmed)──► RESERVED ──(pickup verified)──► PICKED_UP
-     (flag on and prepay)      │ hold timeout (JOB-3) → EXPIRED              │ buyer/seller cancel → CANCELLED
-                               │ buyer cancel → CANCELLED                    │ now ≥ pickupEnd + grace (JOB-2) or seller → NO_SHOW
- POST /reservations ───────────────────────────────────────────► RESERVED (flag off, or AT_COUNTER, or a free item)
+ POST /reservations ──► RESERVED ── seller scans QR / enters code (within window) ──► COMPLETED ("Hoàn tất")
+                          │ ── buyer cancels (before pickup_end) ─────────────────► CANCELLED
+                          │ ── listing withdrawn / blocked ───────────────────────► CANCELLED
+                          │ ── now ≥ pickup_end + NO_SHOW_GRACE_MIN (JOB-2) ─────► EXPIRED ("Hết giờ", = no-show)
 ```
 
-| From → To | Trigger | Actor | Guards | Stock effect |
+| From → To | Trigger | Actor | Guards | Stock |
 |---|---|---|---|---|
-| — → `RESERVED` / `PENDING_PAYMENT` | `POST /reservations` | User (not a member of the store) | §6 | `quantityAvailable −= q` atomically |
-| `PENDING_PAYMENT` → `RESERVED` | `POST /reservations/:id/payment/confirm` | Store member | The payment is `SENT` or `PENDING` | — |
-| `PENDING_PAYMENT` → `EXPIRED` | JOB-3 after `PAYMENT_HOLD_MIN` | System | — | `+= q` |
-| `PENDING_PAYMENT\|RESERVED` → `CANCELLED` | `POST /reservations/:id/cancel` | Buyer | `now < pickupEnd` | `+= q` if the batch is still `PUBLISHED` |
-| `PENDING_PAYMENT\|RESERVED` → `CANCELLED` | Batch cancel or remove-unsafe | System | — | None (the batch is closed) |
-| `RESERVED` → `PICKED_UP` | `POST /stores/:id/pickups/confirm` | Store member | The code matches. `pickupStart − EARLY_PICKUP_MIN ≤ now ≤ pickupEnd + NO_SHOW_GRACE_MIN`. Pickup is allowed even if the batch is `EXPIRED` but still within the grace period; it is never allowed if the batch is `REMOVED_UNSAFE`. | Write a pickup_event |
-| `RESERVED` → `NO_SHOW` | `POST /reservations/:id/no-show` (store member, `now ≥ pickupEnd`) or JOB-2 at `pickupEnd + NO_SHOW_GRACE_MIN` | Store member or system | — | None |
+| — → `RESERVED` | `POST /reservations` | USER (not the seller) | §6 | `quantity_available −= q` atomically. Issues the first pickup token. |
+| `RESERVED` → `COMPLETED` | `POST /pickups/confirm` | The SELLER of the listing | The token is valid, unexpired and unused, **or** the code matches. `pickup_start − EARLY_PICKUP_MIN ≤ now ≤ pickup_end + NO_SHOW_GRACE_MIN`. The listing is not `BLOCKED`. | Sets `used_at` on the token, records the event, and adds the quantity to the handed-over count |
+| `RESERVED` → `CANCELLED` | `POST /reservations/:id/cancel` | BUYER | `now < pickup_end` | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end` |
+| `RESERVED` → `CANCELLED` | Listing withdrawn or blocked | SYSTEM | — | None (the listing is closed) |
+| `RESERVED` → `EXPIRED` | JOB-2 | SYSTEM | `now ≥ pickup_end + NO_SHOW_GRACE_MIN` | None |
 
-The terminal states are `PICKED_UP`, `CANCELLED`, `NO_SHOW` and `EXPIRED`. `cancelReason` is one of
-`BUYER_LATE`, `BUYER_WRONG_QTY`, `BUYER_CHANGED_PLAN`, `BUYER_OTHER` (V2/39), `SELLER_CANCELLED`,
-`BATCH_REMOVED_UNSAFE` or `ADMIN`.
+`cancel_reason` is one of `BUYER_LATE`, `BUYER_WRONG_QTY`, `BUYER_CHANGED_PLAN`, `BUYER_OTHER`
+(V1/39), `SELLER_WITHDREW`, `LISTING_BLOCKED` or `ADMIN`.
 
-## 5. Safety checklist (spec §8): mandatory before publishing
+**"Xác nhận đơn" (spec §2.1) = handover confirmation (D8).** A reservation is accepted instantly
+and atomically, so the seller does not approve it. The seller "confirms" the order by scanning the
+buyer's QR (or entering the code) at handover, which moves it to `COMPLETED`. Payment happens
+offline between the two parties at that moment, and the app shows the seller the amount to
+collect.
 
-The seller confirms every item in Figma V2/26. All six must be `true`:
+## 5. Listing checklist and seller declarations (spec §2.1, §2.2, §5)
 
-| Key | Vietnamese UI label | Spec §8 item |
+**Required info.** `publish` fails with `LISTING_INCOMPLETE` and `details.missing[]` unless every
+item is present:
+
+| Key | Field(s) | Note |
 |---|---|---|
-| `NOT_EXPIRED` | Món còn hạn sử dụng | (3) |
-| `STORED_PROPERLY` | Được bảo quản đúng cách | (3) |
-| `NO_SPOILAGE` | Không có dấu hiệu hư hỏng | §8 text |
-| `NOT_CUSTOMER_LEFTOVERS` | Không phải thức ăn thừa của khách | (6) |
-| `ALLERGENS_DECLARED` | Đã khai báo dị ứng / thành phần | (4) |
-| `PICKUP_WINDOW_SAFE` | Giờ nhận phù hợp với món | (5) |
+| `PHOTO` | ≥ 1 listing image | A real photo. The platform does **not** judge food quality from images (spec §3.4). |
+| `NAME` | `title` | 3–80 characters |
+| `PRICE` | `price` | ≥ 0. If `original_price` is set, then `price ≤ original_price`. |
+| `PORTIONS` | `quantity_total` | 1–50 |
+| `ORIGIN` | `origin` | Free text, e.g. "Làm tại tiệm sáng nay" |
+| `PREPARED_AT` | `prepared_at` | In the past |
+| `STORAGE` | `storage` (+ `storage_note` optional) | |
+| `PICKUP_WINDOW` | `pickup_start`, `pickup_end` | `pickup_start < pickup_end`, `pickup_end > now`, `pickup_end − pickup_start ≤ MAX_WINDOW_HOURS` (4) |
+| `PICKUP_LOCATION` | `pickup_address`, `pickup_lat`, `pickup_lng` | Defaults to the account's default pickup location |
 
-The server checks these at both safety-check time and publish time. Any failure blocks the
-transition with `SAFETY_CHECK_FAILED` and `details.failed[]`:
+**Seller declarations.** The seller ticks all six in V1/26. They are sent with `publish` and stored
+in `declaration`:
 
-| Key | Rule | Spec item |
-|---|---|---|
-| `STORE_VERIFIED` | `store.verificationStatus == VERIFIED`. This is checked at publish only, so a `PENDING` store can practise drafting. | (1) |
-| `CATEGORY_ALLOWED` | `category ∈ ALLOWED_CATEGORIES[store.type]` (ops config) | (2) |
-| `NOT_EXPIRED_AT_PICKUP` | `bestBefore > pickupEnd` | (3) |
-| `WINDOW_WITHIN_LIMIT` | `pickupEnd − preparedAt ≤ MAX_HOLD_HOURS[category][storage]` and `pickupEnd − pickupStart ≤ MAX_WINDOW_HOURS` | (5) |
-| `ALLERGENS_PRESENT` | `allergens` is set (an empty list is allowed only if `ingredients` is filled in) | (4) |
-| `EVIDENCE_RECORDED` | The `safety_checks` row is written (who, when, items, optional note or photo) | (7) |
+| Key | UI label (V1/26) |
+|---|---|
+| `NOT_EXPIRED` | Món còn trong thời hạn sử dụng |
+| `STORED_PROPERLY` | Bảo quản đúng điều kiện |
+| `NOT_SPOILED` | Không hư hỏng hoặc biến chất |
+| `NOT_SERVED_LEFTOVERS` | Không phải thức ăn khách đã ăn dở |
+| `INFO_DECLARED` | Đã khai báo thành phần, dị ứng (khi có) |
+| `PICKUP_WINDOW_OK` | Khung giờ nhận vẫn phù hợp |
 
-The rules are absolute. **No AI and no automation marks food as safe.** There is no admin override.
-The QR is not a safety certificate.
+Any `false` returns `DECLARATION_INCOMPLETE`. There is also a platform sanity limit:
+`pickup_end − prepared_at ≤ MAX_LISTING_AGE_HOURS[category]` (default 24 h, and 72 h for
+`PACKAGED`). It exists to stop obvious mistakes, and **it is not a safety threshold**. Spec §5
+forbids using one time or temperature threshold to call food safe. The seller remains responsible
+for the food. SaveMeal sets listing rules, handles reports and removes content, but issues no
+safety certificate. **No AI or image-based quality judgment, ever.**
 
-## 6. Atomic reservation rule
+## 6. Atomic reservation rule (spec §2.2 step 3, §3.3)
 
 `POST /reservations` runs in **one DB transaction**:
 
 ```sql
-UPDATE surplus_batches
-   SET quantity_available = quantity_available - $q, updated_at = now()
- WHERE id = $batchId
-   AND status = 'PUBLISHED' AND paused_at IS NULL
-   AND quantity_available >= $q
-   AND now() < pickup_end
+UPDATE food_listings
+   SET quantity_available = quantity_available - $q
+ WHERE id = $listingId AND status = 'PUBLISHED' AND under_review = false
+   AND quantity_available >= $q AND now() < pickup_end
+   AND seller_id <> $buyerId
 RETURNING quantity_available;
--- 0 rows → roll back; respond 409 with BATCH_SOLD_OUT / BATCH_NOT_AVAILABLE (re-read to tell which)
-INSERT INTO reservations (...);
+-- 0 rows → roll back; respond 409 LISTING_SOLD_OUT or LISTING_NOT_AVAILABLE (re-read to tell which)
+INSERT INTO reservations (...);  INSERT INTO pickup_tokens (...);  INSERT INTO event_logs (...);
 ```
 
-There is no read-then-write in application code. Stock is released by the same conditional
-`UPDATE` (`+ q`), and only while the batch is `PUBLISHED`. `0 ≤ quantityAvailable ≤ quantityTotal`
-is enforced by a CHECK constraint.
+- There is no read-then-write. A CHECK constraint enforces
+  `0 ≤ quantity_available ≤ quantity_total`.
+- Limits:
+  - `MAX_QTY_PER_RESERVATION` = 2;
+  - `MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT` = 3;
+  - one active reservation per account per listing.
+- The `Idempotency-Key` header is required. A repeat within 24 h replays the first result.
 
-Limits (configurable):
+**Pickup QR (spec §3.3):**
 
-- `MAX_QTY_PER_RESERVATION` = 2.
-- `MAX_ACTIVE_RESERVATIONS_PER_USER` = 3.
-- A user can have only one active reservation per batch.
-- Store members cannot reserve their own store's batches.
-- A user who is `SUSPENDED` cannot reserve.
-- Requests use an `Idempotency-Key` header. A repeat of the same key within 24 h returns the
-  original result.
-
-Pickup code: a 4-digit numeric code, unique among the store's active reservations, displayed as
-`LB–4281`. Only its hash is stored. The plaintext is derived on demand as
-`HMAC(PICKUP_CODE_SECRET, reservationId)` with a collision counter, so the buyer can view it again.
-The QR payload is `LB1:<reservationId>:<code>`. Verifying requires store scope, and 5 failed attempts
-per minute per store member are rate-limited.
+- **Token.** `token = base64url(32 random bytes)`, and the QR payload is `SM1.<token>`. Only
+  SHA-256(token) is stored.
+- **Time limit.** `expires_at = min(now + PICKUP_TOKEN_TTL_MIN (10), pickup_end + NO_SHOW_GRACE_MIN)`.
+- **Rotation.** The buyer's app requests a fresh token (RES-6) before expiry. Issuing a new token
+  revokes the older unused ones.
+- **Single use.** `used_at` is set atomically on confirm. A used, revoked or expired token is
+  rejected with its own error code.
+- **No personal data.** The QR holds no IDs, names or phone numbers.
+- **Manual fallback.** The 4-digit order code is entered by the seller (V1/31 "Nhập mã thủ công").
+  It only matches among that seller's `RESERVED` orders, and it is rate-limited to 5 tries per
+  minute.
 
 ## 7. Scheduled jobs (SYSTEM)
 
 | Job | Every | Does |
 |---|---|---|
-| JOB-1 batch expiry | 1 min | `PUBLISHED` and `now ≥ pickupEnd` → `EXPIRED`. Notifies the seller to log waste. |
-| JOB-2 no-show | 5 min | `RESERVED` and `now ≥ pickupEnd + NO_SHOW_GRACE_MIN` → `NO_SHOW` |
-| JOB-3 payment hold | 1 min | `PENDING_PAYMENT` older than `PAYMENT_HOLD_MIN` → `EXPIRED`, and releases the stock |
-| JOB-4 pickup reminder | 5 min | Sends `PICKUP_REMINDER` 30 min before `pickupStart` (once) |
-| JOB-5 listing ending | 5 min | Sends `BATCH_ENDING` to the store 30 min before `pickupEnd` if stock is left |
-| JOB-6 cleanup | daily | Purges expired OTPs and refresh tokens. Deletes chat messages 30 days after the reservation closes. Deletes orphan images after 24 h. |
+| JOB-1 listing expiry | 1 min | `PUBLISHED` and `now ≥ pickup_end` → `EXPIRED` |
+| JOB-2 reservation expiry | 1 min | `RESERVED` and `now ≥ pickup_end + NO_SHOW_GRACE_MIN` → `EXPIRED`. Revokes tokens. |
+| JOB-3 cleanup | daily | Purges expired OTPs, refresh tokens and pickup tokens older than 7 days. Deletes images not attached within 24 h. |
+| JOB-4 metrics | nightly + on demand | Rebuilds `transaction_metrics` from `event_logs` |
 
-All jobs are idempotent and use the same conditional-update pattern. Every transition writes an
-audit_log.
+All jobs are idempotent (conditional updates) and write event_logs.
 
-## 8. Payments (behind `PAYMENTS_ENABLED`, default OFF)
+## 8. KPIs (spec §6.1). Baseline waste data is collected outside the app.
 
-- When the flag is off, every reservation is `AT_COUNTER`: it goes straight to `RESERVED`, and the
-  buyer pays at the counter.
-- When the flag is on, a priced item can be `DEPOSIT` (`DEPOSIT_AMOUNT`, default 5.000đ) or `FULL`
-  (V2/19). The method is `BANK_TRANSFER` or `VIETQR` (V2/20). The reservation stays
-  `PENDING_PAYMENT` until a store member confirms receipt. **There is no bank integration**: the QR
-  is generated from the store's bank info (V2/21 says it is illustrative).
-- Free items (`rescuePrice == 0`) never take payment.
-- Cancel refunds: a buyer cancelling ≥ `FREE_CANCEL_BEFORE_MIN` (30) before `pickupStart` →
-  `REFUND_DUE`. Later than that, or a no-show, → the deposit is `FORFEITED`. Seller cancel or
-  remove-unsafe → always `REFUND_DUE`. The refund is recorded manually
-  (`POST …/payment/refund`).
+| KPI | Definition |
+|---|---|
+| Handed-over portions | Σ quantity of `COMPLETED` reservations |
+| Completion rate | `COMPLETED` reservations / reservations created (cancelled and expired ones are also shown separately) |
+| Listing-expired rate | Listings that reached `EXPIRED` with `quantity_available > 0` / listings published |
+| Actual discount | Mean of `(original_price − price) / original_price` over completed reservations **whose listing has an `original_price`**. The sample size is reported. |
+| Reports / safety | The count by type, by status and by action, the median handling time (`handled_at − created_at`), and the number of listings blocked |
 
-## 9. Decisions: where the spec and Figma disagree
+A handed-over portion is **not** reported as "waste avoided" (spec §2.2 step 5, §6.2).
 
-| # | Conflict | Decision |
-|---|---|---|
-| D1 | The spec is B2C (stores) and Figma V2 is P2P with one shared buy/sell account | One user account. Selling requires creating a **store (seller profile)** with a `type`, which includes `INDIVIDUAL`. Every store, individuals included, must be admin-`VERIFIED` before publishing (spec §8 item 1). `ALLOWED_CATEGORIES[INDIVIDUAL]` defaults to `BAKERY, PACKAGED`. |
-| D2 | Figma has deposit, full payment and transfer QR, while the spec pilot is reserve-and-pay-at-counter | Payments are behind `PAYMENTS_ENABLED=false`. The pilot pays at the counter. Even when the flag is on, confirmation is manual (no bank API). |
-| D3 | Figma login offers "Email hoặc số điện thoại" plus Google, while the task says phone OTP | OTP login with `channel: SMS` (primary) or `EMAIL`, one endpoint pair. Google sign-in is behind `GOOGLE_LOGIN_ENABLED=false`. |
-| D4 | Figma V2/26 lists 6 checks and spec §8 has 7 items | The 6 seller-confirmed items plus system checks for items (1), (2), (5) and (7) (§5). |
-| D5 | Spec §6.4 mixes batch and order states in one chain | Split into a batch machine (§3) and a reservation machine (§4). `PENDING_PAYMENT` is added (flag only). |
-| D6 | Figma V2/29 and V2/33 have "Tạm dừng" (pause), which is not in the spec states | Pause is a flag (`pausedAt`) on `PUBLISHED`, not a status. An `UNSAFE_FOOD` incident auto-pauses the batch (spec §8 incident process). |
-| D7 | The V2/24 chat sample reads like a pre-order question | Chat exists **only inside a reservation** (privacy and anti-spam). Pre-order questions use the store's `pickupInstructions`. |
-| D8 | Figma has free food (0đ, "Tặng nhau"), and the spec talks about discounted sales | `rescuePrice` may be `0`. The `free=true` filter. Free items never take payment. |
-| D9 | V2/12 has a "Ngày mai" pickup filter, and the spec says "today" | Pickup can be today or tomorrow, but only within `MAX_HOLD_HOURS` (§5). |
-| D10 | Reviews, waste-log entry and admin pages have no Figma frames | The contract includes them. The FE builds waste-log and admin pages from the V2 UI kit. Reviews are shown on the store profile (V2/16) once designed. |
-| D11 | The spec suggests Supabase or Vercel | Per the user: NestJS + Prisma + PostgreSQL API, and a Next.js PWA. Hosting is undecided. |
+## 9. Decisions
 
-## 10. Config defaults (env, all overridable)
+| # | Topic | Decision | Status |
+|---|---|---|---|
+| D1 | Seller model | **No store entity in the MVP.** The spec's data model has none, and individuals sell (spec §1.3). Seller identity (name, type, default pickup location, verified badge) lives on `accounts`, and pickup location is per listing. Staff accounts and the store dashboard are Later. | Decided (v1.1) |
+| D2 | Payments | No money flow in the MVP. Payment happens offline at pickup. Deposits and online payment are Later, behind `PAYMENTS_ENABLED`. | Decided (spec §2.3) |
+| D3 | Login | OTP via SMS (primary) or email. Google is Later. | Decided |
+| D4 | Moderation | **Admin verification is NOT required to publish in the MVP.** Moderation instead = the required-info checklist, the seller declarations, reports, admin block and suspend, and spam limits. A **"Đã xác minh" badge** marks sellers an admin has checked. | **Pending user confirmation** |
+| D5 | Allergens | Optional information only. They are not a required check and not a search filter. | **Pending user confirmation** |
+| D6 | Pause | Pause/resume is Later. In the MVP, V1/29 and V1/33 "Tạm dừng / gỡ tin" maps to **withdraw**. | Decided (v1.1) |
+| D7 | Chat | Later (spec §2.3). The V1/24 screen is not built in the MVP. | Decided |
+| D8 | "Xác nhận đơn" | Reservations are instant and atomic. The seller confirms at **handover** by scanning the QR, which makes the order `COMPLETED`. There is no seller approval step. | **Pending user confirmation** |
+| D9 | Notifications | Push and the in-app list are both **Later**. An in-app list is not trivial (it needs a table and writers on every event). In the MVP, order status is shown on the order screens. The seller's pending list (RES-5) and the buyer's order detail poll every 30 s while open. | Decided (v1.1) |
+| D10 | Free items | `price` may be 0 ("FREE" in V1). The `free` filter stays. | Decided |
+| D11 | Stack | NestJS + Prisma + PostgreSQL API, and a Next.js PWA. The map uses MapLibre with OpenStreetMap-based tiles (spec §3.1). | Decided |
+| D12 | UI source | Figma V1 (page `0:1`), chosen by the user on 2026-11-23 | Decided |
+| D13 | Name | The product is **SaveMeal** everywhere (code, docs, UI). "LastFood" is only the competition paper's title. The order-code prefix is `SM–`. | Decided (user) |
+| D14 | Pickup window vs demo | Confirm is allowed from `pickup_start − EARLY_PICKUP_MIN` (default 30). Demos set the window around the demo time. | Decided |
 
-`SAFETY_CHECK_TTL_MIN=60`, `MAX_WINDOW_HOURS=4`,
-`MAX_HOLD_HOURS={BAKERY:{ROOM_TEMP:24,CHILLED:48},SAVORY:{ROOM_TEMP:4,CHILLED:12},DRINK:{ROOM_TEMP:4,CHILLED:24},PACKAGED:{ROOM_TEMP:72,CHILLED:72},OTHER:{ROOM_TEMP:4,CHILLED:12}}`,
-`MAX_QTY_PER_RESERVATION=2`, `MAX_ACTIVE_RESERVATIONS_PER_USER=3`, `EARLY_PICKUP_MIN=0`,
-`NO_SHOW_GRACE_MIN=15`, `PAYMENT_HOLD_MIN=15`, `DEPOSIT_AMOUNT=5000`, `FREE_CANCEL_BEFORE_MIN=30`,
-`OTP_TTL_SEC=300`, `OTP_RESEND_SEC=60`, `OTP_MAX_ATTEMPTS=5`, `ACCESS_TOKEN_TTL=15m`,
-`REFRESH_TOKEN_TTL=30d`.
+## 10. MVP demo slice (spec §7.3). Build this first.
 
-The `MAX_HOLD_HOURS` values are **placeholders**. The pilot's Operations/Safety owner must confirm
-them before launch (spec §8: an expert decides, not the software).
+1. **Seller posts.** The listing is "5 phần bánh còn nguyên", original price 25.000đ, price
+   15.000đ, pickup 17:00–18:00, with a photo, origin, prepared time and storage. Flow: login
+   AUTH-1/2 → (optional) seller name and default pickup via ME-2 → IMG-1 → LIST-3 draft → LIST-4
+   (step 2: time and storage) → LIST-6 publish with the declarations.
+2. **Buyer finds it.** On the map, the buyer filters price < 20k (`priceMax=20000`) and reads the
+   detail. Endpoints: SYS-2, LIST-1 (`view=map` and `list`), LIST-2.
+3. **Buyer reserves 1.** Stock goes 5 → 4 and a QR is generated. RES-1 returns the reservation plus
+   the first pickup token. RES-3 and RES-6 show and refresh the QR. The seller sees 4 left on
+   LIST-8 and the order on RES-5.
+4. **Handover.** The buyer pays the seller offline. The seller scans with RES-7 (lookup), then RES-8
+   (confirm), and the order becomes `COMPLETED`. The buyer sees "Hoàn tất" via RES-3 and RES-2.
+5. **Cancel case.** The buyer cancels with RES-4, and stock returns 4 → 5.
+6. **Expired case.** The listing's window passes, so JOB-1 sets the listing `EXPIRED` and JOB-2 sets
+   the unclaimed order `EXPIRED` (shown as "Hết giờ"). Using a QR afterwards returns
+   `PICKUP_WINDOW_CLOSED` or `PICKUP_TOKEN_EXPIRED`.
+
+**Endpoint IDs for the slice:** SYS-2, AUTH-1, AUTH-2, AUTH-3, ME-1, ME-2, IMG-1, LIST-1, LIST-2,
+LIST-3, LIST-4, LIST-6, LIST-8, RES-1, RES-2, RES-3, RES-4, RES-5, RES-6, RES-7, RES-8, plus JOB-1
+and JOB-2. That is **21 endpoints and 2 jobs**.
+
+## 11. Config defaults (env)
+
+`MAX_ACTIVE_LISTINGS=5`, `MAX_WINDOW_HOURS=4`, `MAX_LISTING_AGE_HOURS={default:24,PACKAGED:72}`,
+`MAX_QTY_PER_RESERVATION=2`, `MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT=3`, `EARLY_PICKUP_MIN=30`,
+`NO_SHOW_GRACE_MIN=15`, `PICKUP_TOKEN_TTL_MIN=10`, `OTP_TTL_SEC=300`, `OTP_RESEND_SEC=60`,
+`OTP_MAX_ATTEMPTS=5`, `ACCESS_TOKEN_TTL=15m`, `REFRESH_TOKEN_TTL=30d`,
+`PAYMENTS_ENABLED=false` (Later), `GOOGLE_LOGIN_ENABLED=false` (Later).
