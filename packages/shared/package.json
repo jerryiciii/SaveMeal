@@ -1,0 +1,6 @@
+{
+  "name": "@savemeal/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Placeholder. Shared enums and DTO types mirroring docs/API_CONTRACT.md."
+}
