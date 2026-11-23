@@ -176,6 +176,8 @@ model OtpRequest {
   channel        OtpChannel
   /// Hash of the normalised phone/email: OTP rows never hold the identifier in clear.
   identifierHash String     @map("identifier_hash") @db.VarChar(128)
+  /// The identifier, AES-256-GCM encrypted (needed to create the account on verify). Purged by JOB-3.
+  identifierEnc  String     @map("identifier_enc")
   /// Hash of the client IP, for the per-IP rate limit only.
   ipHash         String?    @map("ip_hash") @db.VarChar(128)
   codeHash       String     @map("code_hash") @db.VarChar(128)

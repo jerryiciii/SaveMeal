@@ -72,36 +72,53 @@ const maxListingAgeHours = z
     return parsed.data as MaxListingAgeHours;
   });
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: int(4000, 1),
-  DATABASE_URL: z.string().min(1, 'is required'),
-  LOG_LEVEL: z.enum(['error', 'warn', 'log', 'debug', 'verbose']).default('log'),
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    PORT: int(4000, 1),
+    DATABASE_URL: z.string().min(1, 'is required'),
+    LOG_LEVEL: z.enum(['error', 'warn', 'log', 'debug', 'verbose']).default('log'),
 
-  // Feature flags (CLAUDE.md §8): default OFF; both features are Later.
-  PAYMENTS_ENABLED: boolFlag(false),
-  GOOGLE_LOGIN_ENABLED: boolFlag(false),
+    // Feature flags (CLAUDE.md §8): default OFF; both features are Later.
+    PAYMENTS_ENABLED: boolFlag(false),
+    GOOGLE_LOGIN_ENABLED: boolFlag(false),
 
-  // DOMAIN §11 defaults.
-  MAX_ACTIVE_LISTINGS: int(5, 1),
-  MAX_WINDOW_HOURS: int(4, 1),
-  MAX_LISTING_AGE_HOURS: maxListingAgeHours,
-  MAX_QTY_PER_RESERVATION: int(2, 1),
-  MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT: int(3, 1),
-  EARLY_PICKUP_MIN: int(30),
-  NO_SHOW_GRACE_MIN: int(15),
-  PICKUP_TOKEN_TTL_MIN: int(10, 1),
-  OTP_TTL_SEC: int(300, 1),
-  OTP_RESEND_SEC: int(60),
-  OTP_MAX_ATTEMPTS: int(5, 1),
-  ACCESS_TOKEN_TTL: duration('15m'),
-  REFRESH_TOKEN_TTL: duration('30d'),
+    // DOMAIN §11 defaults.
+    MAX_ACTIVE_LISTINGS: int(5, 1),
+    MAX_WINDOW_HOURS: int(4, 1),
+    MAX_LISTING_AGE_HOURS: maxListingAgeHours,
+    MAX_QTY_PER_RESERVATION: int(2, 1),
+    MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT: int(3, 1),
+    EARLY_PICKUP_MIN: int(30),
+    NO_SHOW_GRACE_MIN: int(15),
+    PICKUP_TOKEN_TTL_MIN: int(10, 1),
+    OTP_TTL_SEC: int(300, 1),
+    OTP_RESEND_SEC: int(60),
+    OTP_MAX_ATTEMPTS: int(5, 1),
+    ACCESS_TOKEN_TTL: duration('15m'),
+    REFRESH_TOKEN_TTL: duration('30d'),
 
-  // SYS-2 `map` (D§9 D11: MapLibre with OpenStreetMap-based tiles). The default is OpenFreeMap's
-  // free, key-less "liberty" style; override per deployment.
-  MAP_STYLE_URL: z.string().url().default('https://tiles.openfreemap.org/styles/liberty'),
-  MAP_ATTRIBUTION: z.string().min(1).default('© OpenStreetMap contributors'),
-});
+    // SYS-2 `map` (D§9 D11: MapLibre with OpenStreetMap-based tiles). The default is OpenFreeMap's
+    // free, key-less "liberty" style; override per deployment.
+    MAP_STYLE_URL: z.string().url().default('https://tiles.openfreemap.org/styles/liberty'),
+    MAP_ATTRIBUTION: z.string().min(1).default('© OpenStreetMap contributors'),
+
+    // Auth. AUTH_SECRET keys the JWT signature, the HMACs of OTP codes and identifiers, and the
+    // encryption of pending OTP identifiers. Required in production; a random per-boot secret is
+    // used in development/test when it is unset (tokens then die on restart).
+    AUTH_SECRET: z.string().optional(),
+    // How OTP codes are delivered. `console` logs them (development only).
+    OTP_PROVIDER: z.enum(['console']).default('console'),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== 'production') return;
+    if (!env.AUTH_SECRET || env.AUTH_SECRET.length < 32) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AUTH_SECRET'], message: 'is required (≥ 32 chars) in production' });
+    }
+    if (env.OTP_PROVIDER === 'console') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_PROVIDER'], message: '"console" is not allowed in production' });
+    }
+  });
 
 export type Env = z.output<typeof envSchema>;
 

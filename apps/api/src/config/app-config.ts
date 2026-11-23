@@ -35,7 +35,13 @@ export class AppConfig {
 
   readonly map: { styleUrl: string; attribution: string };
 
+  /** Root secret for auth keys; null means "generate a random one at boot" (non-production). */
+  readonly authSecret: string | null;
+  readonly otpProvider: Env['OTP_PROVIDER'];
+
   constructor(env: Env) {
+    this.authSecret = env.AUTH_SECRET?.trim() ? env.AUTH_SECRET.trim() : null;
+    this.otpProvider = env.OTP_PROVIDER;
     this.nodeEnv = env.NODE_ENV;
     this.port = env.PORT;
     this.databaseUrl = env.DATABASE_URL;
