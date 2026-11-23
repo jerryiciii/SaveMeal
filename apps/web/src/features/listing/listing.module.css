@@ -1,0 +1,143 @@
+.hero {
+  position: relative;
+  height: 260px;
+  margin: 0 var(--gutter);
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--color-raised);
+}
+
+.heroImg {
+  object-fit: cover;
+}
+
+.badgeOut {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(17, 25, 34, 0.85);
+  color: var(--color-alert);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px var(--gutter) 32px;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: -6px 0 0;
+}
+
+.free {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-accent);
+}
+
+.price {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-orange);
+}
+
+.original {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.left {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.seller {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  font-size: 15px;
+}
+
+.verified {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface-chip-active);
+  color: var(--text-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.meta {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.facts dt {
+  color: var(--text-secondary);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+
+.desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ctaLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  border-radius: var(--radius-button);
+  background: var(--color-mint);
+  color: var(--text-on-mint);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.textLink {
+  align-self: center;
+  color: var(--color-sky);
+  font-size: 14px;
+  font-weight: 600;
+}
