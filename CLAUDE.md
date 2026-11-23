@@ -1,8 +1,9 @@
 # CLAUDE.md — rules for every Claude session in this repo
 
-LASTBITE (repo: SaveMeal) is a map-first mobile PWA where verified sellers post surplus food that is
-still safe, and students reserve portions and pick them up at the counter by QR. No delivery, no
-hardware, and no AI in the MVP. These rules are **mandatory**. If a task conflicts with them, stop
+**SaveMeal** is a map-first mobile PWA marketplace. Shops and individuals post surplus food that is
+still safe, at a discount. Buyers nearby reserve portions, pay the seller directly at pickup, and
+confirm the handover by QR. Use the name "SaveMeal" everywhere; "LastFood" is only the title of the
+competition paper. No delivery, no hardware, and no AI in the MVP. These rules are **mandatory**. If a task conflicts with them, stop
 and ask the user. Do not work around them.
 
 ## 1. Sources of truth (in priority order)
@@ -13,8 +14,11 @@ and ask the user. Do not work around them.
    source of truth. That means screens `01`–`40` and the design system frame `13:48`
    ("41 · LASTBITE Design System · Foundation"). The user chose it on 2026-11-23. Page `19:23` (V2,
    "Sắc màu & Liquid Glass") is reference only. Do not build from it unless the user says so.
-4. The concept paper (Google Doc `1ATLucNflZVs9cqfspVfIaZFR6b5d_toVrAcym4XqBlw`): product rules,
-   §8 safety and §13 privacy.
+4. The product spec is the competition dossier (Google Doc
+   `1iDYFYzvzIvq0EYeW5WbR5xJkG2lH2isRLgfXXHuFeP4`). It sets the MVP vs Later scope (§2.3), the data
+   model (§3), safety (§5) and KPIs (§6.1). The older concept paper
+   (`1ATLucNflZVs9cqfspVfIaZFR6b5d_toVrAcym4XqBlw`) applies only where the dossier is silent, for
+   example the §13 privacy rules.
 
 If two sources disagree, do not guess. Follow the decision recorded in `docs/DOMAIN.md` §9
 ("Decisions"). If there is no recorded decision, ask the user.
@@ -62,33 +66,35 @@ If two sources disagree, do not guess. Follow the decision recorded in `docs/DOM
   disagree, the contract wins. Fix the code, or propose a contract change.
 - Never ship an endpoint, field, status or error code that is not in the contract.
 
-## 6. Food safety rules (spec §8). These are product rules, not options.
+## 6. Food safety and money rules (dossier §2.3, §3.3, §5). These are product rules, not options.
 
-- **No publish without the safety checklist.** A batch can reach `PUBLISHED` only from
-  `SAFETY_CHECKED`, with every checklist item confirmed by a store member and the system checks
-  passing (see `docs/DOMAIN.md` §5). Do not build shortcuts, admin overrides or "skip" buttons.
-- Only **verified** stores can publish. Only allowed categories can be listed. Expired food, spoiled
-  food, food kept outside its allowed storage conditions and leftovers from other customers are
-  never listed.
-- **Never extend** a pickup window, a best-before time or a safety window after publishing.
-- **The QR or short code only confirms pickup. It is not a safety certificate.** UI copy must never
-  suggest otherwise (no "an toàn 100%", "đã kiểm định" or similar).
-- **No AI or automated logic decides whether food is safe.** It also never edits expiry times and
-  never generates allergen information. Only the seller confirms safety. The platform only
-  enforces the rules.
-- An `UNSAFE_FOOD` incident pauses the batch immediately. `REMOVED_UNSAFE` cancels every active
-  reservation and notifies the buyers.
-- No fake scarcity or pressure tactics in notifications or UI (spec §6.1).
+- **No publish without the required-info checklist and all 6 seller declarations**
+  (`docs/DOMAIN.md` §5). Do not build shortcuts, admin overrides or "skip" buttons. Expired food,
+  spoiled food, food of unclear origin and leftovers already served to customers are never listed.
+- **Never extend** a pickup window after publishing. Listings auto-hide when they expire, sell out or
+  are withdrawn.
+- **The pickup QR is a random, time-limited, single-use token with no personal data**
+  (`docs/DOMAIN.md` §6). It only confirms the handover. It is not a payment QR and not a safety
+  certificate, and UI copy must never suggest otherwise (no "an toàn 100%", "đã kiểm định" or
+  similar).
+- **No money flow in the MVP.** The buyer pays the seller directly at pickup. SaveMeal holds no
+  money and promises no refunds. Deposits and online payment are Later only.
+- **No AI or image-based logic judges food quality or safety.** It also never edits times and never
+  generates allergen information. The seller is responsible for the food. The platform enforces the
+  rules, handles reports and blocks content.
+- An `UNSAFE_FOOD` report hides the listing immediately until an admin acts. Blocking or
+  withdrawing a listing cancels its active reservations.
+- No fake scarcity or pressure tactics in the UI.
 
-## 7. Privacy rules (spec §13)
+## 7. Privacy rules (dossier §3.3 and concept paper §13)
 
 - Collect only what pickup needs: phone or email, and a display name. Do not ask for birthdays,
   student IDs or addresses.
 - **The buyer's location is chosen by the buyer and is never stored server-side.** It is sent per
   request and must not be logged at full precision (round to 2 decimals in logs).
-- Store-scoped access: store members see only their own store's reservations. They see the buyer's
-  display name and order code, but never the buyer's phone or email.
-- Never share a student's purchase history with other stores or partners.
+- Owner-scoped access: a seller sees only the reservations on their own listings. They see the
+  buyer's display name and order code, but never the buyer's phone or email.
+- Never share a buyer's purchase history with other sellers or partners.
 - Account deletion must work (`DELETE /me`), and it anonymises personal data.
 - Research exports and public stats are **aggregated and anonymised**. They never contain names,
   phones, emails, exact coordinates or raw user IDs.
@@ -98,15 +104,15 @@ If two sources disagree, do not guess. Follow the decision recorded in `docs/DOM
 
 - No secrets in git. Commit only `.env.example` files, with placeholder values. `.env*` is
   git-ignored.
-- Feature flags (`PAYMENTS_ENABLED`, `GOOGLE_LOGIN_ENABLED`) default to **off**. The pilot uses
-  pay-at-counter.
+- Feature flags (`PAYMENTS_ENABLED`, `GOOGLE_LOGIN_ENABLED`) default to **off**, and both features
+  are Later. Build only the endpoints tagged **[MVP]** in `docs/API_CONTRACT.md`.
 
 ## 9. UI copy
 
 - UI copy is in Vietnamese and matches Figma V1 wording. Code, comments, commits and docs are in
   English.
 - Show money as `18.000đ` (VND integers, no decimals), times as `17:30–18:30`, and order codes as
-  `LB–4281`.
+  `SM–4281`.
 
 ## 10. Definition of done
 
