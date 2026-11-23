@@ -82,3 +82,15 @@
   font-weight: 700;
   color: var(--text-primary);
 }
+
+.mapPlaceholder {
+  position: absolute;
+  inset: 0 0 -28px;
+  background: #16202b;
+}
+
+.hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--color-orange);
+}
