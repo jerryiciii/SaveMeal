@@ -1,4 +1,32 @@
-import { formatTime, formatTimeWindow, formatVnd } from './format';
+import { formatOrderCode, formatTime, formatTimeWindow, formatVnd, normalizeOrderCode } from './format';
+
+describe('formatOrderCode', () => {
+  it.each([
+    ['4281', 'SM–4281'],
+    [4281, 'SM–4281'],
+    ['0042', 'SM–0042'],
+    ['SM–4281', 'SM–4281'],
+    ['sm-4281', 'SM–4281'],
+    [' 42 81 ', 'SM–4281'],
+  ])('formats %p as %p', (code, expected) => {
+    expect(formatOrderCode(code)).toBe(expected);
+  });
+
+  it('uses an en dash', () => {
+    expect(formatOrderCode('4281').charCodeAt(2)).toBe(0x2013);
+  });
+
+  it('rejects codes that are not 4 digits', () => {
+    expect(() => formatOrderCode('428')).toThrow(RangeError);
+    expect(() => formatOrderCode('42815')).toThrow(RangeError);
+    expect(() => formatOrderCode('ABCD')).toThrow(RangeError);
+  });
+
+  it('normalises manual input', () => {
+    expect(normalizeOrderCode('SM—4281')).toBe('4281');
+    expect(normalizeOrderCode('4 2-8 1')).toBe('4281');
+  });
+});
 
 describe('formatVnd', () => {
   it.each([

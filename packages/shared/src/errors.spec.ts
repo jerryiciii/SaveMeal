@@ -8,11 +8,16 @@ function readContractErrorCatalogue(): Map<string, number> {
   const section = contract.split(/^## \d+\. Error code catalogue/m)[1]?.split('\n## ')[0] ?? '';
   const catalogue = new Map<string, number>();
   for (const line of section.split('\n')) {
-    const match = /^\|\s*(\d{3})\s*\|([^|]+)\|/.exec(line);
+    // Rows look like "| 409 | `A`, `B` |" or "| 413 / 415 | `A` / `B` |" (statuses zipped with codes).
+    const match = /^\|\s*(\d{3}(?:\s*\/\s*\d{3})*)\s*\|([^|]+)\|/.exec(line);
     if (!match) continue;
-    for (const code of match[2]!.matchAll(/`([A-Z_]+)`/g)) {
-      catalogue.set(code[1]!, Number(match[1]));
-    }
+    const statuses = match[1]!.split('/').map((s) => Number(s.trim()));
+    const groups = statuses.length > 1 ? match[2]!.split('/') : [match[2]!];
+    groups.forEach((group, i) => {
+      for (const code of group.matchAll(/`([A-Z_]+)`/g)) {
+        catalogue.set(code[1]!, statuses[i]!);
+      }
+    });
   }
   return catalogue;
 }

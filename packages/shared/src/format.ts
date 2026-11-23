@@ -17,7 +17,34 @@ export function formatVnd(amount: number): string {
   return `${sign}${grouped}đ`;
 }
 
-const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+/** Order-code prefix (D§9 D13) and pickup QR payload prefix (D§6). */
+export const ORDER_CODE_PREFIX = 'SM';
+export const PICKUP_QR_PREFIX = 'SM1.';
+
+/**
+ * Formats the 4-digit order code for display: "4281" → "SM–4281". Accepts input that is already
+ * prefixed (any dash or none) and normalises it.
+ */
+export function formatOrderCode(code: string | number): string {
+  const digits = normalizeOrderCode(code);
+  if (!/^\d{4}$/.test(digits)) {
+    throw new RangeError(`formatOrderCode expects 4 digits, got "${code}"`);
+  }
+  return `${ORDER_CODE_PREFIX}${EN_DASH}${digits}`;
+}
+
+/**
+ * Strips an optional "SM" prefix, dashes (ASCII, en and em) and whitespace, as RES-7 accepts:
+ * "SM–4281", "sm-4281", " 42 81 " → "4281". Does not validate the length.
+ */
+export function normalizeOrderCode(input: string | number): string {
+  return String(input)
+    .trim()
+    .replace(/^sm/i, '')
+    .replace(/[\s\-–—]/g, '');
+}
+
+const timeFormatter =new Intl.DateTimeFormat('en-GB', {
   timeZone: APP_TIME_ZONE,
   hour: '2-digit',
   minute: '2-digit',
