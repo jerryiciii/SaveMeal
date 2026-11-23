@@ -23,7 +23,7 @@ SaveMeal/
 | Workspace | Owns | Must not |
 |---|---|---|
 | `apps/api` | Auth (OTP and JWT), RBAC with store scoping, the atomic reservation transaction, state machines, background jobs, image processing (EXIF strip), notifications and web push, CSV export | Contain UI, or trust client-side safety or price data |
-| `apps/web` | Screens from Figma V2, PWA manifest and service worker, geolocation (client-only), QR display and camera scan, the web push subscription | Hold business rules beyond UX validation, or store the buyer's location server-side |
+| `apps/web` | Screens from Figma V1 (page `0:1`), PWA manifest and service worker, geolocation (client-only), QR display and camera scan, the web push subscription | Hold business rules beyond UX validation, or store the buyer's location server-side |
 | `packages/shared` | Enums (`BatchStatus`, `ReservationStatus`, `Category`, `Allergen`, …), request/response types, error codes, money and time helpers | Import from `apps/*`, or contain runtime dependencies beyond zod (optional) |
 
 The shared package is a mirror: `docs/API_CONTRACT.md` changes first, then `packages/shared`, then the

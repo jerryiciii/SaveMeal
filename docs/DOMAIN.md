@@ -8,7 +8,7 @@ they are exposed. When the code disagrees with this file, the code is wrong.
 | Role | Who | How it is granted |
 |---|---|---|
 | `GUEST` | Not signed in | Can browse published batches, store profiles and config |
-| `USER` | Any signed-in account | Phone or email OTP. **One account both buys and sells** (Figma V2/10, V2/35). |
+| `USER` | Any signed-in account | Phone or email OTP. **One account both buys and sells** (Figma V1/10, V1/35). |
 | `STORE_OWNER` | A user who created a store (seller profile) | `POST /stores`. A user owns at most **1** store in the MVP. |
 | `STORE_STAFF` | A user the owner added to the store | Can verify pickups, see the store's reservations and manage batches, but cannot edit the store or its members |
 | `ADMIN` | The pilot operations team | Set in the DB or seed only. There is no endpoint to grant it. |
@@ -84,7 +84,7 @@ Fields are listed by meaning. Names in Prisma use camelCase, and the tables use 
 `REMOVED_UNSAFE`. "Sold out" is **derived** (`PUBLISHED && quantityAvailable == 0`) and is not a
 status.
 
-**Editing a `PUBLISHED` batch** (Figma V2/33) is restricted, because safety facts cannot change
+**Editing a `PUBLISHED` batch** (Figma V1/33) is restricted, because safety facts cannot change
 after the check:
 
 - These fields are editable: `title`, `description`, `imageIds`, `quantityTotal` (never below
@@ -113,12 +113,12 @@ after the check:
 | `RESERVED` → `NO_SHOW` | `POST /reservations/:id/no-show` (store member, `now ≥ pickupEnd`) or JOB-2 at `pickupEnd + NO_SHOW_GRACE_MIN` | Store member or system | — | None |
 
 The terminal states are `PICKED_UP`, `CANCELLED`, `NO_SHOW` and `EXPIRED`. `cancelReason` is one of
-`BUYER_LATE`, `BUYER_WRONG_QTY`, `BUYER_CHANGED_PLAN`, `BUYER_OTHER` (V2/39), `SELLER_CANCELLED`,
+`BUYER_LATE`, `BUYER_WRONG_QTY`, `BUYER_CHANGED_PLAN`, `BUYER_OTHER` (V1/39), `SELLER_CANCELLED`,
 `BATCH_REMOVED_UNSAFE` or `ADMIN`.
 
 ## 5. Safety checklist (spec §8): mandatory before publishing
 
-The seller confirms every item in Figma V2/26. All six must be `true`:
+The seller confirms every item in Figma V1/26. All six must be `true`:
 
 | Key | Vietnamese UI label | Spec §8 item |
 |---|---|---|
@@ -199,9 +199,9 @@ audit_log.
 - When the flag is off, every reservation is `AT_COUNTER`: it goes straight to `RESERVED`, and the
   buyer pays at the counter.
 - When the flag is on, a priced item can be `DEPOSIT` (`DEPOSIT_AMOUNT`, default 5.000đ) or `FULL`
-  (V2/19). The method is `BANK_TRANSFER` or `VIETQR` (V2/20). The reservation stays
+  (V1/19). The method is `BANK_TRANSFER` or `VIETQR` (V1/20). The reservation stays
   `PENDING_PAYMENT` until a store member confirms receipt. **There is no bank integration**: the QR
-  is generated from the store's bank info (V2/21 says it is illustrative).
+  is generated from the store's bank info (V1/21 says it is illustrative).
 - Free items (`rescuePrice == 0`) never take payment.
 - Cancel refunds: a buyer cancelling ≥ `FREE_CANCEL_BEFORE_MIN` (30) before `pickupStart` →
   `REFUND_DUE`. Later than that, or a no-show, → the deposit is `FORFEITED`. Seller cancel or
@@ -212,17 +212,18 @@ audit_log.
 
 | # | Conflict | Decision |
 |---|---|---|
-| D1 | The spec is B2C (stores) and Figma V2 is P2P with one shared buy/sell account | One user account. Selling requires creating a **store (seller profile)** with a `type`, which includes `INDIVIDUAL`. Every store, individuals included, must be admin-`VERIFIED` before publishing (spec §8 item 1). `ALLOWED_CATEGORIES[INDIVIDUAL]` defaults to `BAKERY, PACKAGED`. |
+| D1 | The spec is B2C (stores) and Figma is P2P with one shared buy/sell account | One user account. Selling requires creating a **store (seller profile)** with a `type`, which includes `INDIVIDUAL`. Every store, individuals included, must be admin-`VERIFIED` before publishing (spec §8 item 1). `ALLOWED_CATEGORIES[INDIVIDUAL]` defaults to `BAKERY, PACKAGED`. |
 | D2 | Figma has deposit, full payment and transfer QR, while the spec pilot is reserve-and-pay-at-counter | Payments are behind `PAYMENTS_ENABLED=false`. The pilot pays at the counter. Even when the flag is on, confirmation is manual (no bank API). |
 | D3 | Figma login offers "Email hoặc số điện thoại" plus Google, while the task says phone OTP | OTP login with `channel: SMS` (primary) or `EMAIL`, one endpoint pair. Google sign-in is behind `GOOGLE_LOGIN_ENABLED=false`. |
-| D4 | Figma V2/26 lists 6 checks and spec §8 has 7 items | The 6 seller-confirmed items plus system checks for items (1), (2), (5) and (7) (§5). |
+| D4 | Figma V1/26 lists 6 checks and spec §8 has 7 items | The 6 seller-confirmed items plus system checks for items (1), (2), (5) and (7) (§5). |
 | D5 | Spec §6.4 mixes batch and order states in one chain | Split into a batch machine (§3) and a reservation machine (§4). `PENDING_PAYMENT` is added (flag only). |
-| D6 | Figma V2/29 and V2/33 have "Tạm dừng" (pause), which is not in the spec states | Pause is a flag (`pausedAt`) on `PUBLISHED`, not a status. An `UNSAFE_FOOD` incident auto-pauses the batch (spec §8 incident process). |
-| D7 | The V2/24 chat sample reads like a pre-order question | Chat exists **only inside a reservation** (privacy and anti-spam). Pre-order questions use the store's `pickupInstructions`. |
+| D6 | Figma V1/29 and V1/33 have "Tạm dừng" (pause), which is not in the spec states | Pause is a flag (`pausedAt`) on `PUBLISHED`, not a status. An `UNSAFE_FOOD` incident auto-pauses the batch (spec §8 incident process). |
+| D7 | The V1/24 chat sample reads like a pre-order question | Chat exists **only inside a reservation** (privacy and anti-spam). Pre-order questions use the store's `pickupInstructions`. |
 | D8 | Figma has free food (0đ, "Tặng nhau"), and the spec talks about discounted sales | `rescuePrice` may be `0`. The `free=true` filter. Free items never take payment. |
-| D9 | V2/12 has a "Ngày mai" pickup filter, and the spec says "today" | Pickup can be today or tomorrow, but only within `MAX_HOLD_HOURS` (§5). |
-| D10 | Reviews, waste-log entry and admin pages have no Figma frames | The contract includes them. The FE builds waste-log and admin pages from the V2 UI kit. Reviews are shown on the store profile (V2/16) once designed. |
+| D9 | V1/12 has a "Ngày mai" pickup filter, and the spec says "today" | Pickup can be today or tomorrow, but only within `MAX_HOLD_HOURS` (§5). |
+| D10 | Reviews, waste-log entry and admin pages have no Figma frames | The contract includes them. The FE builds waste-log and admin pages from the V1 design system (frame `13:48`). Reviews are shown on the store profile (V1/16) once designed. |
 | D11 | The spec suggests Supabase or Vercel | Per the user: NestJS + Prisma + PostgreSQL API, and a Next.js PWA. Hosting is undecided. |
+| D12 | The Figma file has two pages: V1 (`0:1`, dark map and Inter) and V2 (`19:23`, Liquid Glass) | **The user chose V1 on 2026-11-23.** Screen references `V1/NN` point to page `0:1`. V2 is reference only. The flows and screen content are the same, so the API is unchanged. |
 
 ## 10. Config defaults (env, all overridable)
 
