@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { BatchCard } from "@/lib/contract/types";
+import type { ListingCard } from "@/lib/contract/types";
 import { Button } from "./Button";
 import { Chip } from "./Chip";
 import { FoodCard } from "./FoodCard";
@@ -18,22 +18,21 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-const card: BatchCard = {
+const card: ListingCard = {
   id: "b1",
   title: "Bánh croissant bơ",
   category: "BAKERY",
   image: null,
   originalPrice: 35000,
-  rescuePrice: 0,
+  price: 0,
   isFree: true,
   quantityAvailable: 2,
   soldOut: false,
   pickupStart: "2026-11-23T10:30:00Z",
   pickupEnd: "2026-11-23T11:30:00Z",
-  allergens: [],
+  pickup: { address: "Mỹ An", lat: 0, lng: 0 },
   distanceMeters: 650,
-  isSaved: false,
-  store: { id: "s", name: "Tiệm bánh Mây", type: "BAKERY", area: "Mỹ An", lat: 0, lng: 0, verified: true, ratingAvg: null, ratingCount: 0 },
+  seller: { id: "s", name: "Tiệm bánh Mây", type: "BAKERY", verified: true },
 };
 
 describe("UI kit", () => {
@@ -53,20 +52,20 @@ describe("UI kit", () => {
     expect(btn.type).toBe("button");
   });
 
-  it("FoodCard shows FREE, store · distance and the pickup window", () => {
-    render(<FoodCard batch={card} />);
+  it("FoodCard shows FREE, seller · distance and the pickup window", () => {
+    render(<FoodCard listing={card} />);
     expect(screen.getByText("FREE")).toBeTruthy();
     expect(screen.getByText("Tiệm bánh Mây · 650 m")).toBeTruthy();
     expect(screen.getByText("Nhận 17:30–18:30")).toBeTruthy();
   });
 
   it("FoodCard names the day when pickup is not today", () => {
-    render(<FoodCard batch={{ ...card, pickupStart: "2026-11-24T04:30:00Z", pickupEnd: "2026-11-24T06:00:00Z" }} />);
+    render(<FoodCard listing={{ ...card, pickupStart: "2026-11-24T04:30:00Z", pickupEnd: "2026-11-24T06:00:00Z" }} />);
     expect(screen.getByText("Nhận ngày mai 11:30–13:00")).toBeTruthy();
   });
 
   it("FoodCard shows a VND price for paid items", () => {
-    render(<FoodCard batch={{ ...card, rescuePrice: 18000, isFree: false }} />);
+    render(<FoodCard listing={{ ...card, price: 18000, isFree: false }} />);
     expect(screen.getByText("18.000đ")).toBeTruthy();
   });
 

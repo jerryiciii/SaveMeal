@@ -13,4 +13,4 @@ export const api = createApiClient({
   tokens,
 });
 
-export const lastbite = endpoints(api);
+export const saveMeal = endpoints(api);

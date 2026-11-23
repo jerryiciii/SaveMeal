@@ -17,7 +17,7 @@ describe("discover quick filters", () => {
 
 describe("projectPins", () => {
   const pin = (id: string, lat: number, lng: number): MapPin => ({
-    id, lat, lng, title: id, rescuePrice: 0, isFree: true, quantityAvailable: 1, category: "BAKERY",
+    id, lat, lng, title: id, price: 0, isFree: true, quantityAvailable: 1, category: "BAKERY",
   });
 
   it("keeps north up and west left inside the padded box", () => {

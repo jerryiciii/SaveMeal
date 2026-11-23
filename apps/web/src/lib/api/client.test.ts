@@ -24,7 +24,7 @@ describe("createApiClient", () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(res(201, { data: { id: "r1" } }));
     const api = createApiClient({ fetchImpl, tokens: createTokenStore("tok") });
     const out = await api.request<{ data: { id: string } }>("POST", "/reservations", {
-      body: { batchId: "b1", quantity: 1 },
+      body: { listingId: "l1", quantity: 1 },
       idempotencyKey: "key-1",
     });
     expect(out.data.id).toBe("r1");
@@ -33,7 +33,7 @@ describe("createApiClient", () => {
     const headers = init!.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer tok");
     expect(headers["Idempotency-Key"]).toBe("key-1");
-    expect(init!.body).toBe(JSON.stringify({ batchId: "b1", quantity: 1 }));
+    expect(init!.body).toBe(JSON.stringify({ listingId: "l1", quantity: 1 }));
   });
 
   it("maps the contract error envelope to ApiError", async () => {

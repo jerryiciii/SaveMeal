@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BottomSheet, Button, Chip, FoodCard, IconButton, SearchField } from "@/components/ui";
-import { lastbite } from "@/lib/api";
+import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
-import type { BatchCard, BatchSearchParams, MapPin as MapPinData } from "@/lib/contract/types";
+import type { ListingCard, ListingSearchParams, MapPin as MapPinData } from "@/lib/contract/types";
 import { MapPreview } from "./MapPreview";
 import styles from "./DiscoverScreen.module.css";
 
 /** Quick filters on Figma V1 01 (2:61–2:66). */
 export type QuickFilter = "free" | "under20k" | "near";
 
-export function filtersToParams(active: ReadonlySet<QuickFilter>): Omit<BatchSearchParams, "view"> {
+export function filtersToParams(active: ReadonlySet<QuickFilter>): Omit<ListingSearchParams, "view"> {
   return {
     sort: "distance",
     free: active.has("free") || undefined,
@@ -23,7 +23,7 @@ export function filtersToParams(active: ReadonlySet<QuickFilter>): Omit<BatchSea
 type State =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; cards: BatchCard[]; pins: MapPinData[]; total: number };
+  | { kind: "ready"; cards: ListingCard[]; pins: MapPinData[]; total: number };
 
 /**
  * Figma V1 01 · Bản đồ khám phá (2:2). M1 shows the layout with mock data and a
@@ -38,8 +38,8 @@ export function DiscoverScreen() {
     let cancelled = false;
     const params = filtersToParams(active);
     Promise.all([
-      lastbite.searchBatches({ ...params, limit: 10 }),
-      lastbite.mapPins({ sort: "distance", radiusKm: params.radiusKm }),
+      saveMeal.searchListings({ ...params, limit: 10 }),
+      saveMeal.mapPins({ sort: "distance", radiusKm: params.radiusKm }),
     ])
       .then(([list, pins]) => {
         if (!cancelled) setState({ kind: "ready", cards: list.data, pins, total: pins.length });
@@ -115,7 +115,7 @@ export function DiscoverScreen() {
           <ul className={styles.list}>
             {state.cards.map((card) => (
               <li key={card.id}>
-                <FoodCard batch={card} />
+                <FoodCard listing={card} />
               </li>
             ))}
           </ul>

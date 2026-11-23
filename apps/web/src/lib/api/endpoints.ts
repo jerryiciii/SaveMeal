@@ -1,33 +1,23 @@
 import type { ApiClient } from "./client";
-import type {
-  AppConfig,
-  BatchCard,
-  BatchDetail,
-  BatchSearchParams,
-  Envelope,
-  ListEnvelope,
-  MapPin,
-} from "@/lib/contract/types";
+import type { AppConfig, Envelope, ListEnvelope, ListingCard, ListingDetail, ListingSearchParams, MapPin } from "@/lib/contract/types";
 
-/** Typed wrappers per contract endpoint ID. Add endpoints here as milestones need them. */
+/** Typed wrappers per contract v1.1 endpoint ID. Add endpoints here as milestones need them. */
 export function endpoints(api: ApiClient) {
   return {
     /** SYS-2 */
     getConfig: () => api.request<Envelope<AppConfig>>("GET", "/config", { auth: false }).then((r) => r.data),
 
-    /** BATCH-1 (view=list) */
-    searchBatches: (params: Omit<BatchSearchParams, "view">) =>
-      api.request<ListEnvelope<BatchCard>>("GET", "/batches", { query: { ...params, view: "list" } }),
+    /** LIST-1 (view=list) */
+    searchListings: (params: Omit<ListingSearchParams, "view">) =>
+      api.request<ListEnvelope<ListingCard>>("GET", "/listings", { query: { ...params, view: "list" } }),
 
-    /** BATCH-1 (view=map) */
-    mapPins: (params: Omit<BatchSearchParams, "view" | "cursor" | "limit">) =>
-      api
-        .request<{ data: MapPin[] }>("GET", "/batches", { query: { ...params, view: "map" } })
-        .then((r) => r.data),
+    /** LIST-1 (view=map) */
+    mapPins: (params: Omit<ListingSearchParams, "view" | "cursor" | "limit">) =>
+      api.request<{ data: MapPin[] }>("GET", "/listings", { query: { ...params, view: "map" } }).then((r) => r.data),
 
-    /** BATCH-2 */
-    getBatch: (batchId: string) =>
-      api.request<Envelope<BatchDetail>>("GET", `/batches/${encodeURIComponent(batchId)}`).then((r) => r.data),
+    /** LIST-2 */
+    getListing: (listingId: string) =>
+      api.request<Envelope<ListingDetail>>("GET", `/listings/${encodeURIComponent(listingId)}`).then((r) => r.data),
   };
 }
 

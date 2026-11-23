@@ -15,8 +15,8 @@ describe("mock API follows the contract", () => {
     expect(config.limits.radiusKmOptions).toEqual([1, 3, 5]);
   });
 
-  it("BATCH-1 list hides sold-out items and sorts by distance", async () => {
-    const { data, page } = await api.searchBatches({ radiusKm: 3 });
+  it("LIST-1 list hides sold-out items and sorts by distance", async () => {
+    const { data, page } = await api.searchListings({ radiusKm: 3 });
     expect(data.length).toBeGreaterThan(0);
     expect(data.every((b) => !b.soldOut)).toBe(true);
     const distances = data.map((b) => b.distanceMeters ?? 0);
@@ -24,32 +24,33 @@ describe("mock API follows the contract", () => {
     expect(page.limit).toBe(20);
   });
 
-  it("BATCH-1 filters free, priceMax and excludeAllergens", async () => {
-    const free = await api.searchBatches({ free: true });
-    expect(free.data.every((b) => b.rescuePrice === 0)).toBe(true);
-    const cheap = await api.searchBatches({ priceMax: 15000 });
-    expect(cheap.data.every((b) => b.rescuePrice <= 15000)).toBe(true);
-    const noGluten = await api.searchBatches({ excludeAllergens: ["GLUTEN"] });
-    expect(noGluten.data.every((b) => !b.allergens.includes("GLUTEN"))).toBe(true);
+  it("LIST-1 filters free, priceMax and sellerId", async () => {
+    const free = await api.searchListings({ free: true });
+    expect(free.data.every((b) => b.price === 0)).toBe(true);
+    const cheap = await api.searchListings({ priceMax: 15000 });
+    expect(cheap.data.every((b) => b.price <= 15000)).toBe(true);
+    const one = await api.searchListings({ sellerId: "acc-may" });
+    expect(one.data.length).toBeGreaterThan(0);
+    expect(one.data.every((b) => b.seller.id === "acc-may")).toBe(true);
   });
 
-  it("BATCH-1 view=map returns pins only", async () => {
+  it("LIST-1 view=map returns pins only", async () => {
     const pins = await api.mapPins({ radiusKm: 3 });
     expect(pins.length).toBeGreaterThan(0);
     expect(Object.keys(pins[0]!).sort()).toEqual(
-      ["category", "id", "isFree", "lat", "lng", "quantityAvailable", "rescuePrice", "title"].sort(),
+      ["category", "id", "isFree", "lat", "lng", "quantityAvailable", "price", "title"].sort(),
     );
   });
 
-  it("BATCH-1 rejects an out-of-range radius with VALIDATION_FAILED", async () => {
-    await expect(api.searchBatches({ radiusKm: 50 })).rejects.toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
+  it("LIST-1 rejects an out-of-range radius with VALIDATION_FAILED", async () => {
+    await expect(api.searchListings({ radiusKm: 50 })).rejects.toMatchObject({ status: 400, code: "VALIDATION_FAILED" });
   });
 
-  it("BATCH-2 returns detail or BATCH_NOT_FOUND", async () => {
-    const b = await api.getBatch("b-croissant");
-    expect(b.store.name).toBe("Tiệm bánh Mây");
+  it("LIST-2 returns detail or LISTING_NOT_FOUND", async () => {
+    const b = await api.getListing("l-croissant");
+    expect(b.seller.name).toBe("Tiệm bánh Mây");
     expect(b.status).toBe("PUBLISHED");
-    await expect(api.getBatch("nope")).rejects.toMatchObject({ status: 404, code: "BATCH_NOT_FOUND" });
+    await expect(api.getListing("nope")).rejects.toMatchObject({ status: 404, code: "LISTING_NOT_FOUND" });
   });
 
   it("unmocked endpoints answer the contract 404 envelope", async () => {

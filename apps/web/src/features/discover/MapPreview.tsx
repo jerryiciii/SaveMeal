@@ -33,7 +33,7 @@ export function MapPreview({ pins }: { pins: MapPinData[] }) {
       {projectPins(pins).map(({ pin, x, y }) => (
         <span key={pin.id} className={styles.pin} style={{ left: `${x * 100}%`, top: `${20 + y * 70}%` }}>
           <MapPin
-            price={pin.rescuePrice}
+            price={pin.price}
             title={pin.title}
             selected={selected === pin.id}
             onClick={() => setSelected(pin.id === selected ? null : pin.id)}

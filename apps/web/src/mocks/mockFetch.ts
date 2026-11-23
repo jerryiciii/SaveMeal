@@ -1,8 +1,8 @@
-import type { BatchCard, BatchDetail, MapPin } from "@/lib/contract/types";
-import { buildMockBatches, mockConfig, mockOrigin } from "./fixtures";
+import type { ListingCard, ListingDetail, MapPin } from "@/lib/contract/types";
+import { buildMockListings, mockConfig, mockOrigin } from "./fixtures";
 
 /**
- * In-process mock of the LASTBITE API (docs/API_CONTRACT.md). It has the same
+ * In-process mock of the SaveMeal API (docs/API_CONTRACT.md v1.1). It has the same
  * signature as `fetch`, so the real API client code path is exercised.
  * Endpoints not mocked yet answer 404 NOT_FOUND with the contract envelope.
  */
@@ -29,34 +29,22 @@ export function haversineMeters(a: { lat: number; lng: number }, b: { lat: numbe
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function toCard(b: BatchDetail, distanceMeters: number | null): BatchCard {
-  const { store } = b;
+function toCard(b: ListingDetail, distanceMeters: number | null): ListingCard {
   return {
     id: b.id,
     title: b.title,
     category: b.category,
     image: b.image,
     originalPrice: b.originalPrice,
-    rescuePrice: b.rescuePrice,
+    price: b.price,
     isFree: b.isFree,
     quantityAvailable: b.quantityAvailable,
     soldOut: b.soldOut,
     pickupStart: b.pickupStart,
     pickupEnd: b.pickupEnd,
-    allergens: b.allergens,
+    pickup: b.pickup,
     distanceMeters,
-    isSaved: b.isSaved,
-    store: {
-      id: store.id,
-      name: store.name,
-      type: store.type,
-      area: store.area,
-      lat: store.lat,
-      lng: store.lng,
-      verified: store.verified,
-      ratingAvg: store.ratingAvg,
-      ratingCount: store.ratingCount,
-    },
+    seller: b.seller,
   };
 }
 
@@ -64,7 +52,7 @@ function localDay(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(iso));
 }
 
-const listBatches: Handler = ({ url, now }) => {
+const listListings: Handler = ({ url, now }) => {
   const q = url.searchParams;
   const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
   const csv = (k: string) => (q.get(k) ? q.get(k)!.split(",") : []);
@@ -76,7 +64,7 @@ const listBatches: Handler = ({ url, now }) => {
   }
   const text = (q.get("q") ?? "").trim().toLocaleLowerCase("vi");
   const categories = csv("category");
-  const excludeAllergens = csv("excludeAllergens");
+  const sellerId = q.get("sellerId");
   const priceMax = num("priceMax");
   const free = q.get("free") === "true";
   const includeSoldOut = q.get("includeSoldOut") === "true";
@@ -84,32 +72,32 @@ const listBatches: Handler = ({ url, now }) => {
   const today = localDay(now.toISOString());
   const tomorrow = localDay(new Date(now.getTime() + 86400000).toISOString());
 
-  let rows = buildMockBatches(now)
-    .filter((b) => b.status === "PUBLISHED" && !b.isPaused && new Date(b.pickupEnd) > now)
-    .map((b) => ({ b, d: haversineMeters({ lat, lng }, b.store) }))
+  let rows = buildMockListings(now)
+    .filter((b) => b.status === "PUBLISHED" && !b.underReview && new Date(b.pickupEnd) > now)
+    .map((b) => ({ b, d: haversineMeters({ lat, lng }, b.pickup) }))
     .filter(({ d }) => d <= radiusKm * 1000)
     .filter(({ b }) => includeSoldOut || !b.soldOut)
-    .filter(({ b }) => !text || b.title.toLocaleLowerCase("vi").includes(text) || b.store.name.toLocaleLowerCase("vi").includes(text))
+    .filter(({ b }) => !text || b.title.toLocaleLowerCase("vi").includes(text) || b.seller.name.toLocaleLowerCase("vi").includes(text))
     .filter(({ b }) => categories.length === 0 || categories.includes(b.category))
-    .filter(({ b }) => !excludeAllergens.some((a) => (b.allergens as string[]).includes(a)))
-    .filter(({ b }) => priceMax === undefined || b.rescuePrice <= priceMax)
-    .filter(({ b }) => !free || b.rescuePrice === 0)
+    .filter(({ b }) => !sellerId || b.seller.id === sellerId)
+    .filter(({ b }) => priceMax === undefined || b.price <= priceMax)
+    .filter(({ b }) => !free || b.price === 0)
     .filter(({ b }) => !pickupDay || localDay(b.pickupStart) === (pickupDay === "today" ? today : tomorrow));
 
   const sort = q.get("sort") ?? "distance";
   rows = rows.sort((x, y) => {
     if (sort === "pickupSoon") return x.b.pickupStart.localeCompare(y.b.pickupStart);
-    if (sort === "priceAsc") return x.b.rescuePrice - y.b.rescuePrice;
+    if (sort === "priceAsc") return x.b.price - y.b.price;
     return x.d - y.d;
   });
 
   if (q.get("view") === "map") {
     const pins: MapPin[] = rows.slice(0, 200).map(({ b }) => ({
       id: b.id,
-      lat: b.store.lat,
-      lng: b.store.lng,
+      lat: b.pickup.lat,
+      lng: b.pickup.lng,
       title: b.title,
-      rescuePrice: b.rescuePrice,
+      price: b.price,
       isFree: b.isFree,
       quantityAvailable: b.quantityAvailable,
       category: b.category,
@@ -124,17 +112,17 @@ const listBatches: Handler = ({ url, now }) => {
   return json(200, { data: page.map(({ b, d }) => toCard(b, Math.round(d))), page: { nextCursor, limit } });
 };
 
-const getBatch: Handler = ({ params, now }) => {
-  const b = buildMockBatches(now).find((x) => x.id === params[0]);
-  if (!b) return error(404, "BATCH_NOT_FOUND", "Không tìm thấy món này.");
-  return json(200, { data: { ...b, distanceMeters: Math.round(haversineMeters(mockOrigin, b.store)) } });
+const getListing: Handler = ({ params, now }) => {
+  const b = buildMockListings(now).find((x) => x.id === params[0]);
+  if (!b) return error(404, "LISTING_NOT_FOUND", "Không tìm thấy món này.");
+  return json(200, { data: { ...b, distanceMeters: Math.round(haversineMeters(mockOrigin, b.pickup)) } });
 };
 
 const routes: { method: string; pattern: RegExp; handler: Handler }[] = [
   { method: "GET", pattern: /^\/health$/, handler: () => json(200, { data: { status: "ok", db: "ok", version: "mock" } }) },
   { method: "GET", pattern: /^\/config$/, handler: () => json(200, { data: mockConfig }) },
-  { method: "GET", pattern: /^\/batches$/, handler: listBatches },
-  { method: "GET", pattern: /^\/batches\/([^/]+)$/, handler: getBatch },
+  { method: "GET", pattern: /^\/listings$/, handler: listListings },
+  { method: "GET", pattern: /^\/listings\/([^/]+)$/, handler: getListing },
 ];
 
 export type MockFetchOptions = { latencyMs?: number; now?: () => Date };
