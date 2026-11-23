@@ -4,7 +4,7 @@
 > `docs(contract): …` commit, before code on either side. Entities, states and guards are defined in
 > [`DOMAIN.md`](DOMAIN.md). Section numbers like "D§3" refer to that file.
 
-Version: **v1.0** (2026-11-23) · **73 endpoints** · 6 scheduled jobs (D§7)
+Version: **v1.0.1** (2026-11-23; v1.0.1 re-maps screens to Figma V1, no API change) · **73 endpoints** · 6 scheduled jobs (D§7)
 
 ---
 
@@ -110,7 +110,7 @@ type Me = {
   avatar: Image | null; role: "USER" | "ADMIN"; status: "ACTIVE" | "SUSPENDED";
   notificationPrefs: { push: boolean; pickupReminders: boolean; chat: boolean; listingUpdates: boolean };
   stores: { id: string; name: string; role: "OWNER" | "STAFF"; verificationStatus: StoreVerification }[];
-  stats: { portionsRescued: number; reservationsActive: number; listingsActive: number }; // V2/35 "Hoạt động của bạn"
+  stats: { portionsRescued: number; reservationsActive: number; listingsActive: number }; // V1/35 "Hoạt động của bạn"
   createdAt: string;
 };
 
@@ -120,7 +120,7 @@ type StoreType = "CAFE" | "BAKERY" | "CANTEEN" | "RESTAURANT" | "INDIVIDUAL";
 type StoreSummary = { id: string; name: string; type: StoreType; area: string; lat: number; lng: number;
   verified: boolean; ratingAvg: number | null; ratingCount: number };
 
-type StoreProfile = StoreSummary & {             // public (V2/16)
+type StoreProfile = StoreSummary & {             // public (V1/16)
   description: string | null; address: string; pickupInstructions: string | null; cover: Image | null;
   activeBatchCount: number; createdAt: string };
 
@@ -144,7 +144,7 @@ type BatchCard = {                                // list, search, store profile
 type MapPin = { id: string; lat: number; lng: number; title: string;
   rescuePrice: number; isFree: boolean; quantityAvailable: number; category: Category };
 
-type BatchDetail = BatchCard & {                  // V2/05
+type BatchDetail = BatchCard & {                  // V1/04
   description: string | null; images: Image[]; ingredients: string | null; storage: Storage;
   preparedAt: string; bestBefore: string; status: BatchStatus; isPaused: boolean;
   safetyConfirmedAt: string | null;               // copy: "Người bán đã xác nhận checklist", never "an toàn"
@@ -377,7 +377,7 @@ type BatchInput = {
 ### STORE-5 · `GET /stores/{storeId}/batches`
 
 - **Role**: PUBLIC sees `PUBLISHED`, unpaused, `BatchCard[]` only. MEMBER sees everything as
-  `BatchSellerView[]` (V2/29).
+  `BatchSellerView[]` (V1/29).
 - **Query**: `tab=active|done` (MEMBER only; `active` = DRAFT, SAFETY_CHECKED and PUBLISHED;
   `done` = terminal), `cursor`, `limit`
 - **200**: a list
@@ -440,19 +440,19 @@ type BatchInput = {
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `lat`, `lng` | number | `config.defaultCenter` | Not stored and not logged at full precision |
-| `radiusKm` | number | 3 | 0.5–10 (V2/12: 1, 3, 5) |
-| `q` | string | — | Text search on title and store name (V2/03) |
-| `category` | csv `Category` | all | V2/12 "Loại món" |
+| `radiusKm` | number | 3 | 0.5–10 (V1/12: 1, 3, 5) |
+| `q` | string | — | Text search on title and store name (V1/03) |
+| `category` | csv `Category` | all | V1/12 "Loại món" |
 | `priceMax` | int VND | — | "Dưới 20k" means `priceMax=20000` |
-| `free` | boolean | — | `true` means `rescuePrice = 0` (V2/04, V2/14) |
+| `free` | boolean | — | `true` means `rescuePrice = 0` (V1/14) |
 | `excludeAllergens` | csv `Allergen` | — | Hides batches that declare any of these |
-| `pickupDay` | `today\|tomorrow` | — | V2/12 "Thời gian lấy" |
+| `pickupDay` | `today\|tomorrow` | — | V1/12 "Thời gian lấy" |
 | `includeSoldOut` | boolean | false | `true` keeps cards with `soldOut` |
 | `sort` | `distance\|pickupSoon\|priceAsc\|newest` | `distance` | |
 | `view` | `list\|map` | `list` | `map` returns `MapPin[]` (≤ 200, no cursor) |
 | `cursor`, `limit` | | | `list` only |
 
-- **200**: `{ "data": BatchCard[] | MapPin[], "page": … }`. An empty array drives V2/37.
+- **200**: `{ "data": BatchCard[] | MapPin[], "page": … }`. An empty array drives V1/37.
 - **Errors**: `400 VALIDATION_FAILED`
 
 ### BATCH-2 · `GET /batches/{batchId}`
@@ -521,7 +521,7 @@ type BatchInput = {
 
 - **Role**: MEMBER
 - **Request**: an empty body
-- **200**: `{ "data": BatchSellerView }` with `status: PUBLISHED` (V2/28)
+- **200**: `{ "data": BatchSellerView }` with `status: PUBLISHED` (V1/28)
 - **Errors**: `409 STORE_NOT_VERIFIED`, `409 SAFETY_CHECK_STALE` (older than
   `SAFETY_CHECK_TTL_MIN`; re-run BATCH-6), `422 SAFETY_CHECK_FAILED` (the system checks are re-run),
   `409 INVALID_STATE_TRANSITION`, `422 PICKUP_WINDOW_INVALID` (`pickupEnd` has passed)
@@ -575,7 +575,7 @@ type BatchInput = {
 - **201**: `{ "data": Reservation }` with `status: RESERVED`, or `PENDING_PAYMENT` when it is
   prepaid and the flag is on (`payment.holdExpiresAt` is set).
 - **Errors**:
-  - `409 BATCH_SOLD_OUT` (`details.quantityAvailable`; V2/38)
+  - `409 BATCH_SOLD_OUT` (`details.quantityAvailable`; V1/38)
   - `409 BATCH_NOT_AVAILABLE` (not published, paused or the window has ended)
   - `422 QUANTITY_LIMIT_EXCEEDED`
   - `409 ACTIVE_RESERVATION_LIMIT`
@@ -592,13 +592,13 @@ type BatchInput = {
 - **Role**: USER
 - **Query**: `tab=upcoming|history` (`upcoming` = `PENDING_PAYMENT|RESERVED`, sorted by pickupStart
   ascending; `history` = terminal, newest first), `cursor`, `limit`
-- **200**: `{ "data": Reservation[], "page": … }` (V2/17)
+- **200**: `{ "data": Reservation[], "page": … }` (V1/17)
 
 ### RES-3 · `GET /reservations/{reservationId}`
 
 - **Role**: BUYER, MEMBER of its store, or ADMIN. `pickup` is returned only to the BUYER, and
   `buyer` only to MEMBER or ADMIN.
-- **200**: `{ "data": Reservation }` (V2/07, V2/18, V2/22)
+- **200**: `{ "data": Reservation }` (V1/06, V1/18, V1/22)
 - **Errors**: `404 RESERVATION_NOT_FOUND` (also returned when the caller is not allowed)
 
 ### RES-4 · `POST /reservations/{reservationId}/cancel`
@@ -606,7 +606,7 @@ type BatchInput = {
 - **Role**: BUYER
 - **Request**: `{ "reason": "BUYER_LATE" | "BUYER_WRONG_QTY" | "BUYER_CHANGED_PLAN" | "BUYER_OTHER", "note": "≤ 200|null" }`
 - **200**: `{ "data": Reservation }` with `status: CANCELLED`. When a payment exists,
-  `payment.status` becomes `REFUND_DUE` or `FORFEITED` (D§8; V2/39 shows which before the user
+  `payment.status` becomes `REFUND_DUE` or `FORFEITED` (D§8; V1/39 shows which before the user
   confirms, using `GET` + `config.limits.freeCancelBeforeMin`).
 - **Errors**: `409 RESERVATION_NOT_ACTIVE`, `409 CANCEL_WINDOW_CLOSED` (`now ≥ pickupEnd`)
 - **Transition**: `PENDING_PAYMENT|RESERVED` → `CANCELLED`. The stock is released atomically if the
@@ -617,7 +617,7 @@ type BatchInput = {
 - **Role**: MEMBER
 - **Query**: `status` (csv, default `PENDING_PAYMENT,RESERVED`), `date` (`YYYY-MM-DD`, default today),
   `batchId`, `cursor`, `limit`
-- **200**: `{ "data": Reservation[], "page": … }`, sorted by `pickupStart` ascending (V2/30)
+- **200**: `{ "data": Reservation[], "page": … }`, sorted by `pickupStart` ascending (V1/30)
 
 ### RES-6 · `POST /stores/{storeId}/pickups/lookup`
 
@@ -634,7 +634,7 @@ type BatchInput = {
 - **Role**: MEMBER
 - **Request**: `{ "reservationId": "uuid", "qrPayload": "…" }` **or**
   `{ "reservationId": "uuid", "code": "4281" }`. The code must match again.
-- **200**: `{ "data": { "reservation": Reservation, "batchRemaining": 1 } }` (V2/32 "Còn lại 1 suất")
+- **200**: `{ "data": { "reservation": Reservation, "batchRemaining": 1 } }` (V1/32 "Còn lại 1 suất")
 - **Errors**:
   - `422 PICKUP_CODE_INVALID`
   - `409 RESERVATION_NOT_ACTIVE`
@@ -667,7 +667,7 @@ the same notifications.
 ### PAY-1 · `GET /reservations/{reservationId}/payment`
 
 - **Role**: BUYER or MEMBER
-- **200**: `{ "data": Payment }`. `vietQr` is returned to the BUYER only (V2/21).
+- **200**: `{ "data": Payment }`. `vietQr` is returned to the BUYER only (V1/21).
 - **Errors**: `404 PAYMENT_NOT_FOUND`
 
 ### PAY-2 · `POST /reservations/{reservationId}/payment/mark-sent`
@@ -735,7 +735,7 @@ the same notifications.
 
 - **Role**: USER
 - **Query**: `type=BATCH|STORE` (default `BATCH`), `cursor`, `limit`
-- **200**: `{ "data": (BatchCard | StoreSummary)[], "page": … }` (V2/15). Saved batches that are no
+- **200**: `{ "data": (BatchCard | StoreSummary)[], "page": … }` (V1/15). Saved batches that are no
   longer published are returned with `soldOut: true` or a terminal status, so the FE can grey them
   out.
 
@@ -758,7 +758,7 @@ the same notifications.
 
 - **Role**: USER
 - **Query**: `unreadOnly`, `cursor`, `limit`
-- **200**: `{ "data": Notification[], "page": …, "meta": { "unreadCount": 3 } }` (V2/34)
+- **200**: `{ "data": Notification[], "page": …, "meta": { "unreadCount": 3 } }` (V1/34)
 
 ### NOTI-2 · `POST /me/notifications/read`
 
@@ -818,7 +818,7 @@ nhận rồi" is fine, and "Chỉ còn 1 suất, nhanh lên!" is **not allowed**
   `{ "type": "UNSAFE_FOOD", "reservationId": "uuid|null", "batchId": "uuid|null", "storeId": "uuid|null", "description": "10–1000 chars", "imageIds": [] }`.
   At least one target is required, and the server derives the store. A `NOT_RECEIVED` or
   `SELLER_ABSENT` incident requires a `reservationId` owned by the caller.
-- **201**: `{ "data": Incident }` (V2/23)
+- **201**: `{ "data": Incident }` (V1/23)
 - **Errors**: `400 VALIDATION_FAILED`, `422 INCIDENT_TARGET_INVALID`, `429 RATE_LIMITED`
 - **Side effects**: `UNSAFE_FOOD` with a batch **immediately pauses** that batch (`pauseReason
   INCIDENT`) and notifies the store and admins. Other types notify only.
@@ -972,58 +972,72 @@ These endpoints are ADMIN only. Every action is audit-logged.
 
 ---
 
-## 17. Figma V2 screen → endpoint map
+## 17. Figma V1 screen → endpoint map
 
-Figma file `yi47xwMJLLdMuiNEVh5Tna`, page `19:23`. The node IDs are in brackets.
+Figma file `yi47xwMJLLdMuiNEVh5Tna`, page `0:1` "V1 · Lưu trữ thiết kế cũ". The user chose V1 as the
+UI source of truth on 2026-11-23. Page `19:23` (V2) is now reference only. The design system is
+frame `13:48` "41 · LASTBITE Design System · Foundation". Node IDs are in brackets.
 
 | Screen | Endpoints used |
 |---|---|
-| V2/01 Khám phá bản đồ [23:5] | SYS-2, BATCH-1 (`view=map`), BATCH-1 (`free=true`, "Miễn phí gần bạn" strip), NOTI-1 (`unreadOnly`, badge) |
-| V2/02 Mở rộng danh sách [23:66] | BATCH-1 (`view=list`) |
-| V2/03 Tìm kiếm món [23:119] | SYS-2 (`popularSearches`), BATCH-1 (`q`) |
-| V2/04 Món ăn miễn phí [23:181] | BATCH-1 (`free=true`) |
-| V2/05 Chi tiết món ăn [24:109] | BATCH-2, SAVE-2 / SAVE-3 (♡), STORE-3 (link) |
-| V2/06 Xác nhận đặt giữ [24:134] | BATCH-2, RES-1 |
-| V2/07 Mã nhận hàng QR [24:158] | RES-3 (`pickup.code`, `pickup.qrPayload`) |
-| V2/08 Đăng pass đồ ăn [24:327] | STORE-2 (no store → STORE-1 onboarding), IMG-1, BATCH-3 |
-| V2/09 Chào mừng [25:128] | none (static) |
-| V2/10 Đăng nhập dùng chung [25:146] | AUTH-1, AUTH-5 (flag) |
-| V2/11 Chọn vị trí [25:163] | none: browser geolocation or a manual pick, kept client-side (privacy), then BATCH-1 |
-| V2/12 Lọc đồ ăn [25:180] | SYS-2 (enums, radii), BATCH-1 (filters) |
-| V2/13 Pin món đã chọn [25:215] | BATCH-1 (`view=map`), BATCH-2 (card) |
-| V2/14 Đồ miễn phí hôm nay [25:240] | BATCH-1 (`free=true&pickupDay=today&sort=distance`) |
-| V2/15 Món đã lưu [25:284] | SAVE-1, SAVE-3 |
-| V2/16 Trang người đăng [25:320] | STORE-3, STORE-5, STORE-6, SAVE-2 (`STORE`) |
-| V2/17 Đơn của tôi [26:207] | RES-2 (`tab=upcoming|history`) |
-| V2/18 Chi tiết đơn giữ [26:243] | RES-3; it links to RES-4, CHAT-1, INC-1, REV-1 |
-| V2/19 Chọn đặt cọc / trả đủ [26:267] | SYS-2 (`features.payments`, `depositAmount`); the choice is sent in RES-1 (flag) |
-| V2/20 Phương thức thanh toán [26:289] | RES-1 (`paymentMethod`; flag) |
-| V2/21 QR chuyển tiền [26:309] | PAY-1, PAY-2 (flag) |
-| V2/22 Đặt hàng thành công [26:456] | RES-3 |
-| V2/23 Báo cáo sự cố [26:471] | IMG-1 (`INCIDENT`), INC-1 |
-| V2/24 Trò chuyện P2P [26:491] | CHAT-1, CHAT-2 (reservation-scoped, D§9 D7) |
-| V2/25 Thời gian & bảo quản [27:241] | BATCH-4 |
-| V2/26 Kiểm tra an toàn [27:265] | BATCH-6 (IMG-1 `SAFETY_EVIDENCE` optional) |
-| V2/27 Xem trước món đăng [27:295] | BATCH-2 (seller view), BATCH-8 |
-| V2/28 Đăng món thành công [27:313] | BATCH-8 response |
-| V2/29 Tin đã đăng [27:329] | STORE-5 (`tab=active|done`), BATCH-9, BATCH-10 |
-| V2/30 Các đơn chờ nhận [27:355] | RES-5, RES-8, PAY-3 (flag), CHAT-1 |
-| V2/31 Quét mã QR [27:374] | RES-6, RES-7 ("Không quét được?" → RES-6 with `code`) |
-| V2/32 Đã giao món thành công [27:391] | RES-7 response (`batchRemaining`) |
-| V2/33 Chỉnh sửa tin đăng [28:267] | BATCH-2, BATCH-4, BATCH-9, BATCH-11, BATCH-12 ("Gỡ hoặc tạm dừng tin") |
-| V2/34 Thông báo [28:287] | NOTI-1, NOTI-2 |
-| V2/35 Tài khoản chung mua bán [28:329] | ME-1 (`stats`, `stores`), STORE-2 |
-| V2/36 Cài đặt PWA [28:367] | ME-2 (`notificationPrefs`), NOTI-3, NOTI-4, AUTH-4, ME-3 |
-| V2/37 Khu vực chưa có món [28:404] | BATCH-1 (empty result) |
-| V2/38 Món đã hết suất [28:418] | BATCH-2 (`soldOut`), RES-1 → `BATCH_SOLD_OUT`, BATCH-1 (suggestions) |
-| V2/39 Hủy đơn & cọc [28:436] | RES-3, RES-4 |
-| V2/40 Xác thực OTP [28:456] | AUTH-2, AUTH-1 (resend) |
+| V1/01 Bản đồ khám phá [2:2] | SYS-2, BATCH-1 (`view=map`), BATCH-1 (`free=true`, "Miễn phí gần bạn" sheet with "12 món đang chờ được cứu") |
+| V1/02 Bottom sheet mở rộng [2:97] | BATCH-1 (`view=list`; chips Tất cả / Miễn phí / Giá rẻ = `priceMax`) |
+| V1/03 Tìm kiếm [2:188] | SYS-2 (`popularSearches`), BATCH-1 (`q`, `sort=distance`) |
+| V1/04 Chi tiết món [2:237] | BATCH-2, SAVE-2 / SAVE-3 (♡), STORE-3 (link) |
+| V1/05 Xác nhận đặt giữ [2:266] | BATCH-2, SYS-2 (`maxQtyPerReservation` for the quantity stepper), RES-1 |
+| V1/06 Nhận mã QR [2:293] | RES-3 (`pickup.code`, `pickup.qrPayload`). "Xem đường đi" opens a maps link from `store.lat/lng` (no API). |
+| V1/07 Đăng pass món [2:324] | STORE-2 (no store → STORE-1 onboarding), IMG-1, BATCH-3 |
+| V1/08 Tài khoản mua & bán [2:350] | ME-1 (`stats`, `stores`), RES-2, STORE-5 |
+| V1/09 Onboarding / Welcome [7:2] | none (static) |
+| V1/10 Sign in / Sign up [7:19] | AUTH-1, AUTH-5 (flag) |
+| V1/11 Location permission [7:37] | none: browser geolocation or a manual pick, kept client-side (privacy), then BATCH-1 |
+| V1/12 Advanced filters [7:54] | SYS-2 (enums, radii), BATCH-1 (filters; "Xem 12 kết quả" uses the list length) |
+| V1/13 Pin selected / mini-sheet [7:96] | BATCH-1 (`view=map`), BATCH-2 (card) |
+| V1/14 Free food list [7:122] | BATCH-1 (`free=true&pickupDay=today&sort=distance`) |
+| V1/15 Saved listings [7:168] | SAVE-1, SAVE-3 |
+| V1/16 Seller or store profile [7:204] | STORE-3 (`description` = "Về người đăng"), STORE-5, STORE-6, SAVE-2 (`STORE`) |
+| V1/17 Đơn của tôi [8:2] | RES-2 (`tab=upcoming` = "Đang nhận", `history` = "Lịch sử") |
+| V1/18 Chi tiết đơn / pickup [8:43] | RES-3; it links to RES-4, CHAT-1, INC-1, REV-1 |
+| V1/19 Checkout món có phí / cọc [8:73] | SYS-2 (`features.payments`, `depositAmount`); the choice is sent in RES-1 (flag) |
+| V1/20 Chọn phương thức thanh toán [8:99] | RES-1 (`paymentMode`, `paymentMethod`; flag) |
+| V1/21 QR chuyển khoản / cọc [8:124] | PAY-1, PAY-2 ("Tôi đã thanh toán"; flag) |
+| V1/22 Thanh toán thành công [8:335] | RES-3 |
+| V1/23 Báo cáo chất lượng [8:351] | IMG-1 (`INCIDENT`), INC-1 (the 5 options map to `IncidentType`) |
+| V1/24 Trò chuyện P2P [8:375] | CHAT-1, CHAT-2 (reservation-scoped, D§9 D7) |
+| V1/25 Đăng món · giờ nhận & bảo quản [9:181] | BATCH-4 |
+| V1/26 Checklist an toàn thực phẩm [9:210] | BATCH-6 (IMG-1 `SAFETY_EVIDENCE` optional) |
+| V1/27 Xem trước tin đăng [9:254] | BATCH-2 (seller view), BATCH-8 |
+| V1/28 Đăng thành công [9:274] | BATCH-8 response |
+| V1/29 Tin đang đăng & quản lý [10:2] | STORE-5 (`tab=active|done`), BATCH-9, BATCH-10 |
+| V1/30 Đơn đang chờ người nhận [10:43] | RES-5 (`buyer.displayName` = "Người nhận"), RES-8, PAY-3 (flag), CHAT-1 |
+| V1/31 Quét QR và nhập mã [10:68] | RES-6, RES-7 ("Nhập mã thủ công" → RES-6 with `code`) |
+| V1/32 Xác nhận đã giao thành công [10:88] | RES-7 response (`batchRemaining`) |
+| V1/33 Chỉnh sửa & tạm dừng tin [11:2] | BATCH-2, BATCH-4, BATCH-9, BATCH-11, BATCH-12 ("Tạm dừng / gỡ tin này") |
+| V1/34 Thông báo [11:33] | NOTI-1, NOTI-2 |
+| V1/35 Trung tâm tài khoản 2 vai trò [11:84] | ME-1, STORE-2, RES-2, STORE-5; "Tin nhắn" see the gaps below |
+| V1/36 Cài đặt & PWA [11:135] | ME-2 (`notificationPrefs`), NOTI-3, NOTI-4, AUTH-4, ME-3 |
+| V1/37 Không có món gần đây [11:186] | BATCH-1 (empty result; "Mở rộng bán kính" = larger `radiusKm`) |
+| V1/38 Hết suất / Tin quá hạn [11:201] | BATCH-2 (`soldOut` or terminal status), RES-1 → `BATCH_SOLD_OUT`, BATCH-1 (suggestions) |
+| V1/39 Hủy đơn & lưu ý hoàn cọc [11:220] | RES-3, RES-4 |
+| V1/40 Xác minh OTP [11:243] | AUTH-2, AUTH-1 (resend) |
 
-**Endpoints with no Figma V2 screen yet** (the FE builds them from the V2 UI kit, frame `30:342`):
+**V1 screen elements with no endpoint yet.** These are open questions. They are not contract
+changes until they are decided.
+
+- **V1/35 "Tin nhắn"** (a chat inbox across the buyer and seller roles). For now the FE composes it
+  from RES-2 (buyer) and RES-5 (seller) using `chat.unreadCount`. A dedicated
+  `GET /me/conversations` would be a contract change.
+- **V1/36 "Chỉnh sửa thông tin liên hệ".** Phone and email cannot be changed in v1 (ME-2). Only
+  `displayName` and the avatar are editable for now.
+- **V1/36 "Khu vực mặc định".** This is stored client-side only (privacy). There is no server field.
+- **V1/24 "Thường trả lời trong ngày".** This is static copy. There is no response-time metric.
+
+**Endpoints with no Figma screen yet.** The FE builds these from the V1 design system (frame
+`13:48`):
 
 - Store onboarding and editing: STORE-1, STORE-4, STORE-7 to STORE-9, and PAY-5.
 - Waste-log entry: WASTE-1 to WASTE-3, triggered by `BATCH_EXPIRED_LOG_WASTE`.
 - Incident status: INC-2 and INC-3.
 - The whole admin area: ADM-1 to ADM-11.
-- Showing reviews: STORE-6. Writing one (REV-1) is reached from V2/18.
+- Showing reviews: STORE-6. Writing one (REV-1) is reached from V1/18.
 - BATCH-5, BATCH-7, IMG-2, PAY-4 and SYS-1.
