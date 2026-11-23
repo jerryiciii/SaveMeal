@@ -7,10 +7,10 @@ import styles from "./layout.module.css";
 const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "LASTBITE", template: "%s · LASTBITE" },
-  description: "Cứu món ngon cuối ngày quanh bạn: đặt giữ và nhận tại quầy.",
-  applicationName: "LASTBITE",
-  appleWebApp: { capable: true, title: "LASTBITE", statusBarStyle: "black-translucent" },
+  title: { default: "SaveMeal", template: "%s · SaveMeal" },
+  description: "Mua món ngon cuối ngày giá ưu đãi quanh bạn: đặt giữ, trả tiền và nhận tại quầy.",
+  applicationName: "SaveMeal",
+  appleWebApp: { capable: true, title: "SaveMeal", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
 };
 

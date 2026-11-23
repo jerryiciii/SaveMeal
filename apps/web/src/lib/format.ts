@@ -22,10 +22,10 @@ export function formatCardPrice(amount: number): string {
   return amount === 0 ? "FREE" : formatVnd(amount);
 }
 
-/** "4281" | "LB-4281" | "lb 4281" → "LB–4281" (en dash) */
+/** "4281" | "SM-4281" | "sm 4281" → "SM–4281" (en dash) */
 export function formatOrderCode(code: string): string {
   const digits = code.replace(/\D/g, "");
-  return `LB–${digits}`;
+  return `SM–${digits}`;
 }
 
 function hm(iso: string): string {

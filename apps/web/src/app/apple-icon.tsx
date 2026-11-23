@@ -31,7 +31,7 @@ export default function AppleIcon() {
             fontWeight: 800,
           }}
         >
-          LB
+          SM
         </div>
       </div>
     ),

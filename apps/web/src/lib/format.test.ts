@@ -27,10 +27,10 @@ describe("format", () => {
     expect(formatCardPrice(18000)).toBe("18.000đ");
   });
 
-  it("normalises order codes to LB–NNNN with an en dash", () => {
-    expect(formatOrderCode("4281")).toBe("LB–4281");
-    expect(formatOrderCode("lb-4281")).toBe("LB–4281");
-    expect(formatOrderCode("LB 4281")).toBe("LB–4281");
+  it("normalises order codes to SM–NNNN with an en dash", () => {
+    expect(formatOrderCode("4281")).toBe("SM–4281");
+    expect(formatOrderCode("sm-4281")).toBe("SM–4281");
+    expect(formatOrderCode("SM 4281")).toBe("SM–4281");
   });
 
   it("formats pickup windows in Đà Nẵng time", () => {

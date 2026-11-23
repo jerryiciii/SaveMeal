@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "LASTBITE — Cứu món ngon quanh bạn",
-    short_name: "LASTBITE",
-    description: "Đặt giữ món ngon cuối ngày còn an toàn và nhận trực tiếp tại quầy.",
+    name: "SaveMeal — Món ngon cuối ngày quanh bạn",
+    short_name: "SaveMeal",
+    description: "Đặt giữ món ngon cuối ngày giá ưu đãi, trả tiền và nhận trực tiếp tại quầy.",
     lang: "vi",
     start_url: "/",
     scope: "/",

@@ -10,7 +10,7 @@ export default function OfflinePage() {
     <section className={styles.wrap}>
       <h1 className={styles.title}>Bạn đang ngoại tuyến</h1>
       <p className={styles.text}>
-        LASTBITE cần kết nối mạng để hiển thị số suất còn lại và giữ chỗ cho bạn. Hãy thử lại khi có mạng.
+        SaveMeal cần kết nối mạng để hiển thị số suất còn lại và giữ chỗ cho bạn. Hãy thử lại khi có mạng.
       </p>
       <Link className={styles.link} href="/">
         Thử lại

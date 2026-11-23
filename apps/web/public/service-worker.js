@@ -1,10 +1,10 @@
-/* LASTBITE service worker (hand-written, no build step).
+/* SaveMeal service worker (hand-written, no build step).
  * - Static assets (/_next/static, /icons, fonts): cache-first.
  * - Page navigations: network-first, fallback to the cached /offline page.
- * - /api/* is never cached (reservation state and stock must always be live).
+ * - /api/* is never cached (reservation state, stock and pickup tokens must always be live).
  * Push notifications are added in FE M7.
  */
-const VERSION = "lb-v1";
+const VERSION = "sm-v1";
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 const OFFLINE_URL = "/offline";
