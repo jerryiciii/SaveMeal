@@ -1,0 +1,11 @@
+// SaveMeal data model. The models are added with contract v1.1 (docs/DOMAIN.md).
+// All instants are timestamptz (UTC), money is integer VND, IDs are UUID v4.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
