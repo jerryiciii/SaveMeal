@@ -61,7 +61,7 @@ Summary:
 - [ ] `npm run lint`, `npm run typecheck` and `npm test` pass.
 - [ ] Safety rules (checklist before publishing, QR is not a safety certificate) and privacy rules
       are respected.
-- [ ] UI matches Figma V2 (FE). Screenshots are attached for UI changes.
+- [ ] UI matches Figma V1 (FE). Screenshots are attached for UI changes.
 - [ ] No secrets, and no unrelated changes.
 
 ## Recommended GitHub settings (repo owner)

@@ -9,8 +9,10 @@ and ask the user. Do not work around them.
 
 1. `docs/API_CONTRACT.md`: every endpoint, payload, error code and state transition.
 2. `docs/DOMAIN.md`: entities, state machines, the atomic reservation rule and the safety checklist.
-3. Figma **V2** page `19:23` "V2 · LASTBITE — Sắc màu & Liquid Glass" (file `yi47xwMJLLdMuiNEVh5Tna`)
-   is the UI source of truth. Page `0:1` (V1) is archived. Do not build from it.
+3. Figma **V1** page `0:1` "V1 · Lưu trữ thiết kế cũ" (file `yi47xwMJLLdMuiNEVh5Tna`) is the UI
+   source of truth. That means screens `01`–`40` and the design system frame `13:48`
+   ("41 · LASTBITE Design System · Foundation"). The user chose it on 2026-11-23. Page `19:23` (V2,
+   "Sắc màu & Liquid Glass") is reference only. Do not build from it unless the user says so.
 4. The concept paper (Google Doc `1ATLucNflZVs9cqfspVfIaZFR6b5d_toVrAcym4XqBlw`): product rules,
    §8 safety and §13 privacy.
 
@@ -101,7 +103,7 @@ If two sources disagree, do not guess. Follow the decision recorded in `docs/DOM
 
 ## 9. UI copy
 
-- UI copy is in Vietnamese and matches Figma V2 wording. Code, comments, commits and docs are in
+- UI copy is in Vietnamese and matches Figma V1 wording. Code, comments, commits and docs are in
   English.
 - Show money as `18.000đ` (VND integers, no decimals), times as `17:30–18:30`, and order codes as
   `LB–4281`.
@@ -113,6 +115,6 @@ A change is done only when all of the following are true:
 - `npm run lint`, `npm run typecheck` and `npm test` pass for the affected workspace(s).
 - The behaviour matches `docs/API_CONTRACT.md` and `docs/DOMAIN.md`. State transitions have tests,
   and the atomic reservation path has a concurrency test.
-- The UI matches Figma V2 (FE). Empty, loading and error states are handled.
+- The UI matches Figma V1 (FE). Empty, loading and error states are handled.
 - There are no secrets, no AI attribution and no unrelated changes. The PR template checklist is
   filled in.

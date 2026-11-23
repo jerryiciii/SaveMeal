@@ -6,14 +6,14 @@ own worktree.
 
 ## What goes here
 
-- The screens from **Figma V2** (page `19:23`, screens `V2 / 01` to `V2 / 40`) and the UI kit
-  components (frame `30:342`: chip, food card, glass nav bar, map pin, buttons, inputs).
-- The PWA manifest, service worker and install prompt (V2/36), and the web push subscription.
-- Map discovery with the buyer's location kept **client-side only**, QR display (V2/07) and a camera
-  QR scanner (V2/31).
+- The screens from **Figma V1** (page `0:1`, screens `01` to `40`), built with the design system
+  frame `13:48` ("41 · LASTBITE Design System · Foundation": dark map palette and Inter).
+- The PWA manifest, service worker and install prompt (V1/36), and the web push subscription.
+- Map discovery with the buyer's location kept **client-side only**, QR display (V1/06) and a camera
+  QR scanner (V1/31).
 - An API client typed with `@savemeal/shared`, calling `/api/v1` same-origin (Next.js rewrite to
   the API).
-- Admin pages (`/admin`) and waste-log entry, built from the UI kit (no Figma frames exist).
+- Admin pages (`/admin`) and waste-log entry, built from the V1 design system (no Figma frames exist).
 
 ## Rules
 
