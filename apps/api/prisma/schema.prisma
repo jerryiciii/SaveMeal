@@ -1,5 +1,7 @@
-// SaveMeal data model. The models are added with contract v1.1 (docs/DOMAIN.md).
-// All instants are timestamptz (UTC), money is integer VND, IDs are UUID v4.
+// SaveMeal data model: docs/DOMAIN.md v1.1 §2 (spec §3.1–3.2 table names).
+// Models are PascalCase, tables snake_case. Instants are timestamptz (UTC), money is integer VND,
+// IDs are UUID v4. Invariants Prisma cannot express (CHECKs, partial unique indexes, the
+// append-only trigger on event_logs) are in the migration SQL.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,4 +10,430 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Enums (mirror packages/shared/src/enums.ts)
+// ---------------------------------------------------------------------------------------------
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+/// DELETED is internal only (ME-3 soft delete); the API exposes ACTIVE | SUSPENDED.
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+}
+
+enum SellerType {
+  INDIVIDUAL
+  SHOP
+  CAFE
+  BAKERY
+  CANTEEN
+}
+
+enum Category {
+  BAKERY
+  MEAL
+  DRINK
+  PACKAGED
+  OTHER
+}
+
+enum Storage {
+  ROOM_TEMP
+  CHILLED
+  FROZEN
+}
+
+enum Allergen {
+  GLUTEN
+  MILK
+  EGG
+  PEANUT
+  TREE_NUT
+  SOY
+  FISH
+  SHELLFISH
+  SESAME
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  EXPIRED
+  WITHDRAWN
+  BLOCKED
+}
+
+enum ReservationStatus {
+  RESERVED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum CancelReason {
+  BUYER_LATE
+  BUYER_WRONG_QTY
+  BUYER_CHANGED_PLAN
+  BUYER_OTHER
+  SELLER_WITHDREW
+  LISTING_BLOCKED
+  ADMIN
+}
+
+enum ReportType {
+  WRONG_INFO
+  UNSAFE_FOOD
+  NOT_RECEIVED
+  SELLER_ABSENT
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportAction {
+  NONE
+  WARNING
+  LISTING_BLOCKED
+  ACCOUNT_SUSPENDED
+}
+
+enum ImagePurpose {
+  LISTING
+  REPORT
+  AVATAR
+}
+
+enum ActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------------------------
+// Accounts and auth
+// ---------------------------------------------------------------------------------------------
+
+/// One account both buys and sells (D§9 D1). Seller fields are all optional.
+model Account {
+  id                   String        @id @default(uuid()) @db.Uuid
+  /// E.164. Set to null when the account is deleted (anonymised).
+  phone                String?       @unique @db.VarChar(20)
+  email                String?       @unique @db.VarChar(254)
+  displayName          String?       @map("display_name") @db.VarChar(40)
+  avatarImageId        String?       @map("avatar_image_id") @db.Uuid
+  role                 UserRole      @default(USER)
+  status               AccountStatus @default(ACTIVE)
+  suspendedReason      String?       @map("suspended_reason") @db.VarChar(300)
+  sellerName           String?       @map("seller_name") @db.VarChar(80)
+  sellerType           SellerType?   @map("seller_type")
+  /// "Đã xác minh" badge only; not required to publish (D§9 D4).
+  sellerVerifiedAt     DateTime?     @map("seller_verified_at") @db.Timestamptz(3)
+  sellerVerifiedBy     String?       @map("seller_verified_by") @db.Uuid
+  defaultPickupAddress String?       @map("default_pickup_address") @db.VarChar(200)
+  defaultPickupLat     Float?        @map("default_pickup_lat")
+  defaultPickupLng     Float?        @map("default_pickup_lng")
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt            DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  avatar           ListingImage?  @relation("AccountAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+  sellerVerifier   Account?       @relation("SellerVerifiedBy", fields: [sellerVerifiedBy], references: [id], onDelete: SetNull)
+  sellersVerified  Account[]      @relation("SellerVerifiedBy")
+  refreshTokens    RefreshToken[]
+  listings         FoodListing[]
+  uploadedImages   ListingImage[] @relation("ImageUploader")
+  purchases        Reservation[]  @relation("ReservationBuyer")
+  sales            Reservation[]  @relation("ReservationSeller")
+  reportsFiled     Report[]       @relation("ReportReporter")
+  reportsAgainst   Report[]       @relation("ReportReported")
+  reportsHandled   Report[]       @relation("ReportHandler")
+  feedbackGiven    Feedback[]     @relation("FeedbackAuthor")
+  feedbackReceived Feedback[]     @relation("FeedbackSeller")
+
+  @@index([status])
+  @@map("accounts")
+}
+
+model OtpRequest {
+  id             String     @id @default(uuid()) @db.Uuid
+  channel        OtpChannel
+  /// Hash of the normalised phone/email: OTP rows never hold the identifier in clear.
+  identifierHash String     @map("identifier_hash") @db.VarChar(128)
+  /// Hash of the client IP, for the per-IP rate limit only.
+  ipHash         String?    @map("ip_hash") @db.VarChar(128)
+  codeHash       String     @map("code_hash") @db.VarChar(128)
+  attempts       Int        @default(0)
+  expiresAt      DateTime   @map("expires_at") @db.Timestamptz(3)
+  consumedAt     DateTime?  @map("consumed_at") @db.Timestamptz(3)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([identifierHash, createdAt])
+  @@index([ipHash, createdAt])
+  @@index([expiresAt])
+  @@map("otp_requests")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(128)
+  familyId  String    @map("family_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Set when rotated or revoked. Presenting a token with revokedAt set revokes the family.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  userAgent String?   @map("user_agent") @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Listings
+// ---------------------------------------------------------------------------------------------
+
+/// A surplus-food listing. Draft fields are nullable (LIST-3 accepts a partial input); publish
+/// enforces the required-info checklist (D§5). quantity_available is 0 until publish and is
+/// guarded by CHECK 0 ≤ quantity_available ≤ quantity_total.
+model FoodListing {
+  id                String        @id @default(uuid()) @db.Uuid
+  sellerId          String        @map("seller_id") @db.Uuid
+  title             String        @db.VarChar(80)
+  description       String?       @db.VarChar(500)
+  category          Category
+  /// Nguồn gốc, required to publish.
+  origin            String?       @db.VarChar(200)
+  preparedAt        DateTime?     @map("prepared_at") @db.Timestamptz(3)
+  storage           Storage?
+  storageNote       String?       @map("storage_note") @db.VarChar(200)
+  ingredients       String?       @db.VarChar(300)
+  /// Optional information only (D§9 D5).
+  allergens         Allergen[]    @default([])
+  /// Reference price, optional.
+  originalPrice     Int?          @map("original_price")
+  /// Sale price; 0 = free.
+  price             Int?
+  quantityTotal     Int?          @map("quantity_total")
+  quantityAvailable Int           @default(0) @map("quantity_available")
+  pickupStart       DateTime?     @map("pickup_start") @db.Timestamptz(3)
+  pickupEnd         DateTime?     @map("pickup_end") @db.Timestamptz(3)
+  pickupAddress     String?       @map("pickup_address") @db.VarChar(200)
+  pickupLat         Float?        @map("pickup_lat")
+  pickupLng         Float?        @map("pickup_lng")
+  /// The 6 seller declarations sent with publish (evidence).
+  declaration       Json?
+  declaredAt        DateTime?     @map("declared_at") @db.Timestamptz(3)
+  status            ListingStatus @default(DRAFT)
+  /// Set by an UNSAFE_FOOD report: hidden and not reservable until an admin acts.
+  underReview       Boolean       @default(false) @map("under_review")
+  publishedAt       DateTime?     @map("published_at") @db.Timestamptz(3)
+  closedAt          DateTime?     @map("closed_at") @db.Timestamptz(3)
+  closeReason       String?       @map("close_reason") @db.VarChar(300)
+  blockedReason     String?       @map("blocked_reason") @db.VarChar(300)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  seller       Account        @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  images       ListingImage[] @relation("ListingImages")
+  reservations Reservation[]
+  reports      Report[]
+
+  @@index([status, pickupEnd])
+  @@index([sellerId, status])
+  @@index([pickupLat, pickupLng])
+  @@map("food_listings")
+}
+
+/// Every uploaded image (listing photos, report evidence, avatars). EXIF/GPS stripped on upload.
+model ListingImage {
+  id         String       @id @default(uuid()) @db.Uuid
+  /// Null until attached to a listing.
+  listingId  String?      @map("listing_id") @db.Uuid
+  uploaderId String       @map("uploader_id") @db.Uuid
+  purpose    ImagePurpose @default(LISTING)
+  storageKey String       @unique @map("storage_key") @db.VarChar(255)
+  width      Int
+  height     Int
+  bytes      Int
+  position   Int          @default(0)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  listing  FoodListing? @relation("ListingImages", fields: [listingId], references: [id], onDelete: SetNull)
+  uploader Account      @relation("ImageUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  avatarOf Account[]    @relation("AccountAvatar")
+
+  @@index([listingId, position])
+  @@index([uploaderId, createdAt])
+  @@map("listing_images")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Reservations and handover
+// ---------------------------------------------------------------------------------------------
+
+model Reservation {
+  id             String            @id @default(uuid()) @db.Uuid
+  listingId      String            @map("listing_id") @db.Uuid
+  buyerId        String            @map("buyer_id") @db.Uuid
+  sellerId       String            @map("seller_id") @db.Uuid
+  quantity       Int
+  unitPrice      Int               @map("unit_price")
+  totalPrice     Int               @map("total_price")
+  /// 4 digits, shown as "SM–4281"; unique among the seller's RESERVED orders (partial index).
+  /// It is also the manual handover fallback (D§6).
+  code           String            @db.VarChar(4)
+  status         ReservationStatus @default(RESERVED)
+  cancelReason   CancelReason?     @map("cancel_reason")
+  cancelNote     String?           @map("cancel_note") @db.VarChar(200)
+  /// RES-1 Idempotency-Key; unique per buyer. A replay with a different body is detected by
+  /// comparing listingId and quantity.
+  idempotencyKey String            @map("idempotency_key") @db.VarChar(64)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz(3)
+  closedAt       DateTime?         @map("closed_at") @db.Timestamptz(3)
+
+  listing      FoodListing   @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  buyer        Account       @relation("ReservationBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  seller       Account       @relation("ReservationSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  pickupTokens PickupToken[]
+  reports      Report[]
+  feedback     Feedback?
+
+  @@unique([buyerId, idempotencyKey])
+  @@index([listingId, status])
+  @@index([sellerId, status])
+  @@index([buyerId, status])
+  @@index([status, createdAt])
+  @@map("reservations")
+}
+
+/// Pickup QR token (D§6): random, time-limited, single use, no personal data. Only SHA-256 of the
+/// token is stored.
+model PickupToken {
+  id            String    @id @default(uuid()) @db.Uuid
+  reservationId String    @map("reservation_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt        DateTime? @map("used_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, createdAt])
+  @@index([expiresAt])
+  @@map("pickup_tokens")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Moderation, logs and metrics
+// ---------------------------------------------------------------------------------------------
+
+model Report {
+  id                String        @id @default(uuid()) @db.Uuid
+  reporterId        String        @map("reporter_id") @db.Uuid
+  type              ReportType
+  listingId         String?       @map("listing_id") @db.Uuid
+  reservationId     String?       @map("reservation_id") @db.Uuid
+  reportedAccountId String        @map("reported_account_id") @db.Uuid
+  description       String        @db.VarChar(1000)
+  imageIds          String[]      @default([]) @map("image_ids") @db.Uuid
+  status            ReportStatus  @default(OPEN)
+  action            ReportAction?
+  resolution        String?       @db.VarChar(1000)
+  handledBy         String?       @map("handled_by") @db.Uuid
+  handledAt         DateTime?     @map("handled_at") @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reporter        Account      @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  reportedAccount Account      @relation("ReportReported", fields: [reportedAccountId], references: [id], onDelete: Restrict)
+  handler         Account?     @relation("ReportHandler", fields: [handledBy], references: [id], onDelete: SetNull)
+  listing         FoodListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  reservation     Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([type])
+  @@index([reporterId, createdAt])
+  @@map("reports")
+}
+
+/// Append-only (a trigger rejects UPDATE and DELETE). Every state transition writes one; it is
+/// the evidence trail and the source for JOB-4 metrics. actor_id has no FK so it survives
+/// account anonymisation untouched.
+model EventLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  actorId    String?   @map("actor_id") @db.Uuid
+  actorType  ActorType @map("actor_type")
+  event      String    @db.VarChar(60)
+  entityType String    @map("entity_type") @db.VarChar(40)
+  entityId   String    @map("entity_id") @db.Uuid
+  data       Json      @default("{}")
+  at         DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId, at])
+  @@index([event, at])
+  @@map("event_logs")
+}
+
+/// Later (FB-1..2): ratings. The table exists so the data model matches spec §3.2.
+model Feedback {
+  id            String   @id @default(uuid()) @db.Uuid
+  reservationId String   @unique @map("reservation_id") @db.Uuid
+  authorId      String   @map("author_id") @db.Uuid
+  sellerId      String   @map("seller_id") @db.Uuid
+  /// 1–5, enforced by a CHECK constraint.
+  rating        Int      @db.SmallInt
+  comment       String?  @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  author      Account     @relation("FeedbackAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  seller      Account     @relation("FeedbackSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([sellerId, createdAt])
+  @@map("feedback")
+}
+
+/// Daily per-seller aggregates, rebuilt by JOB-4 from event_logs (D§8 KPIs).
+model TransactionMetric {
+  date                     DateTime @db.Date
+  sellerId                 String   @map("seller_id") @db.Uuid
+  listingsPublished        Int      @default(0) @map("listings_published")
+  listingsExpiredWithStock Int      @default(0) @map("listings_expired_with_stock")
+  portionsListed           Int      @default(0) @map("portions_listed")
+  portionsReserved         Int      @default(0) @map("portions_reserved")
+  portionsHandedOver       Int      @default(0) @map("portions_handed_over")
+  reservationsCreated      Int      @default(0) @map("reservations_created")
+  reservationsCompleted    Int      @default(0) @map("reservations_completed")
+  reservationsCancelled    Int      @default(0) @map("reservations_cancelled")
+  reservationsExpired      Int      @default(0) @map("reservations_expired")
+  discountRateSum          Float    @default(0) @map("discount_rate_sum")
+  discountSamples          Int      @default(0) @map("discount_samples")
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([date, sellerId])
+  @@map("transaction_metrics")
 }
