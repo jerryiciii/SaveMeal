@@ -1,0 +1,28 @@
+.pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-on-pin);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.free {
+  background: var(--pin-free);
+}
+
+.priced {
+  background: var(--pin-priced);
+}
+
+.selected {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(247, 249, 251, 0.85);
+}

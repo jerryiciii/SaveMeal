@@ -1,0 +1,41 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-button);
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+
+.block {
+  width: 100%;
+}
+
+.primary {
+  background: var(--color-mint);
+  color: var(--text-on-mint);
+  font-weight: 700;
+}
+
+.secondary {
+  background: var(--color-raised);
+  color: #f6fafe;
+  font-weight: 600;
+}
+
+.button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.button:disabled {
+  background: var(--color-muted);
+  color: var(--text-muted);
+  font-weight: 600;
+  cursor: not-allowed;
+}
