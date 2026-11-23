@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { OtpChannel } from '@savemeal/shared';
+import { randomInt } from 'node:crypto';
 import request from 'supertest';
 import { OTP_SENDER, type OtpSender } from '../src/auth/otp-sender';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -35,8 +36,9 @@ export function uniquePhone(): string {
 
 /** A distinct client IP per call so per-IP OTP limits do not leak between tests. */
 export function uniqueIp(): string {
-  seq += 1;
-  return `10.${(seq >> 16) & 255}.${(seq >> 8) & 255}.${seq & 255}`;
+  // Random, not a per-file counter: every test file shares the same database, so counters that
+  // restart per file would reuse IPs across suites and trip the per-IP OTP limit.
+  return `10.${randomInt(256)}.${randomInt(256)}.${randomInt(1, 255)}`;
 }
 
 export type Session = { accessToken: string; cookie: string; refreshToken: string; userId: string; isNewUser: boolean };

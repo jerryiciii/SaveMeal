@@ -10,6 +10,9 @@
 //   +84900000005  second buyer
 import { Prisma, PrismaClient, type Category, type Storage } from '@prisma/client';
 import { DECLARATION_KEYS } from '@savemeal/shared';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import sharp from 'sharp';
 
 const OFFSET_MS = 7 * 3600_000; // Asia/Ho_Chi_Minh, fixed UTC+7
 const HOUR = 3600_000;
@@ -64,7 +67,26 @@ type SeedListing = {
   published: boolean;
 };
 
-const DECLARATION = Object.fromEntries(DECLARATION_KEYS.map((k) => [k, true]));
+const PALETTE = ['#F59E0B', '#EF4444', '#10B981', '#3B82F6', '#8B5CF6'];
+
+/** Writes a placeholder webp (coloured card with the title) for a seed image if it is missing. */
+async function ensureSeedImage(key: string, title: string, index: number): Promise<number> {
+  const path = join(resolve(process.env.UPLOAD_DIR ?? 'uploads'), key);
+  if (!existsSync(path)) {
+    mkdirSync(dirname(path), { recursive: true });
+    const safe = title.replace(/[<>&"]/g, '');
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">` +
+        `<rect width="800" height="600" fill="${PALETTE[index % PALETTE.length]}"/>` +
+        `<text x="400" y="310" font-family="sans-serif" font-size="44" fill="#fff" text-anchor="middle">${safe}</text>` +
+        `</svg>`,
+    );
+    await sharp(svg).webp({ quality: 80 }).toFile(path);
+  }
+  return statSync(path).size;
+}
+
+const DECLARATION =Object.fromEntries(DECLARATION_KEYS.map((k) => [k, true]));
 
 async function upsertAccount(prisma: PrismaClient, phone: string, data: Prisma.AccountCreateInput) {
   return prisma.account.upsert({ where: { phone }, update: {}, create: { ...data, phone } });
@@ -87,7 +109,9 @@ async function recreateListings(
   await prisma.foodListing.deleteMany({ where: { id: { in: staleIds } } });
 
   const demo = demoWindow(now);
-  for (const item of listings) {
+  for (const [index, item] of listings.entries()) {
+    const storageKey = `seed/${item.image}.webp`;
+    const bytes = await ensureSeedImage(storageKey, item.title, index);
     const pickupStart = new Date(demo.start.getTime() + item.startOffsetMin * MIN);
     const pickupEnd = new Date(pickupStart.getTime() + item.durationMin * MIN);
     const preparedAt = new Date(
@@ -121,10 +145,10 @@ async function recreateListings(
           create: {
             uploaderId: sellerId,
             purpose: 'LISTING',
-            storageKey: `seed/${item.image}.webp`,
+            storageKey,
             width: 800,
             height: 600,
-            bytes: 0,
+            bytes,
             position: 0,
           },
         },
