@@ -1,0 +1,22 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "LASTBITE — Cứu món ngon quanh bạn",
+    short_name: "LASTBITE",
+    description: "Đặt giữ món ngon cuối ngày còn an toàn và nhận trực tiếp tại quầy.",
+    lang: "vi",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#111922",
+    theme_color: "#111922",
+    categories: ["food", "lifestyle"],
+    icons: [
+      { src: "/pwa-icon/192", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/pwa-icon/512", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/pwa-icon/512?maskable=1", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+  };
+}
