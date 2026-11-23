@@ -1,0 +1,18 @@
+.chip {
+  flex: none;
+  height: 36px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--surface-chip);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selected {
+  background: var(--surface-chip-active);
+  color: var(--text-accent);
+}

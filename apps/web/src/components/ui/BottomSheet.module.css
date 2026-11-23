@@ -1,0 +1,30 @@
+.sheet {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 9px 22px 22px;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background: var(--surface-sheet);
+}
+
+.handle {
+  width: 76px;
+  height: 5px;
+  margin: 0 auto 18px;
+  border-radius: 3px;
+  background: var(--sheet-handle);
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
