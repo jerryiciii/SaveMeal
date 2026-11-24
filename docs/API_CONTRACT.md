@@ -5,7 +5,7 @@
 > [`DOMAIN.md`](DOMAIN.md). Section numbers like "D§3" refer to that file. The product spec is the
 > competition dossier (D§0). The UI is Figma V1.
 
-Version: **v1.1** (2026-11-23) · **38 MVP endpoints** + 25 Later · 4 jobs (D§7) · changelog in §18
+Version: **v1.1.1** (2026-11-24) · **38 MVP endpoints** + 25 Later · 4 jobs (D§7) · changelog in §18
 
 Every endpoint is tagged **[MVP]** (build now) or **[LATER]** (designed only; do not build, and no
 milestone includes it). The demo slice to build first is in D§10.
@@ -196,6 +196,23 @@ type ListingInput = {                  // LIST-3 (partial allowed for a draft) /
   "map": { "styleUrl": "https://…/style.json", "attribution": "© OpenStreetMap contributors" }
 } }
 ```
+
+- **SYS-3 · `GET /internal/cron/daily` [INFRA].** (Infrastructure endpoint; not counted in the 38 MVP
+  endpoints.) Role `CRON` (`Authorization: Bearer <CRON_SECRET>`). Runs JOB-1 (`expireListings`),
+  JOB-2 (`expireReservations`), JOB-3 (`cleanupExpiredData`) and JOB-4 (`rebuildMetrics`)
+  sequentially for serverless deployments (e.g. Vercel Cron). Returns 200:
+
+```json
+{ "data": {
+  "listingsExpired": 0,
+  "reservationsExpired": 0,
+  "cleanup": { "otpRequests": 0, "refreshTokens": 0, "pickupTokens": 0, "images": 0 },
+  "metricsRebuilt": 0
+} }
+```
+
+  - Errors: `401 UNAUTHENTICATED` (missing or invalid bearer token), `403 FORBIDDEN` (`CRON_SECRET`
+    not configured).
 
 ## 3. Auth
 
@@ -506,7 +523,9 @@ All of these are ADMIN only and write an event_log.
 ## 11. Scheduled jobs
 
 JOB-1 (listing expiry), JOB-2 (reservation expiry), JOB-3 (cleanup) and JOB-4 (metrics) are
-specified in D§7. They change state in exactly the same way as the endpoints do.
+specified in D§7. They change state in exactly the same way as the endpoints do. In serverless
+deployments where in-process `@Cron` schedules are disabled, they are triggered via SYS-3
+(`GET /internal/cron/daily`).
 
 ## 12–15. (reserved)
 
@@ -568,6 +587,12 @@ specified in D§7. They change state in exactly the same way as the endpoints do
 | (no frame) Admin | ADM-1..9 | Built from the V1 design system (frame `13:48`) |
 
 ## 18. Changelog
+
+### v1.1.1 (2026-11-24): add internal daily cron endpoint for serverless deployments
+
+- Added **SYS-3 · `GET /internal/cron/daily`** (infra endpoint, role `CRON` via
+  `Authorization: Bearer <CRON_SECRET>`) to trigger JOB-1..4 sequentially on serverless hosts such
+  as Vercel.
 
 ### v1.1 (2026-11-23): adopt the competition dossier (spec v2) and rename the product to SaveMeal
 

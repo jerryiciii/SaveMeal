@@ -500,4 +500,42 @@ describe('Reservations and handover (RES-1..8)', () => {
     });
     expect(dbReservations).toBe(3);
   });
+
+  it('RES-1 active limit: ignores overdue RESERVED rows past pickupEnd + grace so a buyer can still reserve', async () => {
+    const s = await seller(app, otp);
+    const { session: b } = await buyer('Khách quá hạn');
+
+    const overdueListings = [
+      await published(app, s, { quantityTotal: 2 }),
+      await published(app, s, { quantityTotal: 2 }),
+      await published(app, s, { quantityTotal: 2 }),
+    ];
+
+    for (const l of overdueListings) {
+      await request(app.getHttpServer())
+        .post('/api/v1/reservations')
+        .set(bearer(b))
+        .set('Idempotency-Key', randomUUID())
+        .send({ listingId: l.id, quantity: 1 })
+        .expect(201);
+    }
+
+    // Age all 3 listings past pickupEnd + 15m grace while keeping reservations RESERVED (simulating cron lag)
+    await prisma.foodListing.updateMany({
+      where: { id: { in: overdueListings.map((l) => l.id) } },
+      data: {
+        pickupStart: new Date(Date.now() - 2 * HOUR),
+        pickupEnd: new Date(Date.now() - 20 * MIN),
+      },
+    });
+
+    const freshListing = await published(app, s, { quantityTotal: 2 });
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/reservations')
+      .set(bearer(b))
+      .set('Idempotency-Key', randomUUID())
+      .send({ listingId: freshListing.id, quantity: 1 })
+      .expect(201);
+    expect(created.body.data.status).toBe('RESERVED');
+  });
 });
