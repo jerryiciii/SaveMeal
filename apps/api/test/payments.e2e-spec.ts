@@ -4,61 +4,102 @@ import request from 'supertest';
 import { OTP_SENDER } from '../src/auth/otp-sender';
 import { AppConfig } from '../src/config/app-config';
 import { parseEnv } from '../src/config/env';
+import {
+  PAYMENT_MAILER,
+  type PaymentConfirmedEmailParams,
+  type PaymentMailer,
+  type PaymentRejectedEmailParams,
+  type ProofSubmittedEmailParams,
+} from '../src/payments/payment-mailer';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './app';
 import { bearer, CapturingOtpSender, login, uniquePhone, type Session } from './auth-helpers';
-import { published, seller } from './listing-helpers';
+import { completeInput, DECLARATION, draft, published, seller, uploadImage } from './listing-helpers';
 
-const SEPAY_SECRET = 'test_sepay_webhook_secret_987654';
 const HOUR = 3600_000;
 const MINUTE = 60_000;
 
-async function createPaymentsApp(provider: 'mock' | 'sepay'): Promise<{
+class CapturingPaymentMailer implements PaymentMailer {
+  readonly proofSubmitted: ProofSubmittedEmailParams[] = [];
+  readonly confirmed: PaymentConfirmedEmailParams[] = [];
+  readonly rejected: PaymentRejectedEmailParams[] = [];
+
+  async sendProofSubmittedToSeller(params: ProofSubmittedEmailParams): Promise<void> {
+    this.proofSubmitted.push(params);
+  }
+
+  async sendPaymentConfirmedToBuyer(params: PaymentConfirmedEmailParams): Promise<void> {
+    this.confirmed.push(params);
+  }
+
+  async sendPaymentRejectedToBuyer(params: PaymentRejectedEmailParams): Promise<void> {
+    this.rejected.push(params);
+  }
+
+  clear(): void {
+    this.proofSubmitted.length = 0;
+    this.confirmed.length = 0;
+    this.rejected.length = 0;
+  }
+}
+
+async function createPaymentsApp(): Promise<{
   app: INestApplication;
   otp: CapturingOtpSender;
+  mailer: CapturingPaymentMailer;
 }> {
   const otp = new CapturingOtpSender();
+  const mailer = new CapturingPaymentMailer();
   const config = new AppConfig(
     parseEnv({
       ...process.env,
       PAYMENTS_ENABLED: 'true',
-      PAYMENT_PROVIDER: provider,
-      ...(provider === 'sepay'
-        ? {
-            SEPAY_BANK_CODE: 'MB',
-            SEPAY_ACCOUNT_NO: '0123456789',
-            SEPAY_ACCOUNT_NAME: 'SAVEMEAL PILOT',
-            SEPAY_WEBHOOK_SECRET: SEPAY_SECRET,
-          }
-        : {}),
     }),
   );
   const app = await createTestApp({}, (builder) =>
     builder
       .overrideProvider(OTP_SENDER)
       .useValue(otp)
+      .overrideProvider(PAYMENT_MAILER)
+      .useValue(mailer)
       .overrideProvider(AppConfig)
       .useValue(config),
   );
-  return { app, otp };
+  return { app, otp, mailer };
 }
 
-async function createAdmin(app: INestApplication, otp: CapturingOtpSender): Promise<Session> {
-  const session = await login(app, otp, uniquePhone());
-  await app.get(PrismaService).account.update({
-    where: { id: session.userId },
-    data: { role: 'ADMIN', displayName: 'Admin Pilot' },
-  });
-  return session;
+async function setEmail(prisma: PrismaService, accountId: string, email: string): Promise<void> {
+  await prisma.account.update({ where: { id: accountId }, data: { email } });
 }
 
-describe('Payments v1.2 (mock provider)', () => {
+async function createSellerWithQr(
+  app: INestApplication,
+  otp: CapturingOtpSender,
+  prisma: PrismaService,
+  at: { lat: number; lng: number },
+  name: string,
+): Promise<{ session: Session; qrImageId: string; email: string }> {
+  const s = await seller(app, otp, at, name);
+  const email = `seller-${randomUUID().slice(0, 8)}@savemeal.test`;
+  await setEmail(prisma, s.userId, email);
+  const qrImageId = await uploadImage(app, s, 'PAYMENT_QR');
+  const patchRes = await request(app.getHttpServer())
+    .patch('/api/v1/me')
+    .set(bearer(s))
+    .send({ seller: { bankQrImageId: qrImageId } })
+    .expect(200);
+  expect(patchRes.body.data.seller.bankQrImage?.id).toBe(qrImageId);
+  return { session: s, qrImageId, email };
+}
+
+describe('Payments v1.3 (P2P Direct Bank QR + Proof + Resend Email)', () => {
   let app: INestApplication;
   let otp: CapturingOtpSender;
+  let mailer: CapturingPaymentMailer;
   let prisma: PrismaService;
 
   beforeAll(async () => {
-    ({ app, otp } = await createPaymentsApp('mock'));
+    ({ app, otp, mailer } = await createPaymentsApp());
     prisma = app.get(PrismaService);
   });
 
@@ -66,213 +107,232 @@ describe('Payments v1.2 (mock provider)', () => {
     await app.close();
   });
 
-  it('skips PENDING_PAYMENT for free listings (price = 0)', async () => {
-    const s = await seller(app, otp, { lat: 16.051, lng: 108.211 }, 'Tiệm miễn phí');
-    const b = await login(app, otp, uniquePhone());
-    const listing = await published(app, s, { price: 0, originalPrice: null, quantityTotal: 3 });
+  beforeEach(() => {
+    mailer.clear();
+  });
 
-    const res = await request(app.getHttpServer())
+  it('requires PAYMENT_QR to publish a paid listing when PAYMENTS_ENABLED=true, and allows free listings without one', async () => {
+    const s = await seller(app, otp, { lat: 16.051, lng: 108.211 }, 'Tiệm chưa có QR');
+    const paidDraft = await draft(app, s, { price: 15_000, originalPrice: 25_000, quantityTotal: 3 });
+    expect(paidDraft.missing).toContain('PAYMENT_QR');
+
+    const failPub = await request(app.getHttpServer())
+      .post(`/api/v1/listings/${paidDraft.id}/publish`)
+      .set(bearer(s))
+      .send({ declaration: DECLARATION })
+      .expect(422);
+    expect(failPub.body.error.code).toBe('LISTING_INCOMPLETE');
+    expect(failPub.body.error.details.missing).toContain('PAYMENT_QR');
+
+    // Attaching a PAYMENT_QR image via LIST-4 also backfills account default and unblocks publish.
+    const qrImageId = await uploadImage(app, s, 'PAYMENT_QR');
+    const updatedDraft = await request(app.getHttpServer())
+      .patch(`/api/v1/listings/${paidDraft.id}`)
+      .set(bearer(s))
+      .send({ bankQrImageId: qrImageId })
+      .expect(200);
+    expect(updatedDraft.body.data.bankQrImage?.id).toBe(qrImageId);
+    expect(updatedDraft.body.data.missing).toEqual([]);
+
+    const meRes = await request(app.getHttpServer()).get('/api/v1/me').set(bearer(s)).expect(200);
+    expect(meRes.body.data.seller.bankQrImage?.id).toBe(qrImageId);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/listings/${paidDraft.id}/publish`)
+      .set(bearer(s))
+      .send({ declaration: DECLARATION })
+      .expect(200);
+
+    // Deleting an in-use PAYMENT_QR image returns 409 IMAGE_IN_USE.
+    const delQr = await request(app.getHttpServer())
+      .delete(`/api/v1/images/${qrImageId}`)
+      .set(bearer(s))
+      .expect(409);
+    expect(delQr.body.error.code).toBe('IMAGE_IN_USE');
+
+    // Free listing without QR publishes and skips PENDING_PAYMENT.
+    const sFree = await seller(app, otp, { lat: 16.0512, lng: 108.2112 }, 'Tiệm miễn phí');
+    const freeListing = await published(app, sFree, { price: 0, originalPrice: null, quantityTotal: 2 });
+    const b = await login(app, otp, uniquePhone());
+    const freeRes = await request(app.getHttpServer())
       .post('/api/v1/reservations')
       .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
+      .send({ listingId: freeListing.id, quantity: 1 })
       .expect(201);
 
-    expect(res.body.data.status).toBe('RESERVED');
-    expect(res.body.data.platformFee).toBe(0);
-    expect(res.body.data.payableAmount).toBe(0);
-    expect(res.body.data.payment).toBeNull();
-    expect(res.body.data.pickupToken?.qrPayload).toMatch(/^SM1\./);
+    expect(freeRes.body.data.status).toBe('RESERVED');
+    expect(freeRes.body.data.platformFee).toBe(0);
+    expect(freeRes.body.data.payableAmount).toBe(0);
+    expect(freeRes.body.data.payment).toBeNull();
+    expect(freeRes.body.data.pickupToken?.qrPayload).toMatch(/^SM1\./);
   });
 
-  it('computes flat 2.000đ fee for paid orders ≤ 20k and 5% fee for orders > 20k', async () => {
-    const s = await seller(app, otp, { lat: 16.052, lng: 108.212 }, 'Tiệm phí');
-    const b1 = await login(app, otp, uniquePhone());
-    const b2 = await login(app, otp, uniquePhone());
-
-    const listing15k = await published(app, s, { price: 15_000, originalPrice: 25_000, quantityTotal: 5 });
-    const r1 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b1))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing15k.id, quantity: 1 })
-      .expect(201);
-
-    expect(r1.body.data.status).toBe('PENDING_PAYMENT');
-    expect(r1.body.data.platformFee).toBe(2_000);
-    expect(r1.body.data.payableAmount).toBe(17_000);
-    expect(r1.body.data.pickupToken).toBeNull();
-    expect(r1.body.data.payment).toMatchObject({
-      provider: 'MOCK',
-      status: 'UNPAID',
-      payoutStatus: 'NONE',
-      foodAmount: 15_000,
-      platformFee: 2_000,
-      payableAmount: 17_000,
-      sellerNet: 15_000,
-    });
-    expect(r1.body.data.payment.transferContent).toMatch(/^SM[A-Z0-9]{8}$/);
-
-    // PAY-1: buyer can fetch payment; unrelated buyer gets 404
-    const p1 = await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r1.body.data.id}/payment`)
-      .set(bearer(b1))
-      .expect(200);
-    expect(p1.body.data.id).toBe(r1.body.data.payment.id);
-
-    await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r1.body.data.id}/payment`)
-      .set(bearer(b2))
-      .expect(404);
-
-    // > 20k: 30.000đ -> 5% = 1.500đ, payableAmount = 31.500đ
-    const listing30k = await published(app, s, { price: 30_000, originalPrice: 50_000, quantityTotal: 5 });
-    const r2 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b2))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing30k.id, quantity: 1 })
-      .expect(201);
-
-    expect(r2.body.data.status).toBe('PENDING_PAYMENT');
-    expect(r2.body.data.platformFee).toBe(1_500);
-    expect(r2.body.data.payableAmount).toBe(31_500);
-  });
-
-  it('rejects holdMinutes < 5 or exceeding pickupEnd with 422 PAYMENT_HOLD_INVALID', async () => {
-    const s = await seller(app, otp, { lat: 16.053, lng: 108.213 }, 'Tiệm giữ chỗ');
+  it('validates holdMinutes (< 5 or exceeding pickupEnd → 422 PAYMENT_HOLD_INVALID)', async () => {
+    const { session: s } = await createSellerWithQr(app, otp, prisma, { lat: 16.052, lng: 108.212 }, 'Tiệm Hold');
     const b = await login(app, otp, uniquePhone());
     const now = Date.now();
-    const listing = await published(app, s, {
-      price: 15_000,
-      quantityTotal: 4,
-      pickupStart: new Date(now + 10 * MINUTE).toISOString(),
-      pickupEnd: new Date(now + 20 * MINUTE).toISOString(),
-    });
+    const img = await uploadImage(app, s);
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/listings')
+      .set(bearer(s))
+      .send(
+        completeInput([img], {
+          price: 15_000,
+          pickupStart: new Date(now + 2 * MINUTE).toISOString(),
+          pickupEnd: new Date(now + 20 * MINUTE).toISOString(),
+        }),
+      )
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/v1/listings/${created.body.data.id}/publish`)
+      .set(bearer(s))
+      .send({ declaration: DECLARATION })
+      .expect(200);
 
     const tooShort = await request(app.getHttpServer())
       .post('/api/v1/reservations')
       .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1, holdMinutes: 4 })
+      .send({ listingId: created.body.data.id, quantity: 1, holdMinutes: 4 })
       .expect(422);
     expect(tooShort.body.error.code).toBe('PAYMENT_HOLD_INVALID');
 
-    const tooLong = await request(app.getHttpServer())
+    const pastPickupEnd = await request(app.getHttpServer())
       .post('/api/v1/reservations')
       .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1, holdMinutes: 30 })
+      .send({ listingId: created.body.data.id, quantity: 1, holdMinutes: 30 })
       .expect(422);
-    expect(tooLong.body.error.code).toBe('PAYMENT_HOLD_INVALID');
+    expect(pastPickupEnd.body.error.code).toBe('PAYMENT_HOLD_INVALID');
   });
 
-  it('lazy-expires overdue PENDING_PAYMENT on GET /reservations/:id and GET /listings, releasing stock', async () => {
-    const s = await seller(app, otp, { lat: 16.054, lng: 108.214 }, 'Tiệm lazy expiry');
-    const b1 = await login(app, otp, uniquePhone());
-    const b2 = await login(app, otp, uniquePhone());
-    const listing = await published(app, s, { price: 15_000, quantityTotal: 5 });
-
-    // 1) Lazy-expiry triggered by GET /reservations/:id
-    const r1 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b1))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 2 })
-      .expect(201);
-
-    const beforeExpiry = await prisma.foodListing.findUnique({ where: { id: listing.id } });
-    expect(beforeExpiry?.quantityAvailable).toBe(3);
-
-    await prisma.reservation.update({
-      where: { id: r1.body.data.id },
-      data: { paymentExpiresAt: new Date(Date.now() - 60_000) },
-    });
-
-    const getRes = await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r1.body.data.id}`)
-      .set(bearer(b1))
-      .expect(200);
-    expect(getRes.body.data.status).toBe('EXPIRED');
-    expect(getRes.body.data.payment.status).toBe('EXPIRED');
-
-    const afterExpiry = await prisma.foodListing.findUnique({ where: { id: listing.id } });
-    expect(afterExpiry?.quantityAvailable).toBe(5);
-
-    // 2) Lazy-expiry triggered by GET /listings
-    const r2 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b2))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
-      .expect(201);
-
-    await prisma.reservation.update({
-      where: { id: r2.body.data.id },
-      data: { paymentExpiresAt: new Date(Date.now() - 60_000) },
-    });
-
-    const search = await request(app.getHttpServer())
-      .get('/api/v1/listings')
-      .query({ lat: 16.054, lng: 108.214, radiusKm: 1 })
-      .expect(200);
-    const found = (search.body.data as { id: string; quantityAvailable: number }[]).find((l) => l.id === listing.id);
-    expect(found?.quantityAvailable).toBe(5);
-
-    const r2Db = await prisma.reservation.findUnique({
-      where: { id: r2.body.data.id },
-      include: { payment: true },
-    });
-    expect(r2Db?.status).toBe('EXPIRED');
-    expect(r2Db?.payment?.status).toBe('EXPIRED');
-  });
-
-  it('supports PAY-DEV simulate, handover (amountToCollect=0), payouts, payout account, and admin settle', async () => {
-    const s = await seller(app, otp, { lat: 16.055, lng: 108.215 }, 'Tiệm mô phỏng');
+  it('completes full P2P flow: RES-1 → PAY-2 proof (+ seller email) → PAY-3 confirm (+ buyer email) → RES-6/7/8 handover', async () => {
+    const { session: s, qrImageId, email: sellerEmail } = await createSellerWithQr(
+      app,
+      otp,
+      prisma,
+      { lat: 16.053, lng: 108.213 },
+      'Tiệm Bánh P2P',
+    );
     const b = await login(app, otp, uniquePhone());
-    const admin = await createAdmin(app, otp);
+    const buyerEmail = `buyer-${randomUUID().slice(0, 8)}@savemeal.test`;
+    await setEmail(prisma, b.userId, buyerEmail);
 
     const now = Date.now();
     const listing = await published(app, s, {
       price: 15_000,
       originalPrice: 25_000,
-      quantityTotal: 4,
-      pickupStart: new Date(now + 5 * MINUTE).toISOString(),
-      pickupEnd: new Date(now + 1.5 * HOUR).toISOString(),
+      quantityTotal: 5,
+      pickupStart: new Date(now - 5 * MINUTE).toISOString(),
+      pickupEnd: new Date(now + 2 * HOUR).toISOString(),
     });
 
-    const created = await request(app.getHttpServer())
+    // RES-1: creates PENDING_PAYMENT with 0 fee, sellerQrImage, and pickupToken = null.
+    const res1 = await request(app.getHttpServer())
       .post('/api/v1/reservations')
       .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 2 })
+      .send({ listingId: listing.id, quantity: 1 })
       .expect(201);
-    const reservationId = created.body.data.id as string;
-    expect(created.body.data.status).toBe('PENDING_PAYMENT');
-    expect(created.body.data.totalPrice).toBe(30_000);
-    expect(created.body.data.platformFee).toBe(1_500);
-    expect(created.body.data.payableAmount).toBe(31_500);
 
-    // PAY-DEV simulate
-    const sim = await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${reservationId}/payment/simulate`)
+    const reservationId = res1.body.data.id as string;
+    expect(res1.body.data.status).toBe('PENDING_PAYMENT');
+    expect(res1.body.data.platformFee).toBe(0);
+    expect(res1.body.data.payableAmount).toBe(15_000);
+    expect(res1.body.data.pickupToken).toBeNull();
+    expect(res1.body.data.payment).toMatchObject({
+      reservationId,
+      status: 'UNPAID',
+      amount: 15_000,
+      proofImage: null,
+      proofSubmittedAt: null,
+      confirmedAt: null,
+      rejectedAt: null,
+      rejectReason: null,
+    });
+    expect(res1.body.data.payment.sellerQrImage?.id).toBe(qrImageId);
+
+    // PAY-1: buyer and seller can both read payment.
+    const pay1 = await request(app.getHttpServer())
+      .get(`/api/v1/reservations/${reservationId}/payment`)
       .set(bearer(b))
-      .send({})
       .expect(200);
-    expect(sim.body.data.status).toBe('RESERVED');
-    expect(sim.body.data.payment.status).toBe('PAID');
-    expect(sim.body.data.pickupToken?.qrPayload).toMatch(/^SM1\./);
+    expect(pay1.body.data.status).toBe('UNPAID');
+    expect(pay1.body.data.sellerQrImage?.id).toBe(qrImageId);
 
-    // Second simulate -> 409 INVALID_STATE_TRANSITION
-    const simAgain = await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${reservationId}/payment/simulate`)
+    // PAY-2: missing proofImageId → 422 PROOF_REQUIRED.
+    const missingProof = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment-proof`)
       .set(bearer(b))
       .send({})
-      .expect(409);
-    expect(simAgain.body.error.code).toBe('INVALID_STATE_TRANSITION');
+      .expect(422);
+    expect(missingProof.body.error.code).toBe('PROOF_REQUIRED');
 
-    // RES-7 lookup: amountToCollect = 0
-    const qrPayload = sim.body.data.pickupToken.qrPayload as string;
+    // PAY-2: valid PAYMENT_PROOF image → AWAITING_SELLER_CONFIRM + seller email captured.
+    const proofImageId = await uploadImage(app, b, 'PAYMENT_PROOF');
+    const pay2 = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment-proof`)
+      .set(bearer(b))
+      .send({ proofImageId })
+      .expect(200);
+
+    expect(pay2.body.data.status).toBe('AWAITING_SELLER_CONFIRM');
+    expect(pay2.body.data.pickupToken).toBeNull();
+    expect(pay2.body.data.payment.status).toBe('PROOF_SUBMITTED');
+    expect(pay2.body.data.payment.proofImage?.id).toBe(proofImageId);
+    expect(pay2.body.data.payment.proofSubmittedAt).toBeTruthy();
+
+    expect(mailer.proofSubmitted).toHaveLength(1);
+    expect(mailer.proofSubmitted[0]!.toEmail).toBe(sellerEmail);
+    expect(mailer.proofSubmitted[0]!.amount).toBe(15_000);
+
+    // Lazy-expiry must NOT expire AWAITING_SELLER_CONFIRM even if payment_expires_at is in the past.
+    await prisma.reservation.update({
+      where: { id: reservationId },
+      data: { paymentExpiresAt: new Date(Date.now() - 5 * MINUTE) },
+    });
+    const afterWait = await request(app.getHttpServer())
+      .get(`/api/v1/reservations/${reservationId}`)
+      .set(bearer(b))
+      .expect(200);
+    expect(afterWait.body.data.status).toBe('AWAITING_SELLER_CONFIRM');
+
+    // RES-2 upcoming includes AWAITING_SELLER_CONFIRM.
+    const upcoming = await request(app.getHttpServer())
+      .get('/api/v1/me/reservations?tab=upcoming')
+      .set(bearer(b))
+      .expect(200);
+    expect(upcoming.body.data.some((r: { id: string }) => r.id === reservationId)).toBe(true);
+
+    // PAY-3: non-seller (buyer) cannot confirm → 404 RESERVATION_NOT_FOUND.
+    await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment/confirm`)
+      .set(bearer(b))
+      .expect(404);
+
+    // PAY-3: seller confirms → RESERVED, payment CONFIRMED, buyer email captured.
+    const pay3 = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment/confirm`)
+      .set(bearer(s))
+      .expect(200);
+    expect(pay3.body.data.status).toBe('RESERVED');
+    expect(pay3.body.data.payment.status).toBe('CONFIRMED');
+    expect(pay3.body.data.payment.confirmedAt).toBeTruthy();
+
+    expect(mailer.confirmed).toHaveLength(1);
+    expect(mailer.confirmed[0]!.toEmail).toBe(buyerEmail);
+    expect(mailer.confirmed[0]!.reservationId).toBe(reservationId);
+
+    // RES-6: buyer fetches/rotates pickup QR.
+    const qrRes = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/pickup-token`)
+      .set(bearer(b))
+      .expect(201);
+    const qrPayload = qrRes.body.data.qrPayload as string;
+    expect(qrPayload).toMatch(/^SM1\./);
+
+    // RES-7: lookup shows amountToCollect = 0 because payment is CONFIRMED.
     const lookup = await request(app.getHttpServer())
       .post('/api/v1/pickups/lookup')
       .set(bearer(s))
@@ -281,284 +341,122 @@ describe('Payments v1.2 (mock provider)', () => {
     expect(lookup.body.data.amountToCollect).toBe(0);
     expect(lookup.body.data.canConfirm).toBe(true);
 
-    // RES-8 confirm: COMPLETED + payment.payoutStatus = PENDING_PAYOUT
+    // RES-8: handover completes order.
     const confirm = await request(app.getHttpServer())
       .post('/api/v1/pickups/confirm')
       .set(bearer(s))
       .send({ reservationId, qrPayload })
       .expect(200);
     expect(confirm.body.data.reservation.status).toBe('COMPLETED');
-    expect(confirm.body.data.reservation.payment.payoutStatus).toBe('PENDING_PAYOUT');
-
-    // PAY-3 GET /me/payouts
-    const payouts1 = await request(app.getHttpServer())
-      .get('/api/v1/me/payouts')
-      .set(bearer(s))
-      .expect(200);
-    expect(payouts1.body.data.summary).toEqual({
-      pendingPayoutVnd: 30_000,
-      settledVnd: 0,
-      totalFoodRevenueVnd: 30_000,
-    });
-    expect(payouts1.body.data.items).toHaveLength(1);
-    expect(payouts1.body.data.items[0].sellerNet).toBe(30_000);
-    expect(payouts1.body.data.items[0].payoutStatus).toBe('PENDING_PAYOUT');
-
-    // PAY-4 PUT /me/payout-account
-    const payoutAcct = await request(app.getHttpServer())
-      .put('/api/v1/me/payout-account')
-      .set(bearer(s))
-      .send({ bankCode: 'vcb', accountNo: '9988776655', accountName: 'NGUYEN VAN B' })
-      .expect(200);
-    expect(payoutAcct.body.data).toMatchObject({
-      bankCode: 'VCB',
-      accountNo: '9988776655',
-      accountName: 'NGUYEN VAN B',
-    });
-
-    // PAY-5 POST /admin/payouts/:sellerId/settle
-    const settled = await request(app.getHttpServer())
-      .post(`/api/v1/admin/payouts/${s.userId}/settle`)
-      .set(bearer(admin))
-      .send({ note: 'Chuyen khoan dot 1' })
-      .expect(200);
-    expect(settled.body.data).toMatchObject({
-      sellerId: s.userId,
-      settledCount: 1,
-      settledAmountVnd: 30_000,
-    });
-
-    const payouts2 = await request(app.getHttpServer())
-      .get('/api/v1/me/payouts')
-      .set(bearer(s))
-      .expect(200);
-    expect(payouts2.body.data.summary).toEqual({
-      pendingPayoutVnd: 0,
-      settledVnd: 30_000,
-      totalFoodRevenueVnd: 30_000,
-    });
+    expect(confirm.body.data.listingRemaining).toBe(4);
   });
 
-  it('marks payment REFUND_DUE on buyer cancel or listing withdraw and lets admin mark-refunded', async () => {
-    const s = await seller(app, otp, { lat: 16.056, lng: 108.216 }, 'Tiệm hoàn tiền');
-    const b1 = await login(app, otp, uniquePhone());
-    const b2 = await login(app, otp, uniquePhone());
-    const admin = await createAdmin(app, otp);
-
-    const listing = await published(app, s, { price: 15_000, quantityTotal: 5 });
-
-    // Order 1: paid then buyer cancels -> REFUND_DUE
-    const r1 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b1))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
-      .expect(201);
-    await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${r1.body.data.id}/payment/simulate`)
-      .set(bearer(b1))
-      .send({})
-      .expect(200);
-
-    const cancelled = await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${r1.body.data.id}/cancel`)
-      .set(bearer(b1))
-      .send({ reason: 'BUYER_CHANGED_PLAN', note: 'Bận đột xuất' })
-      .expect(200);
-    expect(cancelled.body.data.status).toBe('CANCELLED');
-    expect(cancelled.body.data.payment.status).toBe('REFUND_DUE');
-
-    // Order 2: paid then seller withdraws listing -> REFUND_DUE
-    const r2 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b2))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
-      .expect(201);
-    await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${r2.body.data.id}/payment/simulate`)
-      .set(bearer(b2))
-      .send({})
-      .expect(200);
-
-    await request(app.getHttpServer())
-      .post(`/api/v1/listings/${listing.id}/withdraw`)
-      .set(bearer(s))
-      .send({ reason: 'STORAGE_NOT_OK', note: 'Tủ lạnh hỏng' })
-      .expect(200);
-
-    const r2After = await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r2.body.data.id}`)
-      .set(bearer(b2))
-      .expect(200);
-    expect(r2After.body.data.status).toBe('CANCELLED');
-    expect(r2After.body.data.payment.status).toBe('REFUND_DUE');
-
-    // PAY-5 admin list & mark-refunded
-    const listRes = await request(app.getHttpServer())
-      .get('/api/v1/admin/payments')
-      .set(bearer(admin))
-      .query({ status: 'REFUND_DUE', sellerId: s.userId })
-      .expect(200);
-    expect(listRes.body.data).toHaveLength(2);
-
-    const paymentId = r1.body.data.payment.id as string;
-    const refunded = await request(app.getHttpServer())
-      .post(`/api/v1/admin/payments/${paymentId}/mark-refunded`)
-      .set(bearer(admin))
-      .send({ note: 'Da hoan tien qua VietQR' })
-      .expect(200);
-    expect(refunded.body.data.status).toBe('REFUNDED');
-    expect(refunded.body.data.refundedAt).not.toBeNull();
-
-    // Marking refunded again -> 409 PAYMENT_NOT_REFUNDABLE
-    const refundAgain = await request(app.getHttpServer())
-      .post(`/api/v1/admin/payments/${paymentId}/mark-refunded`)
-      .set(bearer(admin))
-      .send({ note: 'Duplicate' })
-      .expect(409);
-    expect(refundAgain.body.error.code).toBe('PAYMENT_NOT_REFUNDABLE');
-  });
-});
-
-describe('Payments v1.2 (SePay provider & webhook)', () => {
-  let app: INestApplication;
-  let otp: CapturingOtpSender;
-  let prisma: PrismaService;
-
-  beforeAll(async () => {
-    ({ app, otp } = await createPaymentsApp('sepay'));
-    prisma = app.get(PrismaService);
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('rejects PAY-DEV simulate with 403 FEATURE_DISABLED when provider is sepay', async () => {
-    const s = await seller(app, otp, { lat: 16.057, lng: 108.217 }, 'Tiệm SePay');
+  it('handles PAY-4 seller rejection: CANCELLED (PAYMENT_REJECTED), stock released, buyer email captured, re-confirm returns 409', async () => {
+    const { session: s } = await createSellerWithQr(
+      app,
+      otp,
+      prisma,
+      { lat: 16.054, lng: 108.214 },
+      'Tiệm Từ Chối',
+    );
     const b = await login(app, otp, uniquePhone());
-    const listing = await published(app, s, { price: 15_000, quantityTotal: 3 });
+    const buyerEmail = `buyer-rej-${randomUUID().slice(0, 8)}@savemeal.test`;
+    await setEmail(prisma, b.userId, buyerEmail);
 
-    const created = await request(app.getHttpServer())
+    const listing = await published(app, s, { price: 20_000, originalPrice: 35_000, quantityTotal: 4 });
+    const res1 = await request(app.getHttpServer())
       .post('/api/v1/reservations')
       .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
+      .send({ listingId: listing.id, quantity: 2 })
       .expect(201);
+    const reservationId = res1.body.data.id as string;
 
-    expect(created.body.data.payment.provider).toBe('SEPAY');
-    expect(created.body.data.payment.qrImageUrl).toContain('https://qr.sepay.vn/img?');
-
-    const sim = await request(app.getHttpServer())
-      .post(`/api/v1/reservations/${created.body.data.id}/payment/simulate`)
+    const proofId = await uploadImage(app, b, 'PAYMENT_PROOF');
+    await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment-proof`)
       .set(bearer(b))
-      .send({})
-      .expect(403);
-    expect(sim.body.error.code).toBe('FEATURE_DISABLED');
+      .send({ proofImageId: proofId })
+      .expect(200);
+
+    // Stock is currently 4 - 2 = 2.
+    const midListing = await request(app.getHttpServer())
+      .get(`/api/v1/listings/${listing.id}`)
+      .set(bearer(s))
+      .expect(200);
+    expect(midListing.body.data.quantityAvailable).toBe(2);
+
+    // PAY-4: reject with reason.
+    const rej = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment/reject`)
+      .set(bearer(s))
+      .send({ reason: 'Chưa thấy tiền vào tài khoản sau khi kiểm tra' })
+      .expect(200);
+
+    expect(rej.body.data.status).toBe('CANCELLED');
+    expect(rej.body.data.cancelReason).toBe('PAYMENT_REJECTED');
+    expect(rej.body.data.payment.status).toBe('REJECTED');
+    expect(rej.body.data.payment.rejectReason).toBe('Chưa thấy tiền vào tài khoản sau khi kiểm tra');
+    expect(rej.body.data.payment.rejectedAt).toBeTruthy();
+
+    // Stock returned atomically: 2 -> 4.
+    const afterListing = await request(app.getHttpServer())
+      .get(`/api/v1/listings/${listing.id}`)
+      .set(bearer(s))
+      .expect(200);
+    expect(afterListing.body.data.quantityAvailable).toBe(4);
+
+    // Buyer email captured.
+    expect(mailer.rejected).toHaveLength(1);
+    expect(mailer.rejected[0]!.toEmail).toBe(buyerEmail);
+    expect(mailer.rejected[0]!.reason).toBe('Chưa thấy tiền vào tài khoản sau khi kiểm tra');
+
+    // Re-confirming a rejected payment returns 409 PAYMENT_NOT_CONFIRMABLE.
+    const reconfirm = await request(app.getHttpServer())
+      .post(`/api/v1/reservations/${reservationId}/payment/confirm`)
+      .set(bearer(s))
+      .expect(409);
+    expect(reconfirm.body.error.code).toBe('PAYMENT_NOT_CONFIRMABLE');
   });
 
-  it('handles PAY-2 SePay webhook: auth check, settlement, idempotency, and late payment REFUND_DUE', async () => {
-    const s = await seller(app, otp, { lat: 16.058, lng: 108.218 }, 'Tiệm Webhook');
-    const b1 = await login(app, otp, uniquePhone());
-    const b2 = await login(app, otp, uniquePhone());
-    const listing = await published(app, s, { price: 15_000, quantityTotal: 5 });
+  it('lazy-expires overdue PENDING_PAYMENT holds and releases stock back to listing', async () => {
+    const { session: s } = await createSellerWithQr(
+      app,
+      otp,
+      prisma,
+      { lat: 16.055, lng: 108.215 },
+      'Tiệm Lazy Expire',
+    );
+    const b = await login(app, otp, uniquePhone());
+    const listing = await published(app, s, { price: 15_000, originalPrice: 25_000, quantityTotal: 2 });
 
-    // Missing or wrong Apikey -> 401
-    await request(app.getHttpServer())
-      .post('/api/v1/webhooks/sepay')
-      .send({ id: 1001, transferType: 'in', transferAmount: 17_000, content: 'SM12345678' })
-      .expect(401);
-
-    await request(app.getHttpServer())
-      .post('/api/v1/webhooks/sepay')
-      .set('Authorization', 'Apikey wrong_secret')
-      .send({ id: 1001, transferType: 'in', transferAmount: 17_000, content: 'SM12345678' })
-      .expect(401);
-
-    // Create order 1 and settle via SePay webhook
-    const r1 = await request(app.getHttpServer())
+    const res1 = await request(app.getHttpServer())
       .post('/api/v1/reservations')
-      .set(bearer(b1))
+      .set(bearer(b))
       .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
+      .send({ listingId: listing.id, quantity: 2 })
       .expect(201);
-    const transferContent1 = r1.body.data.payment.transferContent as string;
+    const reservationId = res1.body.data.id as string;
 
-    const txId1 = `SEPAY-${Date.now()}-1`;
-    const hook1 = await request(app.getHttpServer())
-      .post('/api/v1/webhooks/sepay')
-      .set('Authorization', `Apikey ${SEPAY_SECRET}`)
-      .send({
-        id: txId1,
-        gateway: 'MBBank',
-        transferType: 'in',
-        transferAmount: 17_000,
-        content: `MBVCB.999999.${transferContent1}.CT tu BUYER`,
-      })
-      .expect(200);
-    expect(hook1.body.data).toEqual({ received: true });
-
-    const r1After = await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r1.body.data.id}`)
-      .set(bearer(b1))
-      .expect(200);
-    expect(r1After.body.data.status).toBe('RESERVED');
-    expect(r1After.body.data.payment.status).toBe('PAID');
-    expect(r1After.body.data.payment.paidAt).not.toBeNull();
-
-    const tokenCount = await prisma.pickupToken.count({ where: { reservationId: r1.body.data.id } });
-    expect(tokenCount).toBe(1);
-
-    // Duplicate delivery with same providerTxId -> idempotent 200, no extra token or status change
-    const hookDup = await request(app.getHttpServer())
-      .post('/api/v1/webhooks/sepay')
-      .set('Authorization', `Apikey ${SEPAY_SECRET}`)
-      .send({
-        id: txId1,
-        transferType: 'in',
-        transferAmount: 17_000,
-        content: transferContent1,
-      })
-      .expect(200);
-    expect(hookDup.body.data).toEqual({ received: true });
-    expect(await prisma.pickupToken.count({ where: { reservationId: r1.body.data.id } })).toBe(1);
-
-    // Late payment after expiry -> REFUND_DUE
-    const r2 = await request(app.getHttpServer())
-      .post('/api/v1/reservations')
-      .set(bearer(b2))
-      .set('Idempotency-Key', randomUUID())
-      .send({ listingId: listing.id, quantity: 1 })
-      .expect(201);
-    const transferContent2 = r2.body.data.payment.transferContent as string;
-
+    // Force hold expiry in the past.
     await prisma.reservation.update({
-      where: { id: r2.body.data.id },
-      data: { paymentExpiresAt: new Date(Date.now() - 60_000) },
+      where: { id: reservationId },
+      data: { paymentExpiresAt: new Date(Date.now() - MINUTE) },
     });
-    // Trigger lazy-expiry so reservation is EXPIRED
-    await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r2.body.data.id}`)
-      .set(bearer(b2))
-      .expect(200);
 
-    const txId2 = `SEPAY-${Date.now()}-2`;
-    await request(app.getHttpServer())
-      .post('/api/v1/webhooks/sepay')
-      .set('Authorization', `Apikey ${SEPAY_SECRET}`)
-      .send({
-        id: txId2,
-        transferType: 'in',
-        transferAmount: 17_000,
-        content: `CHUYEN KHOAN ${transferContent2.toLowerCase()}`,
-      })
+    // Reading the reservation triggers lazy-expiry.
+    const resGet = await request(app.getHttpServer())
+      .get(`/api/v1/reservations/${reservationId}`)
+      .set(bearer(b))
       .expect(200);
+    expect(resGet.body.data.status).toBe('EXPIRED');
+    expect(resGet.body.data.payment.status).toBe('EXPIRED');
 
-    const p2After = await request(app.getHttpServer())
-      .get(`/api/v1/reservations/${r2.body.data.id}/payment`)
-      .set(bearer(b2))
+    // Stock is back to 2.
+    const afterListing = await request(app.getHttpServer())
+      .get(`/api/v1/listings/${listing.id}`)
+      .set(bearer(s))
       .expect(200);
-    expect(p2After.body.data.status).toBe('REFUND_DUE');
+    expect(afterListing.body.data.quantityAvailable).toBe(2);
   });
 });
