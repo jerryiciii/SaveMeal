@@ -2,17 +2,47 @@ import { SELLER_TYPES, type SellerType } from '@savemeal/shared';
 import { Type } from 'class-transformer';
 import {
   Equals,
+  IsBoolean,
   IsIn,
+  IsInt,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PickupLocationDto } from '../common/dto/pickup-location.dto';
+
+export class UpdateNearbyAlertsDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 3, 5])
+  radiusKm?: number;
+}
 
 export class UpdateSellerDto {
   @IsOptional()
@@ -56,6 +86,12 @@ export class UpdateMeDto {
   @ValidateNested()
   @Type(() => UpdateSellerDto)
   seller?: UpdateSellerDto;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => UpdateNearbyAlertsDto)
+  nearbyAlerts?: UpdateNearbyAlertsDto;
 }
 
 /** ME-3 */

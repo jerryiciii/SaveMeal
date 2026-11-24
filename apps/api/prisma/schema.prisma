@@ -174,10 +174,15 @@ model Account {
   sellerVerifiedAt     DateTime?     @map("seller_verified_at") @db.Timestamptz(3)
   sellerVerifiedBy     String?       @map("seller_verified_by") @db.Uuid
   defaultPickupAddress String?       @map("default_pickup_address") @db.VarChar(200)
-  defaultPickupLat     Float?        @map("default_pickup_lat")
-  defaultPickupLng     Float?        @map("default_pickup_lng")
-  bankQrImageId        String?       @map("bank_qr_image_id") @db.Uuid
-  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  defaultPickupLat      Float?        @map("default_pickup_lat")
+  defaultPickupLng      Float?        @map("default_pickup_lng")
+  bankQrImageId         String?       @map("bank_qr_image_id") @db.Uuid
+  nearbyAlertsEnabled   Boolean       @default(false) @map("nearby_alerts_enabled")
+  nearbyAlertLat        Float?        @map("nearby_alert_lat")
+  nearbyAlertLng        Float?        @map("nearby_alert_lng")
+  nearbyAlertRadiusKm   Int           @default(3) @map("nearby_alert_radius_km")
+  nearbyAlertLastSentAt DateTime?     @map("nearby_alert_last_sent_at") @db.Timestamptz(3)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt            DateTime?     @map("deleted_at") @db.Timestamptz(3)
 

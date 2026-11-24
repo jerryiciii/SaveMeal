@@ -15,7 +15,7 @@ import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Version of the API contract this server implements. */
-export const API_VERSION = '1.3.0';
+export const API_VERSION = '1.3.1';
 
 /** SYS-2 constants that are product choices, not deployment config. */
 const RADIUS_KM_OPTIONS = [1, 3, 5];
