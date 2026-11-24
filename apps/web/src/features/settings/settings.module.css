@@ -641,3 +641,83 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+/* Nearby email alerts card */
+.alertSwitch {
+  appearance: none;
+  border: 0;
+  width: 50px;
+  height: 30px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #d8d8d0;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex: none;
+  transition: background-color 140ms ease;
+}
+
+.alertSwitchOn {
+  background: var(--ink);
+}
+
+.alertThumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.18);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.alertSwitchOn .alertThumb {
+  transform: translateX(20px);
+  background: var(--lime);
+}
+
+.alertControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alertTrack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.alertTrackBtn {
+  appearance: none;
+  border: 0;
+  height: 36px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.alertTrackBtnOn {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.alertLocRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.alertLocText {
+  font-size: 12px;
+  color: var(--muted);
+}
