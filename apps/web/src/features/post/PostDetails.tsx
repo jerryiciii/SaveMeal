@@ -209,6 +209,11 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
     <>
       <ScreenHeader title="Đăng món · Bước 2/3" subtitle="Thông tin nhận hàng" />
       <form className={styles.body} onSubmit={next} noValidate>
+        <div className={styles.stepper} aria-label="Tiến độ đăng món">
+          <span className={`${styles.stepPill} ${styles.stepDone}`}>✓ Ảnh &amp; giá</span>
+          <span className={`${styles.stepPill} ${styles.stepActive}`}>2 · Giờ &amp; điểm</span>
+          <span className={styles.stepPill}>3 · 6 cam kết</span>
+        </div>
         <p className={styles.lead}>Món sẽ được khách đến nhận trực tiếp.</p>
         <p className={styles.sectionLabel}>Ngày nhận</p>
         <div className={styles.chips}>

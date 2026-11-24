@@ -36,7 +36,7 @@ export function CancelScreen({ id }: { id: string }) {
     <>
       <ScreenHeader title="Hủy đơn đặt giữ" backHref={`/orders/${id}`} />
       <div className={styles.body}>
-        <h2 style={{ margin: 0, fontSize: 24 }}>Bạn có chắc muốn hủy?</h2>
+        <h2 className={styles.cancelHeading}>Bạn có chắc muốn hủy?</h2>
         {state.kind === "ready" ? (
           <p className={styles.orderMeta}>
             Đơn {state.data.code} · {state.data.listing.title}
@@ -47,7 +47,7 @@ export function CancelScreen({ id }: { id: string }) {
             Lý do hủy
           </legend>
           {REASONS.map((r) => (
-            <label key={r} className={styles.reason}>
+            <label key={r} className={`${styles.reason} ${reason === r ? styles.reasonSelected : ""}`}>
               <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => setReason(r)} />
               {CANCEL_REASON_LABEL[r]}
             </label>
@@ -57,7 +57,7 @@ export function CancelScreen({ id }: { id: string }) {
           <p>Suất bạn hủy sẽ được trả lại để người khác có thể đặt.</p>
         </Notice>
         {error ? <Notice tone="error">{error}</Notice> : null}
-        <Button onClick={cancel} disabled={busy}>
+        <Button variant="danger" onClick={cancel} disabled={busy}>
           {busy ? "Đang hủy…" : "Xác nhận hủy đơn"}
         </Button>
         <Button variant="secondary" onClick={() => router.replace(`/orders/${id}`)}>

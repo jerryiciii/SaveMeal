@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.css";
 
-/** Figma V1 13:48 "ACTION / STATES": primary (mint), secondary (raised), disabled (muted). */
+/** SaveMeal V2.1 pill button: primary (ink), secondary (white + hairline), danger (soft red), lime (electric lime). */
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "danger" | "lime";
   block?: boolean;
 };
 

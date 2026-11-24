@@ -114,9 +114,13 @@ export function ReportsScreen() {
       ) : load.state.data.length === 0 ? (
         <div className={styles.emptyBox}>Không có báo cáo nào phù hợp với bộ lọc hiện tại.</div>
       ) : (
-        <div className={styles.cardList}>
+        <section className={styles.tableCard} aria-label="Danh sách báo cáo vi phạm">
+          <div className={styles.tableCardHeader}>
+            <span>Báo cáo &amp; bằng chứng</span>
+            <span className={styles.tabular}>{load.state.data.length} báo cáo</span>
+          </div>
           {load.state.data.map((report) => (
-            <article key={report.id} className={styles.itemCard}>
+            <article key={report.id} className={styles.tableRowItem}>
               <div className={styles.itemHeader}>
                 <div className={styles.itemTitleGroup}>
                   <div className={styles.badgeRow}>
@@ -206,7 +210,7 @@ export function ReportsScreen() {
               ) : null}
             </article>
           ))}
-        </div>
+        </section>
       )}
     </>
   );

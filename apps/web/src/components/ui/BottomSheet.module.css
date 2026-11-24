@@ -2,29 +2,31 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 9px 22px 22px;
+  padding: 10px 20px 24px;
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  background: var(--surface-sheet);
+  background: var(--canvas);
+  box-shadow: 0 -8px 28px rgba(17, 17, 17, 0.08);
 }
 
 .handle {
-  width: 76px;
-  height: 5px;
-  margin: 0 auto 18px;
-  border-radius: 3px;
+  width: 44px;
+  height: 4px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
   background: var(--sheet-handle);
 }
 
 .title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
 .subtitle {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--muted);
 }

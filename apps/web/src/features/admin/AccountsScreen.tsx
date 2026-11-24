@@ -140,13 +140,17 @@ export function AccountsScreen() {
       ) : load.state.data.length === 0 ? (
         <div className={styles.emptyBox}>Không tìm thấy tài khoản nào phù hợp.</div>
       ) : (
-        <div className={styles.cardList}>
+        <section className={styles.tableCard} aria-label="Danh sách tài khoản">
+          <div className={styles.tableCardHeader}>
+            <span>Tài khoản &amp; xác minh người bán</span>
+            <span className={styles.tabular}>{load.state.data.length} tài khoản</span>
+          </div>
           {load.state.data.map((acc) => {
             const isStatusOpen = openAction?.accountId === acc.id && openAction.kind === "status";
             const isVerifyOpen = openAction?.accountId === acc.id && openAction.kind === "verify";
 
             return (
-              <article key={acc.id} className={styles.itemCard}>
+              <article key={acc.id} className={styles.tableRowItem}>
                 <div className={styles.itemHeader}>
                   <div className={styles.itemTitleGroup}>
                     <div className={styles.badgeRow}>
@@ -229,7 +233,7 @@ export function AccountsScreen() {
               </article>
             );
           })}
-        </div>
+        </section>
       )}
     </>
   );

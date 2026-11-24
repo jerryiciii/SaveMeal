@@ -77,6 +77,11 @@ export function PostStep1() {
     <form className={styles.body} onSubmit={next} noValidate>
       <h1 className={styles.h1}>Đăng pass đồ ăn</h1>
       <p className={styles.lead}>Cứu món ngon, giảm lãng phí.</p>
+      <div className={styles.stepper} aria-label="Tiến độ đăng món">
+        <span className={`${styles.stepPill} ${styles.stepActive}`}>1 · Ảnh &amp; giá</span>
+        <span className={styles.stepPill}>2 · Giờ &amp; điểm</span>
+        <span className={styles.stepPill}>3 · 6 cam kết</span>
+      </div>
       <label className={styles.photo}>
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element -- local object URL preview

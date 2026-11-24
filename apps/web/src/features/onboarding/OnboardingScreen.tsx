@@ -24,7 +24,17 @@ export function OnboardingScreen() {
   return (
     <div className={styles.screen}>
       <div className={styles.top}>
-        <p className={styles.brand}>SaveMeal</p>
+        <p className={styles.brand}>
+          <span className={styles.sparkBadge} aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M8 1.5L9.75 6.25L14.5 8L9.75 9.75L8 14.5L6.25 9.75L1.5 8L6.25 6.25L8 1.5Z"
+                fill="#111111"
+              />
+            </svg>
+          </span>
+          <span>SaveMeal</span>
+        </p>
         <div className={styles.heroCard} aria-hidden="true">
           <div className={styles.heroMapGrid}>
             <span className={`${styles.pinBadge} ${styles.pinFree}`} style={{ top: "24%", left: "16%" }}>

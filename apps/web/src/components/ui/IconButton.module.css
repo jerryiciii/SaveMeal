@@ -2,11 +2,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 50%;
-  background: var(--surface-chip);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(17, 17, 17, 0.08);
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 100ms ease;
+}
+
+.button:hover {
+  background: var(--field);
+}
+
+.button:active {
+  transform: scale(0.96);
 }

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useSession } from "@/features/auth/SessionProvider";
+import { adminApi } from "@/lib/api/adminEndpoints";
 import styles from "./admin.module.css";
 
 const ADMIN_TABS = [
@@ -18,6 +19,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname() ?? "/admin";
+  const [openReports, setOpenReports] = useState<number>(0);
+
+  const isAdmin = session.status === "authenticated" && session.me.role === "ADMIN";
 
   useEffect(() => {
     if (session.status === "anonymous") {
@@ -25,6 +29,24 @@ export function AdminShell({ children }: { children: ReactNode }) {
       router.replace(`/login?next=${encodeURIComponent(next)}`);
     }
   }, [session.status, pathname, router]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    Promise.resolve()
+      .then(() => adminApi.getMetrics())
+      .then((metrics) => {
+        if (active && metrics?.reports && typeof metrics.reports.open === "number") {
+          setOpenReports(metrics.reports.open);
+        }
+      })
+      .catch(() => {
+        /* non-blocking badge count */
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, pathname]);
 
   if (session.status === "loading" || session.status === "anonymous") {
     return (
@@ -72,36 +94,46 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className={styles.viewport} data-admin-shell="true">
       <header className={styles.topbar}>
         <div className={styles.topbarInner}>
-          <div className={styles.brandRow}>
-            <div className={styles.brandGroup}>
-              <Link href="/admin" className={styles.brand}>
-                ✦ SaveMeal
-              </Link>
-              <span className={styles.adminBadge}>Quản trị</span>
-            </div>
+          <div className={styles.brandGroup}>
+            <Link href="/admin" className={styles.brandLink}>
+              <span className={styles.brandSpark} aria-hidden="true">
+                ✦
+              </span>
+              <span className={styles.brandTitle}>SaveMeal</span>
+            </Link>
+            <span className={styles.adminBadge}>Admin</span>
+          </div>
+
+          <div className={styles.topbarRight}>
+            <nav className={styles.nav} aria-label="Điều hướng quản trị">
+              {ADMIN_TABS.map((tab) => {
+                const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+                const showPendingBadge = tab.href === "/admin/reports" && openReports > 0;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    aria-current={active ? "page" : undefined}
+                    className={[styles.navTab, active ? styles.navTabActive : ""].filter(Boolean).join(" ")}
+                  >
+                    <span>{tab.label}</span>
+                    {showPendingBadge ? (
+                      <span className={styles.navCountBadge} aria-hidden="true">
+                        {openReports}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
+
             <div className={styles.userRow}>
-              <span>{adminLabel}</span>
+              <span className={styles.userName}>{adminLabel}</span>
               <Link href="/" className={styles.backApp}>
                 Về ứng dụng
               </Link>
             </div>
           </div>
-
-          <nav className={styles.nav} aria-label="Điều hướng quản trị">
-            {ADMIN_TABS.map((tab) => {
-              const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  aria-current={active ? "page" : undefined}
-                  className={[styles.navTab, active ? styles.navTabActive : ""].filter(Boolean).join(" ")}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </header>
 

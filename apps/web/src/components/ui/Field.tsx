@@ -3,7 +3,7 @@ import styles from "./Field.module.css";
 
 type Base = { label: string; hint?: ReactNode; error?: string | null };
 
-/** Labelled input in the V1 style (dark raised field, 13px label, secondary hint). */
+/** Labelled input in the V2.1 style (warm field, 16px radius, crisp ink + lime focus ring). */
 export function TextField({ label, hint, error, className, id, ...rest }: Base & InputHTMLAttributes<HTMLInputElement>) {
   const fieldId = id ?? `f-${label.replace(/\s+/g, "-")}`;
   return (
@@ -37,7 +37,7 @@ export function SelectField({ label, hint, error, className, id, children, ...re
       <label htmlFor={fieldId} className={styles.label}>
         {label}
       </label>
-      <select id={fieldId} className={styles.input} {...rest}>
+      <select id={fieldId} className={styles.input} aria-invalid={error ? true : undefined} {...rest}>
         {children}
       </select>
       {error ? <p className={styles.error}>{error}</p> : hint ? <p className={styles.hint}>{hint}</p> : null}

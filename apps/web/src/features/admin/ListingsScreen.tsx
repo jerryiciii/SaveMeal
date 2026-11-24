@@ -105,11 +105,15 @@ export function ListingsScreen() {
       ) : load.state.data.length === 0 ? (
         <div className={styles.emptyBox}>Không có tin đăng nào phù hợp với bộ lọc hiện tại.</div>
       ) : (
-        <div className={styles.cardList}>
+        <section className={styles.tableCard} aria-label="Danh sách tin đăng">
+          <div className={styles.tableCardHeader}>
+            <span>Tin đăng &amp; tồn suất</span>
+            <span className={styles.tabular}>{load.state.data.length} tin</span>
+          </div>
           {load.state.data.map((listing) => {
             const canBlock = listing.status === "PUBLISHED" || listing.status === "EXPIRED";
             return (
-              <article key={listing.id} className={styles.itemCard}>
+              <article key={listing.id} className={styles.tableRowItem}>
                 <div className={styles.itemHeader}>
                   <div className={styles.listingCardRow}>
                     {listing.image ? (
@@ -211,7 +215,7 @@ export function ListingsScreen() {
               </article>
             );
           })}
-        </div>
+        </section>
       )}
     </>
   );

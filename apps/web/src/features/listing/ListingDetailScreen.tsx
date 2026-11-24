@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, FoodCard, Notice, ScreenHeader } from "@/components/ui";
 import { useSession } from "@/features/auth/SessionProvider";
@@ -142,8 +143,9 @@ function NearbySuggestions({ excludeId, lat, lng }: { excludeId: string; lat?: n
   );
 }
 
-/** Figma V1 04 · Chi tiết món (2:237) and 38 · Hết suất / quá hạn (11:201). LIST-2 + LIST-1 suggestions. */
+/** Figma V2.1 · Chi tiết món and Hết suất / quá hạn. LIST-2 + LIST-1 suggestions. */
 export function ListingDetailScreen({ id }: { id: string }) {
+  const router = useRouter();
   const session = useSession();
   const { state, reload } = useLoad(() => saveMeal.getListing(id), [id, session.status]);
 
@@ -190,23 +192,50 @@ export function ListingDetailScreen({ id }: { id: string }) {
   const distance = formatDistance(l.distanceMeters);
 
   return (
-    <>
-      <ScreenHeader title="Chi tiết món" />
+    <div className={styles.screen}>
       <div className={styles.hero}>
+        <div className={styles.heroTopBar}>
+          <button
+            type="button"
+            className={styles.heroCircleBtn}
+            aria-label="Quay lại"
+            onClick={() => router.back()}
+          >
+            ‹
+          </button>
+          {!owner ? (
+            <Link
+              href={`/report?listingId=${encodeURIComponent(l.id)}`}
+              className={styles.heroCircleBtn}
+              aria-label="Báo cáo tin này"
+              title="Báo cáo tin này"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <line x1="4" y1="22" x2="4" y2="15" />
+              </svg>
+            </Link>
+          ) : null}
+        </div>
         {l.image ? <Image src={l.image.url} alt={l.title} fill sizes="430px" className={styles.heroImg} priority /> : null}
         {unavailableInfo ? <span className={styles.badgeOut}>{unavailableInfo.badge}</span> : null}
       </div>
       <div className={styles.body}>
-        <h2 className={styles.title}>{l.title}</h2>
-        <p className={styles.priceRow}>
-          <span className={l.isFree ? styles.free : styles.price}>{formatCardPrice(l.price)}</span>
-          {l.originalPrice && l.originalPrice > l.price ? <s className={styles.original}>{formatVnd(l.originalPrice)}</s> : null}
-          <span className={styles.left}>{unavailable ? unavailableInfo?.badge : `Còn ${l.quantityAvailable} suất`}</span>
-        </p>
+        <section className={styles.summaryCard}>
+          <h1 className={styles.title}>{l.title}</h1>
+          <p className={styles.priceRow}>
+            <span className={l.isFree ? styles.free : styles.price}>{formatCardPrice(l.price)}</span>
+            {l.originalPrice && l.originalPrice > l.price ? <s className={styles.original}>{formatVnd(l.originalPrice)}</s> : null}
+            <span className={styles.left}>{unavailable ? unavailableInfo?.badge : `Còn ${l.quantityAvailable} suất`}</span>
+          </p>
+          <span className={styles.pickupPill}>
+            Nhận {day} · {formatPickupWindow(l.pickupStart, l.pickupEnd)}
+          </span>
+        </section>
 
         {unavailableInfo ? (
           <div className={styles.unavailableCard} role="status">
-            <h3 className={styles.unavailableTitle}>{unavailableInfo.title}</h3>
+            <h2 className={styles.unavailableTitle}>{unavailableInfo.title}</h2>
             <p className={styles.unavailableDesc}>{unavailableInfo.body}</p>
           </div>
         ) : null}
@@ -224,36 +253,42 @@ export function ListingDetailScreen({ id }: { id: string }) {
           </span>
         </Link>
 
-        <dl className={styles.facts}>
-          <div>
-            <dt>Giờ nhận</dt>
-            <dd>
-              {day} {formatPickupWindow(l.pickupStart, l.pickupEnd)}
-            </dd>
-          </div>
-          <div>
-            <dt>Nguồn gốc</dt>
-            <dd>{l.origin}</dd>
-          </div>
-          <div>
-            <dt>Chế biến / đóng gói</dt>
-            <dd>
-              {formatPickupDay(l.preparedAt)} {hhmm(l.preparedAt)}
-            </dd>
-          </div>
-          <div>
-            <dt>Bảo quản</dt>
-            <dd>{[STORAGE_LABEL[l.storage], l.storageNote].filter(Boolean).join(" · ")}</dd>
-          </div>
-          {l.ingredients ? (
+        <section className={styles.factsCard}>
+          <dl className={styles.facts}>
             <div>
-              <dt>Thành phần</dt>
-              <dd>{l.ingredients}</dd>
+              <dt>Giờ nhận</dt>
+              <dd>
+                {day} {formatPickupWindow(l.pickupStart, l.pickupEnd)}
+              </dd>
             </div>
-          ) : null}
-        </dl>
+            <div>
+              <dt>Nguồn gốc</dt>
+              <dd>{l.origin}</dd>
+            </div>
+            <div>
+              <dt>Chế biến / đóng gói</dt>
+              <dd>
+                {formatPickupDay(l.preparedAt)} {hhmm(l.preparedAt)}
+              </dd>
+            </div>
+            <div>
+              <dt>Bảo quản</dt>
+              <dd>{[STORAGE_LABEL[l.storage], l.storageNote].filter(Boolean).join(" · ")}</dd>
+            </div>
+            {l.ingredients ? (
+              <div>
+                <dt>Thành phần</dt>
+                <dd>{l.ingredients}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
 
-        {l.description ? <p className={styles.desc}>{l.description}</p> : null}
+        {l.description ? (
+          <section className={styles.descCard}>
+            <p className={styles.desc}>{l.description}</p>
+          </section>
+        ) : null}
 
         <Notice>
           <p>
@@ -261,22 +296,6 @@ export function ListingDetailScreen({ id }: { id: string }) {
             đảm chất lượng thực phẩm. {l.declaredAt ? "Người bán đã xác nhận thông tin món khi đăng." : null}
           </p>
         </Notice>
-
-        {owner ? (
-          <Link className={styles.textLink} href="/my-listings">
-            Đây là tin của bạn · Quản lý tin
-          </Link>
-        ) : l.myActiveReservationId ? (
-          <Link href={`/orders/${l.myActiveReservationId}`} className={styles.ctaLink}>
-            Xem mã nhận món của bạn
-          </Link>
-        ) : unavailable ? (
-          <Button disabled>{l.soldOut ? "Đã hết suất" : "Món không còn khả dụng"}</Button>
-        ) : (
-          <Link href={`/listings/${l.id}/reserve`} className={styles.ctaLink}>
-            {l.isFree ? "Đặt giữ miễn phí" : `Đặt giữ · ${formatVnd(l.price)}`}
-          </Link>
-        )}
 
         {unavailable && !owner ? (
           <>
@@ -293,6 +312,24 @@ export function ListingDetailScreen({ id }: { id: string }) {
           </Link>
         ) : null}
       </div>
-    </>
+
+      <div className={styles.stickyBar}>
+        {owner ? (
+          <Link className={styles.textLink} href="/my-listings">
+            Đây là tin của bạn · Quản lý tin
+          </Link>
+        ) : l.myActiveReservationId ? (
+          <Link href={`/orders/${l.myActiveReservationId}`} className={styles.ctaLink}>
+            Xem mã nhận món của bạn
+          </Link>
+        ) : unavailable ? (
+          <Button disabled>{l.soldOut ? "Đã hết suất" : "Món không còn khả dụng"}</Button>
+        ) : (
+          <Link href={`/listings/${l.id}/reserve`} className={styles.ctaLink}>
+            {l.isFree ? "Đặt giữ miễn phí" : `Đặt giữ · ${formatVnd(l.price)}`}
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }

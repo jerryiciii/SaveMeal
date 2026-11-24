@@ -2,12 +2,13 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
+  background: var(--canvas);
 }
 
 .mapLink {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--color-sky);
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .body {
@@ -38,11 +39,11 @@
 
 .count {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-accent);
+  color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 
 .list {
@@ -63,8 +64,9 @@
 .skeleton {
   height: 124px;
   border-radius: var(--radius-card);
-  background: linear-gradient(90deg, var(--surface-card) 0%, #333a46 50%, var(--surface-card) 100%);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--field) 50%, var(--surface) 100%);
   background-size: 200% 100%;
+  border: 1px solid var(--hair);
   animation: shimmer 1.2s linear infinite;
 }
 

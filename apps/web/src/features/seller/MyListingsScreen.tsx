@@ -20,22 +20,24 @@ const STATUS: Record<ListingStatus, string> = {
 };
 
 const DANGER_BTN_STYLE = {
-  background: "transparent",
+  background: "var(--danger-soft)",
   border: 0,
-  padding: 0,
-  color: "var(--color-alert)",
-  fontSize: 14,
-  fontWeight: 600,
+  padding: "6px 12px",
+  borderRadius: "999px",
+  color: "var(--danger)",
+  fontSize: 13,
+  fontWeight: 700,
   cursor: "pointer",
 } as const;
 
 const MUTED_BTN_STYLE = {
-  background: "transparent",
+  background: "var(--field)",
   border: 0,
-  padding: 0,
-  color: "var(--text-secondary)",
-  fontSize: 14,
-  fontWeight: 600,
+  padding: "6px 12px",
+  borderRadius: "999px",
+  color: "var(--muted)",
+  fontSize: 13,
+  fontWeight: 700,
   cursor: "pointer",
 } as const;
 

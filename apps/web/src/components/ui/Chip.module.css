@@ -1,18 +1,37 @@
 .chip {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 36px;
-  padding: 0 18px;
-  border: 0;
+  padding: 0 16px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-chip);
-  background: var(--surface-chip);
-  color: var(--text-primary);
+  background: var(--surface);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.05);
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.chip:hover {
+  background: var(--field);
 }
 
 .selected {
-  background: var(--surface-chip-active);
-  color: var(--text-accent);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(17, 17, 17, 0.16);
+}
+
+.selected:hover {
+  background: var(--ink2);
 }

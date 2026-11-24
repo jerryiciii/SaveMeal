@@ -1,7 +1,7 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   padding: 12px var(--gutter) 44px;
 }
 
@@ -11,7 +11,8 @@
   gap: 8px;
   padding: 16px;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 .summaryTop {
@@ -24,51 +25,52 @@
 .summaryTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .badgeLive {
   flex: none;
   padding: 3px 10px;
-  border-radius: 10px;
-  background: var(--surface-chip-active);
-  color: var(--text-accent);
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 999px;
+  background: var(--limesoft);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .badgeMuted {
   flex: none;
   padding: 3px 10px;
-  border-radius: 10px;
-  background: var(--color-raised);
-  color: var(--text-secondary);
-  font-size: 12px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 700;
 }
 
 .badgeAlert {
   flex: none;
   padding: 3px 10px;
-  border-radius: 10px;
-  background: rgba(255, 130, 139, 0.16);
-  color: var(--color-alert);
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .meta {
   margin: 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
   line-height: 1.45;
 }
 
 .inlineLink {
   align-self: flex-start;
-  color: var(--color-sky);
+  color: var(--violet);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .section {
@@ -77,19 +79,21 @@
   gap: 14px;
   padding: 16px;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 .sectionTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .sectionSub {
   margin: -8px 0 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
   line-height: 1.45;
 }
 
@@ -104,7 +108,8 @@
   aspect-ratio: 1;
   border-radius: var(--radius-photo);
   overflow: hidden;
-  background: var(--surface-sheet);
+  background: var(--field);
+  border: 1px solid var(--line);
 }
 
 .thumbImg {
@@ -123,8 +128,8 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(17, 25, 34, 0.86);
-  color: var(--text-primary);
+  background: rgba(17, 17, 17, 0.85);
+  color: var(--surface);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -139,10 +144,10 @@
   aspect-ratio: 1;
   border: 1.5px dashed var(--sheet-handle);
   border-radius: var(--radius-photo);
-  background: var(--surface-sheet);
-  color: var(--text-secondary);
+  background: var(--field);
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
   cursor: pointer;
 }
@@ -171,13 +176,18 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--color-raised);
-  color: var(--text-primary);
+  background: var(--field);
+  color: var(--ink);
   font-size: 22px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.stepperBtn:hover:not(:disabled) {
+  background: var(--lime);
+  border-color: var(--ink);
 }
 
 .stepperBtn:disabled {
@@ -200,7 +210,7 @@
 .lockedFieldLabel {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .lockedFieldValue {
@@ -209,57 +219,66 @@
   min-height: 48px;
   padding: 0 14px;
   border-radius: 16px;
-  background: var(--surface-sheet);
-  color: var(--text-muted);
+  background: var(--field);
+  border: 1px solid var(--hair);
+  color: var(--subtle);
   font-size: 14px;
   font-weight: 600;
 }
 
 .facts {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  padding: 12px 14px;
+  padding: 4px 14px;
   border-radius: 16px;
-  background: var(--surface-sheet);
+  background: var(--canvas);
+  border: 1px solid var(--hair);
 }
 
 .facts div {
   display: flex;
   justify-content: space-between;
   gap: 14px;
+  padding: 10px 0;
   font-size: 13px;
   line-height: 1.4;
+  border-bottom: 1px solid var(--hair);
+}
+
+.facts div:last-child {
+  border-bottom: 0;
 }
 
 .facts dt {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .facts dd {
   margin: 0;
   text-align: right;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--ink);
   word-break: break-word;
 }
 
+/* Soft-pink destructive withdraw/remove card */
 .dangerSection {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border: 1px solid rgba(255, 130, 139, 0.28);
+  border: 1px solid rgba(201, 37, 43, 0.22);
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--danger-soft);
 }
 
 .dangerTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
-  color: var(--color-alert);
+  font-weight: 800;
+  color: var(--danger);
 }
 
 .reasons {
@@ -277,15 +296,17 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: var(--surface-sheet);
+  background: var(--surface);
+  border: 1px solid rgba(201, 37, 43, 0.16);
   font-size: 14px;
+  color: var(--ink);
   cursor: pointer;
 }
 
 .reason input {
   width: 18px;
   height: 18px;
-  accent-color: var(--color-alert);
+  accent-color: var(--danger);
 }
 
 .dangerBtn {
@@ -294,10 +315,10 @@
   justify-content: center;
   width: 100%;
   min-height: 50px;
-  border: 1px solid rgba(255, 130, 139, 0.45);
+  border: 1px solid rgba(201, 37, 43, 0.35);
   border-radius: var(--radius-button);
-  background: rgba(255, 130, 139, 0.14);
-  color: var(--color-alert);
+  background: var(--danger);
+  color: var(--surface);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -314,7 +335,8 @@
   gap: 10px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(255, 130, 139, 0.1);
+  background: var(--surface);
+  border: 1px solid rgba(201, 37, 43, 0.25);
 }
 
 .confirmRow {
@@ -329,8 +351,8 @@
   justify-content: center;
   min-height: 52px;
   border-radius: var(--radius-button);
-  background: var(--color-mint);
-  color: var(--text-on-mint);
+  background: var(--ink);
+  color: var(--surface);
   font-size: 15px;
   font-weight: 700;
 }
@@ -341,8 +363,9 @@
   justify-content: center;
   min-height: 48px;
   border-radius: var(--radius-button);
-  background: var(--color-raised);
-  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
   font-size: 14px;
   font-weight: 600;
 }
@@ -351,6 +374,6 @@
   margin: 4px 0 0;
   padding-left: 18px;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
   line-height: 1.5;
 }

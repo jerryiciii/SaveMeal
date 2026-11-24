@@ -7,15 +7,15 @@
   z-index: 9999;
   pointer-events: none;
   overflow: hidden;
-  background: rgba(101, 228, 179, 0.12);
+  background: rgba(17, 17, 17, 0.06);
 }
 
 .barFill {
   height: 100%;
   width: 100%;
   transform-origin: left center;
-  background: linear-gradient(90deg, var(--color-mint), #9ff5d4);
-  box-shadow: 0 0 10px rgba(101, 228, 179, 0.65);
+  background: linear-gradient(90deg, var(--limedeep), var(--lime));
+  box-shadow: 0 0 10px rgba(215, 247, 91, 0.8);
   animation: navProgress 6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -32,27 +32,28 @@
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 9px;
+  padding: 9px 16px;
   border-radius: 999px;
-  background: rgba(27, 33, 42, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(154, 170, 189, 0.2);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  color: var(--text-primary);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 28px rgba(17, 17, 17, 0.12);
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .spinner {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
   border-radius: 999px;
-  border: 2px solid rgba(101, 228, 179, 0.25);
-  border-top-color: var(--color-mint);
+  border: 2.5px solid var(--limesoft);
+  border-top-color: var(--limedeep);
+  border-right-color: var(--lime);
   animation: navSpin 0.7s linear infinite;
 }
 

@@ -31,13 +31,14 @@ export function EmptyNearby({
     <div className={[styles.card, compact ? styles.compact : ""].filter(Boolean).join(" ")} role="status">
       <div className={styles.art} aria-hidden="true">
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-          <circle cx="20" cy="20" r="19" stroke="rgba(101, 228, 179, 0.28)" strokeWidth="1.5" strokeDasharray="3 3" />
+          <circle cx="20" cy="20" r="18.5" stroke="#a9d21f" strokeWidth="1.5" strokeDasharray="3 3" />
           <path
             d="M20 9.5C15.3 9.5 11.5 13.3 11.5 18C11.5 23.6 18.2 29.5 19.3 30.4C19.7 30.7 20.3 30.7 20.7 30.4C21.8 29.5 28.5 23.6 28.5 18C28.5 13.3 24.7 9.5 20 9.5Z"
-            stroke="#65E4B3"
+            stroke="#111111"
             strokeWidth="2"
+            fill="#d7f75b"
           />
-          <circle cx="20" cy="18" r="3" fill="#FFB66C" />
+          <circle cx="20" cy="18" r="3" fill="#111111" />
         </svg>
       </div>
       <h3 className={styles.title}>{title}</h3>
