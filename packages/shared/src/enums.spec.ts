@@ -7,10 +7,9 @@ import {
   CATEGORIES,
   CHECKLIST_KEYS,
   DECLARATION_KEYS,
+  IMAGE_PURPOSES,
   LISTING_STATUSES,
-  PAYMENT_PROVIDERS,
   PAYMENT_STATUSES,
-  PAYOUT_STATUSES,
   REPORT_TYPES,
   RESERVATION_STATUSES,
   SELLER_TYPES,
@@ -29,15 +28,14 @@ function contractUnion(name: string): string[] {
 // Guards against drift: the contract is the source of truth, this package only mirrors it.
 describe('enums mirror docs/API_CONTRACT.md §1', () => {
   it.each([
+    ['ImagePurpose', IMAGE_PURPOSES],
     ['SellerType', SELLER_TYPES],
     ['Category', CATEGORIES],
     ['Storage', STORAGES],
     ['Allergen', ALLERGENS],
     ['ListingStatus', LISTING_STATUSES],
     ['ReservationStatus', RESERVATION_STATUSES],
-    ['PaymentProvider', PAYMENT_PROVIDERS],
     ['PaymentStatus', PAYMENT_STATUSES],
-    ['PayoutStatus', PAYOUT_STATUSES],
     ['CancelReason', CANCEL_REASONS],
     ['ReportType', REPORT_TYPES],
     ['DeclarationKey', DECLARATION_KEYS],

@@ -1,4 +1,4 @@
-// Enum values mirror docs/API_CONTRACT.md v1.2 §1 and docs/DOMAIN.md §2. Each enum is a readonly
+// Enum values mirror docs/API_CONTRACT.md v1.3 §1 and docs/DOMAIN.md §2. Each enum is a readonly
 // tuple (usable at runtime, e.g. for validation and GET /config) plus a string-literal union type.
 
 export const USER_ROLES = ['USER', 'ADMIN'] as const;
@@ -41,6 +41,7 @@ export const TERMINAL_LISTING_STATUSES = ['EXPIRED', 'WITHDRAWN', 'BLOCKED'] as 
 
 export const RESERVATION_STATUSES = [
   'PENDING_PAYMENT',
+  'AWAITING_SELLER_CONFIRM',
   'RESERVED',
   'COMPLETED',
   'CANCELLED',
@@ -48,20 +49,21 @@ export const RESERVATION_STATUSES = [
 ] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 
-export const PAYMENT_PROVIDERS = ['SEPAY', 'MOCK'] as const;
-export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
-
-export const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'EXPIRED', 'REFUND_DUE', 'REFUNDED'] as const;
+export const PAYMENT_STATUSES = [
+  'UNPAID',
+  'PROOF_SUBMITTED',
+  'CONFIRMED',
+  'REJECTED',
+  'EXPIRED',
+] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-
-export const PAYOUT_STATUSES = ['NONE', 'PENDING_PAYOUT', 'SETTLED'] as const;
-export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 
 export const CANCEL_REASONS = [
   'BUYER_LATE',
   'BUYER_WRONG_QTY',
   'BUYER_CHANGED_PLAN',
   'BUYER_OTHER',
+  'PAYMENT_REJECTED',
   'SELLER_WITHDREW',
   'LISTING_BLOCKED',
   'ADMIN',
@@ -112,11 +114,18 @@ export const CHECKLIST_KEYS = [
   'STORAGE',
   'PICKUP_WINDOW',
   'PICKUP_LOCATION',
+  'PAYMENT_QR',
 ] as const;
 export type ChecklistKey = (typeof CHECKLIST_KEYS)[number];
 
 /** IMG-1 `purpose`. */
-export const IMAGE_PURPOSES = ['LISTING', 'REPORT', 'AVATAR'] as const;
+export const IMAGE_PURPOSES = [
+  'LISTING',
+  'REPORT',
+  'AVATAR',
+  'PAYMENT_QR',
+  'PAYMENT_PROOF',
+] as const;
 export type ImagePurpose = (typeof IMAGE_PURPOSES)[number];
 
 /** RES-7 `blockingReason`. */
