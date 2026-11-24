@@ -1,5 +1,11 @@
 import type { StyleSpecification } from "maplibre-gl";
 
+/**
+ * Official prebuilt CSP worker served from `public/` so Next.js 16 Turbopack's
+ * production minifier cannot break MapLibre's inline Blob Web Worker.
+ */
+export const MAPLIBRE_WORKER_URL = "/maplibre-gl-csp-worker.js";
+
 export const DEFAULT_LIBERTY_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 export const CARTO_VOYAGER_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";

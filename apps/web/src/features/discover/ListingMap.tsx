@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react";
 import pinStyles from "@/components/ui/MapPin.module.css";
 import type { MapPin } from "@/lib/contract/types";
 import { formatPinPrice } from "@/lib/format";
-import { buildMapStyleChain } from "./mapStyles";
+import { buildMapStyleChain, MAPLIBRE_WORKER_URL } from "./mapStyles";
 import styles from "./ListingMap.module.css";
 
 const STYLE_LOAD_TIMEOUT_MS = 6000;
@@ -58,6 +58,8 @@ export default function ListingMap({ styleUrl, center, pins, selectedId = null, 
         watchdog = null;
       }
     };
+
+    maplibregl.setWorkerUrl(MAPLIBRE_WORKER_URL);
 
     const m = new maplibregl.Map({
       container,

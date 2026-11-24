@@ -3,7 +3,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import { useEffect, useRef } from "react";
-import { buildMapStyleChain } from "@/features/discover/mapStyles";
+import { buildMapStyleChain, MAPLIBRE_WORKER_URL } from "@/features/discover/mapStyles";
 import styles from "./LocationPickerMap.module.css";
 
 const STYLE_LOAD_TIMEOUT_MS = 6000;
@@ -50,6 +50,8 @@ export default function LocationPickerMap({ coords = DEFAULT_CENTER, styleUrl, p
         watchdog = null;
       }
     };
+
+    maplibregl.setWorkerUrl(MAPLIBRE_WORKER_URL);
 
     const m = new maplibregl.Map({
       container,
