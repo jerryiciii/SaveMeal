@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/contract/errors";
+import { adminEndpoints } from "./adminEndpoints";
 import { buildQuery, createApiClient } from "./client";
 import { createTokenStore } from "./tokenStore";
 
@@ -80,5 +81,26 @@ describe("createApiClient", () => {
     const fetchImpl = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("Failed to fetch"));
     const api = createApiClient({ fetchImpl, tokens: createTokenStore() });
     await expect(api.request("GET", "/config", { auth: false })).rejects.toMatchObject({ code: "NETWORK_ERROR", status: 0 });
+  });
+});
+
+describe("adminEndpoints contract payloads", () => {
+  it("normalizes ADM-2 updateReport and ADM-5 setSellerVerification payloads for strict BE DTOs", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async () => res(200, { data: { id: "x" } }));
+    const admin = adminEndpoints(createApiClient({ fetchImpl, tokens: createTokenStore("tok") }));
+
+    await admin.updateReport("rep-1", { status: "RESOLVED", action: "NONE", resolution: null });
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]![1]!.body))).toEqual({
+      status: "RESOLVED",
+      action: "NONE",
+      resolution: "",
+      clearReview: false,
+    });
+
+    await admin.setSellerVerification("acc-1", true, null);
+    expect(JSON.parse(String(fetchImpl.mock.calls[1]![1]!.body))).toEqual({
+      verified: true,
+      note: "",
+    });
   });
 });

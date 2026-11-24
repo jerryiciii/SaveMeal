@@ -5,18 +5,18 @@ import { useState } from "react";
 import { Button, Notice, ScreenHeader } from "@/components/ui";
 import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
-import type { CancelReason } from "@/lib/contract/types";
+import type { BuyerCancelReason } from "@/lib/contract/types";
 import { useLoad } from "@/lib/useLoad";
 import { CANCEL_REASON_LABEL } from "./labels";
 import styles from "./orders.module.css";
 
-const REASONS: CancelReason[] = ["BUYER_LATE", "BUYER_WRONG_QTY", "BUYER_CHANGED_PLAN"];
+const REASONS: BuyerCancelReason[] = ["BUYER_LATE", "BUYER_WRONG_QTY", "BUYER_CHANGED_PLAN"];
 
 /** Figma V1 39 · Hủy đơn (11:220). RES-4; no deposit/refund in the MVP (payment is offline). */
 export function CancelScreen({ id }: { id: string }) {
   const router = useRouter();
   const { state } = useLoad(() => saveMeal.getReservation(id), [id]);
-  const [reason, setReason] = useState<CancelReason>("BUYER_CHANGED_PLAN");
+  const [reason, setReason] = useState<BuyerCancelReason>("BUYER_CHANGED_PLAN");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

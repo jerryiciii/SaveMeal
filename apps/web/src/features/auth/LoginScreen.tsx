@@ -40,7 +40,11 @@ export function LoginScreen() {
       const q = new URLSearchParams({ rid: res.requestId, to: value, next, len: String(res.codeLength) });
       router.push(`/login/otp?${q.toString()}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Không gửi được mã. Vui lòng thử lại.");
+      if (err instanceof ApiError && err.code === "FEATURE_DISABLED") {
+        setError("SMS chưa mở trong giai đoạn thử nghiệm. Vui lòng nhập email để nhận mã OTP.");
+      } else {
+        setError(err instanceof ApiError ? err.message : "Không gửi được mã. Vui lòng thử lại.");
+      }
       setBusy(false);
     }
   }
@@ -58,6 +62,7 @@ export function LoginScreen() {
           autoComplete="username"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
+          hint={!isMockApi ? "Khuyến nghị nhập email để nhận mã OTP trong giai đoạn thử nghiệm." : undefined}
           error={error}
         />
         <Button type="submit" disabled={busy}>

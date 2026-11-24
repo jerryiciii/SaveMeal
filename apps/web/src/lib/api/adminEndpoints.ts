@@ -143,7 +143,12 @@ export function adminEndpoints(client: ApiClient) {
     updateReport: (reportId: string, body: UpdateReportInput) =>
       unwrap(
         client.request<Envelope<AdminReport>>("PATCH", `/admin/reports/${encodeURIComponent(reportId)}`, {
-          body,
+          body: {
+            status: body.status,
+            action: body.action,
+            resolution: body.resolution?.trim() ?? "",
+            clearReview: body.clearReview ?? false,
+          },
         }),
       ),
 
@@ -171,7 +176,7 @@ export function adminEndpoints(client: ApiClient) {
         client.request<Envelope<{ id: string; seller: AdminAccount["seller"] }>>(
           "POST",
           `/admin/accounts/${encodeURIComponent(accountId)}/seller-verification`,
-          { body: { verified, note: note ?? null } },
+          { body: { verified, note: note?.trim() ?? "" } },
         ),
       ),
 

@@ -20,11 +20,15 @@ export const ALLERGENS = ["GLUTEN", "MILK", "EGG", "PEANUT", "TREE_NUT", "SOY", 
 export type Allergen = (typeof ALLERGENS)[number];
 export type ListingStatus = "DRAFT" | "PUBLISHED" | "EXPIRED" | "WITHDRAWN" | "BLOCKED";
 export type ReservationStatus = "RESERVED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+export const BUYER_CANCEL_REASONS = [
+  "BUYER_LATE",
+  "BUYER_WRONG_QTY",
+  "BUYER_CHANGED_PLAN",
+  "BUYER_OTHER",
+] as const;
+export type BuyerCancelReason = (typeof BUYER_CANCEL_REASONS)[number];
 export type CancelReason =
-  | "BUYER_LATE"
-  | "BUYER_WRONG_QTY"
-  | "BUYER_CHANGED_PLAN"
-  | "BUYER_OTHER"
+  | BuyerCancelReason
   | "SELLER_WITHDREW"
   | "LISTING_BLOCKED"
   | "ADMIN";
@@ -161,7 +165,7 @@ export type AppConfig = {
     allergens: Allergen[];
     sellerTypes: SellerType[];
     reportTypes: ReportType[];
-    cancelReasons: CancelReason[];
+    cancelReasons: BuyerCancelReason[];
   };
   limits: {
     maxQtyPerReservation: number;

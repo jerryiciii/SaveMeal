@@ -1,7 +1,7 @@
 import type { ApiClient } from "./client";
 import type {
   AppConfig,
-  CancelReason,
+  BuyerCancelReason,
   DeclarationKey,
   Envelope,
   Image,
@@ -83,6 +83,7 @@ export function endpoints(api: ApiClient) {
     /** ME-2 */
     updateMe: (patch: {
       displayName?: string;
+      avatarImageId?: string | null;
       seller?: { name?: string | null; type?: SellerType | null; defaultPickup?: PickupLocation | null };
     }) => data(api.request<Envelope<Me>>("PATCH", "/me", { body: patch })),
 
@@ -129,7 +130,7 @@ export function endpoints(api: ApiClient) {
     /** RES-3 */
     getReservation: (id: string) => data(api.request<Envelope<Reservation>>("GET", `/reservations/${encodeURIComponent(id)}`)),
     /** RES-4 */
-    cancelReservation: (id: string, reason: CancelReason, note?: string) =>
+    cancelReservation: (id: string, reason: BuyerCancelReason, note?: string) =>
       data(
         api.request<Envelope<Reservation>>("POST", `/reservations/${encodeURIComponent(id)}/cancel`, {
           body: { reason, note: note ?? null },
