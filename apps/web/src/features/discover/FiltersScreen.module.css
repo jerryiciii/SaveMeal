@@ -1,0 +1,102 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.resetBtn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-sky);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  padding: 8px var(--gutter) 110px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-accent);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sortList {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+
+.sortOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 16px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sortOption:last-child {
+  border-bottom: 0;
+}
+
+.sortSelected {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.radioDot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--text-secondary);
+}
+
+.sortSelected .radioDot {
+  border-color: var(--color-mint);
+  background: radial-gradient(circle, var(--color-mint) 0 45%, transparent 50%);
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  padding: 14px var(--gutter) calc(18px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(17, 25, 34, 0.65) 0%, var(--surface-app) 28%);
+  backdrop-filter: blur(8px);
+}

@@ -17,7 +17,7 @@
   top: 14px;
   padding: 6px 12px;
   border-radius: 12px;
-  background: rgba(17, 25, 34, 0.85);
+  background: rgba(17, 25, 34, 0.88);
   color: var(--color-alert);
   font-size: 12px;
   font-weight: 700;
@@ -67,15 +67,76 @@
   color: var(--text-secondary);
 }
 
+.unavailableCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: rgba(255, 130, 139, 0.1);
+  border: 1px solid rgba(255, 130, 139, 0.28);
+}
+
+.unavailableBadge {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(255, 130, 139, 0.16);
+  color: var(--color-alert);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.unavailableTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.unavailableDesc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.unavailableActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
 .seller {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 14px 16px;
   border-radius: var(--radius-card);
   background: var(--surface-card);
   font-size: 15px;
+}
+
+.sellerMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sellerTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.sellerChevron {
+  flex: none;
+  font-size: 22px;
+  color: var(--text-secondary);
 }
 
 .verified {
@@ -88,7 +149,6 @@
 }
 
 .meta {
-  flex-basis: 100%;
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -140,4 +200,66 @@
   color: var(--color-sky);
   font-size: 14px;
   font-weight: 600;
+}
+
+.reportLink {
+  align-self: center;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.suggestHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.suggestTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-accent);
+}
+
+.suggestMore {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-sky);
+}
+
+.suggestList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestSkeleton {
+  height: 124px;
+  border-radius: var(--radius-card);
+  background: linear-gradient(90deg, var(--surface-card) 0%, #333a46 50%, var(--surface-card) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
 }
