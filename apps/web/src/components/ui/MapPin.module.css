@@ -5,13 +5,14 @@
   width: 40px;
   height: 40px;
   padding: 0;
-  border: 0;
+  border: 2px solid rgba(17, 25, 34, 0.88);
   border-radius: 50%;
   color: var(--text-on-pin);
   font-size: 12px;
   font-weight: 700;
+  box-shadow: 0 4px 12px rgba(17, 25, 34, 0.36);
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .free {
@@ -23,6 +24,9 @@
 }
 
 .selected {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 4px rgba(247, 249, 251, 0.85);
+  transform: scale(1.16);
+  border-color: #f7f9fb;
+  box-shadow:
+    0 0 0 3px rgba(17, 25, 34, 0.85),
+    0 6px 18px rgba(17, 25, 34, 0.45);
 }

@@ -5,12 +5,15 @@ import type { NextConfig } from "next";
  * (NEXT_PUBLIC_API_MOCK=0), Next rewrites those calls to the NestJS API so the
  * refresh cookie `lb_rt` stays first-party (docs/ARCHITECTURE.md).
  */
-const apiOrigin = process.env.API_ORIGIN ?? "http://localhost:4000";
+const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:4000").replace(/\/+$/, "");
 const useMock = process.env.NEXT_PUBLIC_API_MOCK !== "0";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  images: {
+    unoptimized: true,
+  },
   async rewrites() {
     if (useMock) return [];
     return [{ source: "/api/v1/:path*", destination: `${apiOrigin}/api/v1/:path*` }];

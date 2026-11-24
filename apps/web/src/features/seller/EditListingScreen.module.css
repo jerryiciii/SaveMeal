@@ -1,0 +1,356 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px var(--gutter) 44px;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+
+.summaryTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.summaryTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.badgeLive {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--surface-chip-active);
+  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badgeMuted {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--color-raised);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badgeAlert {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(255, 130, 139, 0.16);
+  color: var(--color-alert);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.inlineLink {
+  align-self: flex-start;
+  color: var(--color-sky);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sectionSub {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-photo);
+  overflow: hidden;
+  background: var(--surface-sheet);
+}
+
+.thumbImg {
+  object-fit: cover;
+}
+
+.removeThumb {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(17, 25, 34, 0.86);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.addThumb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1.5px dashed var(--sheet-handle);
+  border-radius: var(--radius-photo);
+  background: var(--surface-sheet);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.addThumb input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.qtyRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.qtyInput {
+  flex: 1;
+}
+
+.stepperBtn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--color-raised);
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepperBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lockedFieldBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lockedFieldLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lockedFieldValue {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--surface-sheet);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-sheet);
+}
+
+.facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.facts dt {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.dangerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 130, 139, 0.28);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+}
+
+.dangerTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-alert);
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.reason {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-sheet);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.reason input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-alert);
+}
+
+.dangerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(255, 130, 139, 0.45);
+  border-radius: var(--radius-button);
+  background: rgba(255, 130, 139, 0.14);
+  color: var(--color-alert);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dangerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 130, 139, 0.1);
+}
+
+.confirmRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.primaryLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border-radius: var(--radius-button);
+  background: var(--color-mint);
+  color: var(--text-on-mint);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.secondaryLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: var(--radius-button);
+  background: var(--color-raised);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.missingList {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
