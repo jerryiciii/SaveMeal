@@ -1,13 +1,21 @@
-import type { Account, FoodListing, ListingImage, Reservation as PrismaReservation } from '@prisma/client';
+import type {
+  Account,
+  FoodListing,
+  ListingImage,
+  Payment as PrismaPayment,
+  Reservation as PrismaReservation,
+} from '@prisma/client';
 import { formatOrderCode, type PickupToken, type Reservation } from '@savemeal/shared';
 import { toImage } from '../common/images';
 import { toApiTime, toApiTimeOrNull } from '../common/time';
 import { pickupOf, sellerSummary } from '../listings/listing.mapper';
+import { toPayment } from '../payments/payment.mapper';
 
 export type ReservationRow = PrismaReservation & {
   listing: FoodListing & { images: ListingImage[] };
   seller: Account;
   buyer: Account;
+  payment: PrismaPayment | null;
 };
 
 export type ReservationViewerRole = 'BUYER' | 'SELLER' | 'ADMIN';
@@ -20,6 +28,7 @@ export const RESERVATION_INCLUDE = {
   },
   seller: true,
   buyer: true,
+  payment: true,
 };
 
 export function toReservation(
@@ -52,12 +61,15 @@ export function toReservation(
     seller: sellerSummary(row.seller),
     buyer: showBuyerName ? { displayName: row.buyer.displayName ?? 'Người mua' } : null,
     pickupToken: isBuyer && row.status === 'RESERVED' ? pickupToken : null,
-    payment: null,
+    payment: row.payment ? toPayment(row.payment) : null,
     cancelReason: row.cancelReason,
     createdAt: toApiTime(row.createdAt),
     completedAt: toApiTimeOrNull(row.completedAt),
     closedAt: toApiTimeOrNull(row.closedAt),
-    canCancel: isBuyer && row.status === 'RESERVED' && now.getTime() < row.listing.pickupEnd!.getTime(),
-    canReport: isBuyer && row.status !== 'CANCELLED',
+    canCancel:
+      isBuyer &&
+      (row.status === 'PENDING_PAYMENT' || row.status === 'RESERVED') &&
+      now.getTime() < row.listing.pickupEnd!.getTime(),
+    canReport: isBuyer && row.status !== 'CANCELLED' && row.status !== 'PENDING_PAYMENT',
   };
 }

@@ -10,6 +10,12 @@ export class CreateReservationDto {
   @IsInt()
   @Min(1)
   quantity: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  holdMinutes?: number;
 }
 
 export class MyReservationsQueryDto {
