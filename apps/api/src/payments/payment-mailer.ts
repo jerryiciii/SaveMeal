@@ -195,6 +195,7 @@ export class ResendPaymentMailer implements PaymentMailer {
           text,
           html,
         }),
+        signal: AbortSignal.timeout(4000),
       });
       if (!response.ok) {
         let snippet = '';
