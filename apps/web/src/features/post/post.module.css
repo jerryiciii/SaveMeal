@@ -133,3 +133,32 @@
   color: #f6fafe;
   font-weight: 600;
 }
+
+.locationActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.locationBtn {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.geoHint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-orange);
+}
+
+.mapSkeleton {
+  width: 100%;
+  height: 220px;
+  border-radius: 16px;
+  background: var(--surface-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Chip, FoodCard, Icon, IconButton } from "@/components/ui";
 import { CATEGORY_LABEL } from "@/features/post/labels";
 import { saveMeal } from "@/lib/api";
@@ -12,6 +12,7 @@ import type { AppConfig, ListingCard, ListingSearchParams, MapPin as MapPinData 
 import { formatVnd } from "@/lib/format";
 import { getClientLocation, setClientLocation, type ClientPoint } from "./clientLocation";
 import { EmptyNearby } from "./EmptyNearby";
+import { LOCATION_PROMPTED_KEY, LocationPromptModal } from "./LocationPromptModal";
 import {
   countActiveFilters,
   DEFAULT_RADIUS_KM,
@@ -97,6 +98,8 @@ function DiscoverScreenInner() {
   const [reload, setReload] = useState(0);
   const [locError, setLocError] = useState<string | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
+  const locationPromptChecked = useRef(false);
 
   const requestKey = `${searchKey}|${center?.lat ?? ""}|${center?.lng ?? ""}|${reload}`;
   const [entry, setEntry] = useState<{ key: string; state: State }>({ key: "", state: { kind: "loading" } });
@@ -115,6 +118,18 @@ function DiscoverScreenInner() {
           setCenter((prev) => prev ?? saved);
         } else {
           setCenter((prev) => prev ?? c.defaultCenter);
+          if (!locationPromptChecked.current) {
+            locationPromptChecked.current = true;
+            let alreadyPrompted = false;
+            try {
+              alreadyPrompted = Boolean(window.localStorage.getItem(LOCATION_PROMPTED_KEY));
+            } catch {
+              // ignore storage access errors
+            }
+            if (!alreadyPrompted) {
+              setShowLocationPrompt(true);
+            }
+          }
         }
       })
       .catch(() => {
@@ -339,7 +354,8 @@ function DiscoverScreenInner() {
         </div>
 
         {state.kind === "loading" ? (
-          <div className={styles.skeletonList} aria-busy="true" aria-label="Đang tải món gần bạn">
+          <div className={styles.skeletonList} aria-busy="true" aria-label="Chờ mình kiểm tra món quanh bạn nha…">
+            <p className={styles.sheetSubtitle}>Chờ mình kiểm tra món quanh bạn nha…</p>
             <div className={styles.skeleton} />
             {sheetExpanded ? <div className={styles.skeleton} /> : null}
           </div>
@@ -384,6 +400,17 @@ function DiscoverScreenInner() {
           </ul>
         )}
       </section>
+
+      <LocationPromptModal
+        open={showLocationPrompt}
+        onGranted={(point) => {
+          setMe(point);
+          setCenter(point);
+          setLocError(null);
+          setShowLocationPrompt(false);
+        }}
+        onDismiss={() => setShowLocationPrompt(false)}
+      />
     </div>
   );
 }
