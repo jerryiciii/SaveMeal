@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
-import { Button, Chip, Notice, ScreenHeader, TextArea, TextField } from "@/components/ui";
+import { Button, Notice, ScreenHeader, TextArea, TextField } from "@/components/ui";
 import { getClientLocation } from "@/features/discover/clientLocation";
 import { STORAGE_LABEL } from "@/features/orders/labels";
 import { useSession } from "@/features/auth/SessionProvider";
@@ -55,18 +55,29 @@ function formatReverseAddress(data: NominatimReverseHit): string {
   return data.display_name?.trim() ?? "";
 }
 
-/** Figma V1 25 · Đăng món · giờ nhận & bảo quản (9:181) → LIST-4 (+ ME-2 to remember the pickup point). */
+/** SaveMeal V2.1 · Step 2/3 — Pickup window, storage, map pin & optional seller bank QR (25b). */
 export function PostDetails({ id }: { id: string }) {
   const { state } = useLoad(() => saveMeal.getListing(id) as Promise<ListingOwnerView>, [id]);
-  if (state.kind === "loading") return <ScreenHeader title="Đăng món · Bước 2/3" />;
+  if (state.kind === "loading") {
+    return (
+      <div className={styles.screen}>
+        <ScreenHeader title="Đăng món · Bước 2/3" subtitle="Giờ nhận & điểm nhận" />
+        <div className={styles.dashes} role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={2} aria-label="Tiến độ đăng món">
+          <span className={`${styles.dash} ${styles.dashDone}`} />
+          <span className={`${styles.dash} ${styles.dashActive}`} />
+          <span className={styles.dash} />
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "error") {
     return (
-      <>
+      <div className={styles.screen}>
         <ScreenHeader title="Đăng món · Bước 2/3" />
         <div className={styles.body}>
           <Notice tone="error">{state.error.message}</Notice>
         </div>
-      </>
+      </div>
     );
   }
   return <DetailsForm listing={state.data} />;
@@ -242,164 +253,262 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
   }
 
   return (
-    <>
-      <ScreenHeader title="Đăng món · Bước 2/3" subtitle="Thông tin nhận hàng" />
-      <form className={styles.body} onSubmit={next} noValidate>
-        <div className={styles.stepper} aria-label="Tiến độ đăng món">
-          <span className={`${styles.stepPill} ${styles.stepDone}`}>✓ Ảnh &amp; giá</span>
-          <span className={`${styles.stepPill} ${styles.stepActive}`}>2 · Giờ &amp; điểm</span>
-          <span className={styles.stepPill}>3 · 6 cam kết</span>
-        </div>
-        <p className={styles.lead}>Món sẽ được khách đến nhận trực tiếp.</p>
-        <p className={styles.sectionLabel}>Ngày nhận</p>
-        <div className={styles.chips}>
-          <Chip selected={day === 0} onClick={() => setDay(0)}>
-            Hôm nay
-          </Chip>
-          <Chip selected={day === 1} onClick={() => setDay(1)}>
-            Ngày mai
-          </Chip>
-        </div>
-        <div className={styles.two}>
-          <TextField label="Bắt đầu nhận" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-          <TextField label="Kết thúc nhận" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </div>
-        <TextField label="Chế biến / đóng gói lúc (hôm nay)" type="time" value={prepared} onChange={(e) => setPrepared(e.target.value)} />
-        <p className={styles.sectionLabel}>Điều kiện bảo quản</p>
-        <div className={styles.chips}>
-          {STORAGES.map((s) => (
-            <Chip key={s} selected={storage === s} onClick={() => setStorage(s)}>
-              {STORAGE_LABEL[s]}
-            </Chip>
-          ))}
-        </div>
-        <TextField label="Ghi chú bảo quản (nếu có)" value={storageNote} onChange={(e) => setStorageNote(e.target.value)} />
-        <TextArea
-          label="Thành phần và dị ứng (nếu có)"
-          placeholder="Bột mì · sữa · bơ · gluten"
-          value={ingredients}
-          onChange={(e) => setIngredients(e.target.value)}
-          hint="Không tự khai báo thông tin chưa xác minh."
-        />
-        <TextField label="Tên người bán / cửa hàng" value={sellerName} onChange={(e) => setSellerName(e.target.value)} maxLength={60} />
-        <TextField label="Địa điểm nhận" placeholder="Số nhà, đường, phường" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <div className={styles.locationActions}>
-          <Button
-            type="button"
-            variant="secondary"
-            className={styles.locationBtn}
-            onClick={findOnMap}
-            disabled={searchingAddress || locating}
-          >
-            {searchingAddress ? "Đang tìm…" : "Tìm trên bản đồ"}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className={styles.locationBtn}
-            onClick={useMyLocation}
-            disabled={locating || searchingAddress}
-          >
-            {locating ? "Đang lấy vị trí…" : "Dùng vị trí hiện tại"}
-          </Button>
-        </div>
-        {geoMessage ? <p className={styles.geoHint}>{geoMessage}</p> : null}
-        <LocationPickerMap
-          coords={coords}
-          pinned={pinned}
-          onChange={(nextCoords) => {
-            setCoords(nextCoords);
-            setPinned(true);
-            setGeoMessage(null);
-          }}
-        />
-        {listing.price > 0 ? (
-          <section className={styles.qrCard} aria-label="Ảnh QR ngân hàng nhận tiền">
-            <div className={styles.qrHead}>
-              <h2 className={styles.qrTitle}>Ảnh QR ngân hàng nhận tiền (chuyển khoản P2P)</h2>
-              <span className={styles.qrPill}>0đ phí sàn</span>
-            </div>
-            <input
-              ref={qrInputRef}
-              type="file"
-              accept="image/*"
-              className="visually-hidden"
-              onChange={(e) => {
-                void handleQrFile(e.target.files?.[0] ?? null);
-                e.target.value = "";
-              }}
-            />
-            {bankQr ? (
-              <div className={styles.upl}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- uploaded payment QR preview */}
-                <img src={bankQr.url} alt="Ảnh QR ngân hàng nhận tiền" className={styles.qrThumb} />
-                <div className={styles.qrMeta}>
-                  <p className={styles.qrStatus}>
-                    {qrUploading ? (
-                      <span className={styles.qrSpinRow}>
-                        <span className={styles.qrSpinner} aria-hidden="true" />
-                        Đang tải ảnh QR mới…
-                      </span>
-                    ) : (
-                      "Đã có ảnh QR nhận tiền"
-                    )}
-                  </p>
-                  <p className={styles.qrSub}>Tự động lưu làm QR mặc định cho các lần đăng sau.</p>
-                  <div className={styles.qrActions}>
-                    <button
-                      type="button"
-                      className={styles.qrActionBtn}
-                      disabled={qrUploading}
-                      onClick={() => qrInputRef.current?.click()}
-                    >
-                      Đổi ảnh QR
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.qrRemoveBtn}
-                      disabled={qrUploading}
-                      onClick={() => {
-                        setBankQr(null);
-                        setQrError(null);
-                      }}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
+    <div className={styles.screen}>
+      <ScreenHeader title="Đăng món · Bước 2/3" subtitle="Giờ nhận & điểm nhận" />
+      <div
+        className={styles.dashes}
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={3}
+        aria-valuenow={2}
+        aria-label="Tiến độ đăng món"
+      >
+        <span className={`${styles.dash} ${styles.dashDone}`} />
+        <span className={`${styles.dash} ${styles.dashActive}`} />
+        <span className={styles.dash} />
+      </div>
+
+      <form className={styles.formShell} onSubmit={next} noValidate>
+        <div className={styles.body}>
+          {/* Card 1 · Khung giờ nhận & chế biến */}
+          <section className={styles.card} aria-labelledby="card-pickup-time">
+            <h2 id="card-pickup-time" className={styles.cardTitle}>
+              Khung giờ nhận &amp; chế biến
+            </h2>
+            <p className={styles.cardSub}>Khách đến nhận trực tiếp trong khung giờ bạn mở.</p>
+            <div className={styles.track} role="group" aria-label="Ngày nhận">
               <button
                 type="button"
-                className={`${styles.upl} ${styles.empty}`}
-                disabled={qrUploading}
-                onClick={() => qrInputRef.current?.click()}
+                className={`${styles.trackBtn} ${day === 0 ? styles.trackBtnActive : ""}`}
+                aria-pressed={day === 0}
+                onClick={() => setDay(0)}
               >
-                {qrUploading ? (
-                  <span className={styles.qrSpinRow}>
-                    <span className={styles.qrSpinner} aria-hidden="true" />
-                    Đang tải ảnh QR…
-                  </span>
-                ) : (
-                  <>
-                    <span className={styles.qrUploadTitle}>Tải ảnh QR ngân hàng của bạn</span>
-                    <span className={styles.qrUploadSub}>
-                      Người mua chuyển khoản trực tiếp · 0đ phí sàn · tự lưu cho lần đăng sau
-                    </span>
-                  </>
-                )}
+                Hôm nay
               </button>
-            )}
-            {qrError ? <Notice tone="error">{qrError}</Notice> : null}
+              <button
+                type="button"
+                className={`${styles.trackBtn} ${day === 1 ? styles.trackBtnActive : ""}`}
+                aria-pressed={day === 1}
+                onClick={() => setDay(1)}
+              >
+                Ngày mai
+              </button>
+            </div>
+            <div className={styles.two}>
+              <TextField
+                label="Bắt đầu nhận"
+                type="time"
+                className={styles.tabular}
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+              <TextField
+                label="Kết thúc nhận"
+                type="time"
+                className={styles.tabular}
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+              />
+            </div>
+            <TextField
+              label="Chế biến / đóng gói lúc"
+              type="time"
+              className={styles.tabular}
+              value={prepared}
+              onChange={(e) => setPrepared(e.target.value)}
+              hint="Tính trong hôm nay · tối đa 4 giờ cho khung giờ nhận"
+            />
           </section>
-        ) : (
-          <p className={styles.freeQrNote}>Món miễn phí (0đ) không cần ảnh QR ngân hàng.</p>
-        )}
-        {error ? <Notice tone="error">{error}</Notice> : null}
-        <Button type="submit" disabled={busy || qrUploading}>
-          {busy ? "Đang lưu…" : "Tiếp tục · Kiểm tra an toàn"}
-        </Button>
+
+          {/* Card 2 · Bảo quản & thành phần */}
+          <section className={styles.card} aria-labelledby="card-storage">
+            <h2 id="card-storage" className={styles.cardTitle}>
+              Bảo quản &amp; thành phần
+            </h2>
+            <div className={styles.segRow} role="group" aria-label="Điều kiện bảo quản">
+              {STORAGES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`${styles.seg} ${storage === s ? styles.segActive : ""}`}
+                  aria-pressed={storage === s}
+                  onClick={() => setStorage(s)}
+                >
+                  {STORAGE_LABEL[s]}
+                </button>
+              ))}
+            </div>
+            <TextField
+              label="Ghi chú bảo quản (nếu có)"
+              placeholder="Ví dụ: ăn ngon nhất trong 2 giờ, hâm nóng trước khi dùng"
+              value={storageNote}
+              onChange={(e) => setStorageNote(e.target.value)}
+            />
+            <TextArea
+              label="Thành phần và dị ứng (nếu có)"
+              placeholder="Bột mì · sữa · bơ · gluten"
+              value={ingredients}
+              onChange={(e) => setIngredients(e.target.value)}
+              hint="Không tự khai báo thông tin chưa xác minh."
+            />
+          </section>
+
+          {/* Card 3 · Ghim điểm nhận trên bản đồ */}
+          <section className={styles.card} aria-labelledby="card-pickup-map">
+            <h2 id="card-pickup-map" className={styles.cardTitle}>
+              Ghim điểm nhận trên bản đồ
+            </h2>
+            <TextField
+              label="Địa điểm nhận"
+              placeholder="Số nhà, đường, phường"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            <div className={styles.locationActions}>
+              <button
+                type="button"
+                className={styles.locationBtn}
+                onClick={findOnMap}
+                disabled={searchingAddress || locating}
+              >
+                {searchingAddress ? "Đang tìm…" : "Tìm trên bản đồ"}
+              </button>
+              <button
+                type="button"
+                className={styles.locationBtn}
+                onClick={useMyLocation}
+                disabled={locating || searchingAddress}
+              >
+                {locating ? "Đang lấy vị trí…" : "Dùng vị trí hiện tại"}
+              </button>
+            </div>
+            {geoMessage ? <p className={styles.geoHint}>{geoMessage}</p> : null}
+            <div className={styles.mapFrame}>
+              <LocationPickerMap
+                coords={coords}
+                pinned={pinned}
+                onChange={(nextCoords) => {
+                  setCoords(nextCoords);
+                  setPinned(true);
+                  setGeoMessage(null);
+                }}
+              />
+            </div>
+            <TextField
+              label="Tên người đăng / cửa hàng"
+              placeholder="Ví dụ: Tiệm bánh Bơ Sáng"
+              value={sellerName}
+              onChange={(e) => setSellerName(e.target.value)}
+              maxLength={60}
+            />
+          </section>
+
+          {/* Card 4 · Ảnh QR ngân hàng nhận tiền (25b) */}
+          {listing.price > 0 ? (
+            <section className={styles.card} aria-labelledby="card-bank-qr">
+              <div className={styles.cardHead}>
+                <h2 id="card-bank-qr" className={styles.cardTitle}>
+                  Ảnh QR ngân hàng nhận tiền
+                </h2>
+                <span className={styles.qrPill}>0đ phí sàn</span>
+              </div>
+              <input
+                ref={qrInputRef}
+                type="file"
+                accept="image/*"
+                className="visually-hidden"
+                onChange={(e) => {
+                  void handleQrFile(e.target.files?.[0] ?? null);
+                  e.target.value = "";
+                }}
+              />
+              {bankQr ? (
+                <div className={styles.upl}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- uploaded payment QR preview */}
+                  <img src={bankQr.url} alt="Ảnh QR ngân hàng nhận tiền" className={styles.qrThumb} />
+                  <div className={styles.qrMeta}>
+                    <p className={styles.qrStatus}>
+                      {qrUploading ? (
+                        <span className={styles.qrSpinRow}>
+                          <span className={styles.qrSpinner} aria-hidden="true" />
+                          Đang tải ảnh QR mới…
+                        </span>
+                      ) : (
+                        "Đã có ảnh QR nhận tiền"
+                      )}
+                    </p>
+                    <p className={styles.qrSub}>Tự động lưu làm QR mặc định cho các lần đăng sau.</p>
+                    <div className={styles.qrActions}>
+                      <button
+                        type="button"
+                        className={styles.qrActionBtn}
+                        disabled={qrUploading}
+                        onClick={() => qrInputRef.current?.click()}
+                      >
+                        Đổi ảnh QR
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.qrRemoveBtn}
+                        disabled={qrUploading}
+                        onClick={() => {
+                          setBankQr(null);
+                          setQrError(null);
+                        }}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`${styles.upl} ${styles.empty}`}
+                  disabled={qrUploading}
+                  onClick={() => qrInputRef.current?.click()}
+                >
+                  {qrUploading ? (
+                    <span className={styles.qrSpinRow}>
+                      <span className={styles.qrSpinner} aria-hidden="true" />
+                      Đang tải ảnh QR…
+                    </span>
+                  ) : (
+                    <>
+                      <span className={styles.limeSoftTile} aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                          <path d="M14 14h3v3h-3z" />
+                          <path d="M20 14v3h-1" />
+                          <path d="M14 20h3" />
+                          <path d="M20 20h.01" />
+                        </svg>
+                      </span>
+                      <span className={styles.qrUploadTitle}>Tải ảnh QR ngân hàng của bạn</span>
+                      <span className={styles.qrUploadSub}>
+                        Người mua chuyển khoản trực tiếp · 0đ phí sàn · tự lưu cho lần đăng sau
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
+              {qrError ? <Notice tone="error">{qrError}</Notice> : null}
+            </section>
+          ) : (
+            <p className={styles.freeQrNote}>Món miễn phí (0đ) không cần ảnh QR ngân hàng.</p>
+          )}
+
+          {error ? <Notice tone="error">{error}</Notice> : null}
+        </div>
+
+        <div className={styles.footer}>
+          <Button type="submit" className={styles.cta} disabled={busy || qrUploading}>
+            {busy ? "Đang lưu…" : "Tiếp tục · 6 cam kết"}
+          </Button>
+        </div>
       </form>
-    </>
+    </div>
   );
 }

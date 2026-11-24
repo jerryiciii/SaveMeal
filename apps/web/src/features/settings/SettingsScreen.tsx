@@ -15,9 +15,10 @@ import { PwaInstallCard } from "./PwaInstallCard";
 import styles from "./settings.module.css";
 
 /**
- * Figma V1 36 · Cài đặt & PWA (`11:135`).
+ * SaveMeal V2.1 · 36 · Cài đặt & PWA.
+ * - Featured Dark V2.1 PWA Install Hero Card (`pwaInstallStore`)
  * - Profile & optional seller setup (ME-2 `PATCH /me` + IMG-1 `AVATAR`)
- * - PWA install section (client-side `beforeinstallprompt` / manual instructions)
+ * - Default seller bank QR upload (`PAYMENT_QR`)
  * - Logout (AUTH-4 `POST /auth/logout` with `{ allDevices }` option)
  * - Delete account (ME-3 `DELETE /me`)
  */
@@ -250,9 +251,24 @@ function SettingsForm({ me }: { me: Me }) {
     <>
       <ScreenHeader title="Cài đặt & PWA" backHref="/account" />
       <div className={styles.body}>
+        <PwaInstallCard />
+
         <form className={styles.card} onSubmit={saveProfile} noValidate>
           <div className={styles.cardHead}>
-            <h2 className={styles.sectionTitle}>Hồ sơ cá nhân</h2>
+            <div className={styles.cardHeadLeft}>
+              <span className={styles.icn} aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <h2 className={styles.sectionTitle}>Hồ sơ cá nhân</h2>
+            </div>
             {me.seller.verified ? <span className={styles.badge}>Đã xác minh</span> : null}
           </div>
           <p className={styles.sectionDesc}>
@@ -303,12 +319,14 @@ function SettingsForm({ me }: { me: Me }) {
             <span className={styles.readonlyHint}>Thông tin đăng nhập chỉ đọc và không thể thay đổi ở phiên bản này.</span>
           </div>
 
-          <h3 className={styles.sectionTitle} style={{ marginTop: 6 }}>
-            Thông tin khi đăng pass món (tùy chọn)
-          </h3>
-          <p className={styles.sectionDesc}>
-            Không bắt buộc — điền sẵn để tự động gợi ý mỗi khi bạn đăng món chia sẻ.
-          </p>
+          <div className={styles.divider} />
+
+          <div className={styles.subHead}>
+            <h3 className={styles.subTitle}>Thông tin khi đăng pass món (tùy chọn)</h3>
+            <p className={styles.sectionDesc}>
+              Không bắt buộc — điền sẵn để tự động gợi ý mỗi khi bạn đăng món chia sẻ.
+            </p>
+          </div>
 
           <TextField
             label="Tên người bán / cửa hàng"
@@ -377,14 +395,27 @@ function SettingsForm({ me }: { me: Me }) {
           {saveError ? <Notice tone="error">{saveError}</Notice> : null}
           {saveSuccess ? <Notice tone="success">{saveSuccess}</Notice> : null}
 
-          <Button type="submit" disabled={saving}>
+          <button type="submit" className={styles.btnDark} disabled={saving}>
             {saving ? "Đang lưu…" : "Lưu thay đổi"}
-          </Button>
+          </button>
         </form>
 
         <section className={styles.card} aria-label="Ảnh QR ngân hàng mặc định">
           <div className={styles.cardHead}>
-            <h2 className={styles.sectionTitle}>Ảnh QR ngân hàng mặc định (người bán)</h2>
+            <div className={styles.cardHeadLeft}>
+              <span className={styles.icn} aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 3h2v3h-2v-3Zm3-3h3v2h-3v-2Zm0 4h3v2h-3v-2Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <h2 className={styles.sectionTitle}>Ảnh QR ngân hàng mặc định</h2>
+            </div>
             <span className={styles.badge}>0đ phí sàn</span>
           </div>
           <p className={styles.sectionDesc}>
@@ -403,7 +434,7 @@ function SettingsForm({ me }: { me: Me }) {
           />
 
           {bankQr ? (
-            <div className={styles.qrPreviewBox}>
+            <div className={styles.uplFilled}>
               {/* eslint-disable-next-line @next/next/no-img-element -- default seller bank QR */}
               <img src={bankQr.url} alt="Ảnh QR ngân hàng mặc định" className={styles.qrThumb} />
               <div className={styles.qrMeta}>
@@ -431,14 +462,14 @@ function SettingsForm({ me }: { me: Me }) {
           ) : (
             <button
               type="button"
-              className={styles.qrEmptyBtn}
+              className={styles.upl}
               disabled={qrBusy}
               onClick={() => qrInputRef.current?.click()}
             >
-              <span className={styles.qrEmptyTitle}>
+              <span className={styles.uplTitle}>
                 {qrBusy ? "Đang tải ảnh QR…" : "Tải ảnh QR ngân hàng của bạn"}
               </span>
-              <span className={styles.qrEmptySub}>Hỗ trợ JPG, PNG, WebP · dùng cho chuyển khoản P2P</span>
+              <span className={styles.uplSub}>Hỗ trợ JPG, PNG, WebP · dùng cho chuyển khoản P2P</span>
             </button>
           )}
 
@@ -446,21 +477,41 @@ function SettingsForm({ me }: { me: Me }) {
           {qrSuccess ? <Notice tone="success">{qrSuccess}</Notice> : null}
         </section>
 
-        <PwaInstallCard />
-
-        <section className={styles.card}>
-          <h2 className={styles.sectionTitle}>Phiên đăng nhập</h2>
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={allDevices}
-              onChange={(e) => setAllDevices(e.target.checked)}
-            />
-            <span>Đăng xuất khỏi tất cả thiết bị đã đăng nhập</span>
-          </label>
-          <Button type="button" variant="secondary" disabled={loggingOut} onClick={handleLogout}>
-            {loggingOut ? "Đang đăng xuất…" : allDevices ? "Đăng xuất tất cả thiết bị" : "Đăng xuất"}
-          </Button>
+        <section className={styles.group} aria-label="Phiên đăng nhập">
+          <div className={styles.groupRow}>
+            <div className={styles.cardHeadLeft}>
+              <span className={styles.icn} aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div>
+                <h2 className={styles.sectionTitle}>Phiên đăng nhập</h2>
+                <p className={styles.groupSub}>Quản lý đăng xuất thiết bị hiện tại hoặc tất cả thiết bị</p>
+              </div>
+            </div>
+          </div>
+          <div className={styles.groupRow}>
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={allDevices}
+                onChange={(e) => setAllDevices(e.target.checked)}
+              />
+              <span>Đăng xuất khỏi tất cả thiết bị đã đăng nhập</span>
+            </label>
+          </div>
+          <div className={styles.groupRow}>
+            <Button type="button" variant="secondary" disabled={loggingOut} onClick={handleLogout}>
+              {loggingOut ? "Đang đăng xuất…" : allDevices ? "Đăng xuất tất cả thiết bị" : "Đăng xuất"}
+            </Button>
+          </div>
         </section>
 
         <DeleteAccountSection />

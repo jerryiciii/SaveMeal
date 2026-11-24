@@ -1,75 +1,227 @@
-.body {
+/* SaveMeal V2.1 Pixel (Orbix "Instant") — Post Listing 3-step flow */
+
+.screen {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px var(--gutter) 32px;
+  min-height: 100dvh;
+  background: var(--canvas);
+}
+
+.topHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) 12px;
 }
 
 .h1 {
-  margin: 24px 0 0;
-  font-size: 28px;
+  margin: 0;
+  font-size: 26px;
   font-weight: 500;
+  line-height: 1.2;
   letter-spacing: -0.025em;
   color: var(--ink);
 }
 
 .lead {
-  margin: -6px 0 4px;
+  margin: 0;
   font-size: 14px;
+  font-weight: 400;
+  line-height: 1.45;
   color: var(--muted);
 }
 
-/* 3-step V2.1 progress stepper */
-.stepper {
+/* 3-segment thin progress dashes (Orbix V2.1) */
+.dashes {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+  padding: 0 20px 8px;
 }
 
-.stepPill {
+.dash {
+  height: 4px;
+  border-radius: 9px;
+  background: #ddddd6;
+  transition: background-color 180ms ease;
+}
+
+.dashDone {
+  background: var(--ink);
+}
+
+.dashActive {
+  background: var(--lime-deep, var(--limedeep, #a9d21f));
+}
+
+.formShell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+  padding: 12px var(--gutter) 28px;
+}
+
+/* Crisp white rounded-24 Orbix section card */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow:
+    0 1px 2px rgba(17, 17, 17, 0.04),
+    0 8px 24px -8px rgba(17, 17, 17, 0.08);
+}
+
+.card label {
+  font-weight: 500;
+  color: var(--ink2);
+}
+
+.cardHead {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 8px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.stepActive {
+.cardTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.cardSub {
+  margin: -8px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Segmented pill track (Hôm nay / Ngày mai) */
+.track {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.trackBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.trackBtn:hover:not(.trackBtnActive) {
+  color: var(--ink);
+}
+
+.trackBtnActive {
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.14);
+}
+
+/* Pill segment chips (Storage options) */
+.segRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.seg:hover:not(.segActive) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.segActive {
   background: var(--ink);
   border-color: var(--ink);
-  color: var(--lime);
+  color: #ffffff;
 }
 
-.stepDone {
-  background: var(--limesoft);
-  border-color: rgba(169, 210, 31, 0.4);
-  color: var(--success);
+/* Numeric / time inputs with tabular-nums */
+.tabular input {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Step 1 photo upload */
 .photo {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 176px;
+  gap: 10px;
+  height: 184px;
   border: 1.5px dashed var(--sheet-handle);
-  border-radius: var(--radius-card);
-  background: var(--surface);
+  border-radius: 20px;
+  background: #fafaf7;
   color: var(--muted);
   font-weight: 500;
   overflow: hidden;
   cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 
 .photo:hover {
   border-color: var(--ink);
+  background: var(--limesoft);
   color: var(--ink);
 }
 
@@ -86,144 +238,19 @@
   cursor: pointer;
 }
 
-.two {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.sectionLabel {
-  margin: 4px 0 -6px;
-  font-size: 12px;
+.photoTitle {
+  font-size: 14px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.photoSub {
+  font-size: 12px;
+  font-weight: 400;
   color: var(--muted);
 }
 
-/* Step 3 · 6 safety declaration cards */
-.check {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  font-size: 14px;
-  line-height: 1.45;
-  color: var(--ink2);
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.checkChecked {
-  border-color: var(--ink);
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.check input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-  pointer-events: none;
-}
-
-.checkBox {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin-top: 1px;
-  border-radius: 7px;
-  border: 1.5px solid var(--line);
-  background: var(--field);
-  color: transparent;
-  font-size: 13px;
-  font-weight: 500;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.checkChecked .checkBox {
-  background: var(--lime);
-  border-color: var(--ink);
-  color: var(--ink);
-}
-
-.check:has(input:focus-visible) {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
-.warn {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--warn);
-}
-
-.done {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 88px var(--gutter) 32px;
-  text-align: center;
-}
-
-.tick {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: var(--lime);
-  border: 2px solid var(--ink);
-  color: var(--ink);
-  font-size: 34px;
-  font-weight: 500;
-}
-
-.linkBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 52px;
-  border-radius: var(--radius-button);
-  background: var(--ink);
-  color: var(--surface);
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.linkBtnSecondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 52px;
-  border-radius: var(--radius-button);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 600;
-}
-
+/* Map action pills & rounded-20 container */
 .locationActions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -231,63 +258,82 @@
 }
 
 .locationBtn {
-  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
   padding: 0 12px;
   border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.locationBtn:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--ink);
+}
+
+.locationBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .geoHint {
-  margin: -6px 0 0;
+  margin: -4px 0 0;
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--warn);
+}
+
+.mapFrame {
+  border-radius: 20px;
+  padding: 6px;
+  background: var(--canvas);
+  border: 1px solid var(--hair);
+  box-shadow:
+    0 1px 2px rgba(17, 17, 17, 0.03),
+    0 6px 16px -8px rgba(17, 17, 17, 0.08);
 }
 
 .mapSkeleton {
   width: 100%;
   height: 220px;
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--field);
   border: 1px solid var(--line);
 }
 
-/* Screen 25b · Seller Bank QR upload card (V2.1) */
-.qrCard {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border-radius: 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
-.qrHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.qrTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.35;
-  color: var(--ink);
-}
-
+/* Screen 25b · Seller Bank QR upload (Orbix .upl / .upl.empty) */
 .qrPill {
   flex: none;
   padding: 4px 10px;
   border-radius: 999px;
-  background: var(--limesoft);
+  background: var(--limesoft, #f2fbd3);
   color: var(--success);
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.limeSoftTile {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--limesoft, #f2fbd3);
+  color: var(--ink);
 }
 
 .upl {
@@ -296,9 +342,9 @@
   gap: 14px;
   width: 100%;
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--canvas);
-  border: 1px solid var(--line);
+  border: 1px solid var(--hair);
   text-align: left;
 }
 
@@ -306,19 +352,22 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 6px;
-  min-height: 124px;
+  gap: 8px;
+  min-height: 142px;
   padding: 20px 16px;
+  border-radius: 20px;
   border: 1.5px dashed var(--sheet-handle);
-  background: var(--surface);
+  background: #fafaf7;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 
 .empty:hover:not(:disabled) {
   border-color: var(--ink);
-  background: var(--limesoft);
+  background: var(--limesoft, #f2fbd3);
 }
 
 .empty:disabled {
@@ -334,8 +383,10 @@
 
 .qrUploadSub {
   font-size: 12px;
+  font-weight: 400;
   line-height: 1.45;
   color: var(--muted);
+  max-width: 280px;
 }
 
 .qrThumb {
@@ -344,8 +395,9 @@
   height: 84px;
   border-radius: 14px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: #ffffff;
   object-fit: contain;
+  padding: 4px;
 }
 
 .qrMeta {
@@ -366,6 +418,7 @@
 .qrSub {
   margin: 0;
   font-size: 12px;
+  font-weight: 400;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -386,26 +439,39 @@
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: #ffffff;
   color: var(--ink);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
 }
 
 .qrActionBtn:hover:not(:disabled) {
-  background: var(--limesoft);
+  background: var(--limesoft, #f2fbd3);
   border-color: var(--ink);
 }
 
 .qrRemoveBtn {
-  border: 0;
-  background: none;
-  padding: 6px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 37, 43, 0.2);
+  background: var(--danger-soft);
   color: var(--danger);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.qrRemoveBtn:hover:not(:disabled) {
+  background: #ffe0e1;
 }
 
 .qrSpinRow {
@@ -434,13 +500,110 @@
 
 .freeQrNote {
   margin: 0;
-  padding: 12px 16px;
-  border-radius: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid var(--hair);
   font-size: 13px;
+  font-weight: 500;
   line-height: 1.45;
   color: var(--muted);
+}
+
+/* Sticky bottom CTA footer */
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding: 16px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(244, 244, 240, 0) 0%, var(--canvas) 32%);
+}
+
+.cta {
+  width: 100%;
+  height: 56px;
+  min-height: 56px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Step 3 · 6 safety declaration cards */
+.checkList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.check {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1.5px solid var(--hair);
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink2);
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.checkChecked {
+  border-color: var(--ink);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 4px 14px -6px rgba(17, 17, 17, 0.12);
+}
+
+.check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.checkBox {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 7px;
+  border: 1.5px solid var(--line);
+  background: var(--field);
+  color: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.checkChecked .checkBox {
+  background: var(--lime);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.check:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 /* Missing checklist items banner in PostChecklist */
@@ -482,7 +645,65 @@
   padding: 0 14px;
   border-radius: 999px;
   background: var(--ink);
-  color: var(--surface);
+  color: #ffffff;
   font-size: 13px;
+  font-weight: 500;
+}
+
+/* Shared classes used by PostPreview & PostDone */
+.warn {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 88px var(--gutter) 32px;
+  text-align: center;
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--lime);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 500;
+}
+
+.linkBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  border-radius: var(--radius-button);
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.linkBtnSecondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  border-radius: var(--radius-button);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 500;
 }

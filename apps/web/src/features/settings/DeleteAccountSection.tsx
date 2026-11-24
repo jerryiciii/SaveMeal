@@ -15,7 +15,7 @@ type ActiveItemsError = {
 };
 
 /**
- * Account deletion section for Figma V1 36 · Cài đặt & PWA (`11:135`).
+ * Account deletion section for SaveMeal V2.1 · 36 · Cài đặt & PWA.
  * Calls ME-3 (`DELETE /me`) requiring exact confirmation `"XOA TAI KHOAN"`,
  * explains anonymisation (CLAUDE.md §7), and handles `409 ACCOUNT_HAS_ACTIVE_ITEMS`.
  */
@@ -64,9 +64,22 @@ export function DeleteAccountSection() {
   }
 
   return (
-    <section className={styles.dangerCard}>
-      <h2 className={styles.dangerTitle}>Xóa tài khoản</h2>
-      <p className={styles.sectionDesc}>
+    <section className={styles.dangerCard} aria-label="Vùng nguy hiểm — Xóa tài khoản">
+      <div className={styles.cardHeadLeft}>
+        <span className={styles.icnDanger} aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6h12Z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <h2 className={styles.dangerTitle}>Xóa tài khoản</h2>
+      </div>
+      <p className={styles.dangerDesc}>
         Yêu cầu xóa và ẩn danh dữ liệu cá nhân theo quy định bảo mật của SaveMeal. Thao tác này không thể hoàn tác.
       </p>
 
@@ -83,7 +96,7 @@ export function DeleteAccountSection() {
           Yêu cầu xóa tài khoản
         </button>
       ) : (
-        <form onSubmit={onDelete} noValidate style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <form onSubmit={onDelete} noValidate className={styles.dangerForm}>
           <ul className={styles.bulletList}>
             <li>Số điện thoại, email, ảnh đại diện và thông tin người bán sẽ bị xóa khỏi tài khoản.</li>
             <li>Tên hiển thị sẽ được ẩn danh thành &ldquo;Người dùng đã xóa&rdquo;.</li>
@@ -103,7 +116,7 @@ export function DeleteAccountSection() {
           {activeItems ? (
             <Notice tone="error">
               <p>
-                <b>Chưa thể xóa tài khoản:</b> bạn đang có{" "}
+                <span className={styles.strongText}>Chưa thể xóa tài khoản:</span> bạn đang có{" "}
                 {activeItems.activeReservations > 0 ? `${activeItems.activeReservations} đơn đang giữ chỗ` : null}
                 {activeItems.activeReservations > 0 && activeItems.activeListings > 0 ? " và " : null}
                 {activeItems.activeListings > 0 ? `${activeItems.activeListings} tin đang đăng` : null}.

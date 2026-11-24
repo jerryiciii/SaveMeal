@@ -1,130 +1,106 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { Button, Notice } from "@/components/ui";
+import { useState } from "react";
+import { triggerNativePwaInstall, usePwaInstall } from "@/pwa/pwaInstallStore";
 import styles from "./settings.module.css";
 
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-  prompt(): Promise<void>;
-}
-
-const noopSubscribe = () => () => {};
-
-function detectStandalone(): boolean {
-  if (typeof window === "undefined") return false;
-  const nav = window.navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
-    nav.standalone === true
-  );
-}
-
-function detectIos(): boolean {
-  if (typeof window === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-}
-
 /**
- * PWA install card for Figma V1 36 · Cài đặt & PWA (`11:135`).
- * Client-side only (no push notifications in MVP).
+ * Featured Dark V2.1 PWA Install Hero Card (36 · Cài đặt & PWA).
+ * Backed by global `pwaInstallStore` so `beforeinstallprompt` is captured at app root.
  */
 export function PwaInstallCard() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [justInstalled, setJustInstalled] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const { installed, isIos } = usePwaInstall();
   const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: "success" | "note"; text: string } | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
-  const standaloneDetected = useSyncExternalStore(noopSubscribe, detectStandalone, () => false);
-  const isIos = useSyncExternalStore(noopSubscribe, detectIos, () => false);
-  const installed = standaloneDetected || justInstalled;
-
-  useEffect(() => {
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    const handleInstalled = () => {
-      setJustInstalled(true);
-      setDeferredPrompt(null);
-      setStatusMessage("Đã cài đặt SaveMeal vào màn hình chính.");
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    window.addEventListener("appinstalled", handleInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-      window.removeEventListener("appinstalled", handleInstalled);
-    };
-  }, []);
-
-  async function installNow() {
-    if (!deferredPrompt) return;
+  async function handleInstallClick() {
     setBusy(true);
-    setStatusMessage(null);
+    setFeedback(null);
     try {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === "accepted") {
-        setJustInstalled(true);
-        setStatusMessage("Đang thêm SaveMeal vào màn hình chính.");
+      const outcome = await triggerNativePwaInstall();
+      if (outcome === "accepted") {
+        setShowGuide(false);
+        setFeedback({ tone: "success", text: "Đang thêm SaveMeal vào màn hình chính!" });
+      } else if (outcome === "dismissed") {
+        setFeedback({
+          tone: "note",
+          text: "Bạn có thể bấm lại bất cứ lúc nào để cài SaveMeal.",
+        });
       } else {
-        setStatusMessage("Bạn có thể cài đặt SaveMeal bất cứ lúc nào từ mục này.");
+        setShowGuide(true);
       }
-      setDeferredPrompt(null);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section className={styles.card}>
-      <div className={styles.cardHead}>
-        <h2 className={styles.sectionTitle}>Cài đặt ứng dụng (PWA)</h2>
-        {installed ? <span className={styles.badge}>Đã cài</span> : null}
+    <section className={styles.pwaHero} aria-label="Cài đặt ứng dụng SaveMeal (PWA)">
+      <div className={styles.pwaTop}>
+        <div className={styles.pwaIconBadge} aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 3v11m0 0l-4-4m4 4l4-4M5 17.5V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <div className={styles.pwaTitleWrap}>
+          <h2 className={styles.pwaTitle}>Cài SaveMeal vào màn hình chính</h2>
+        </div>
+        <span className={installed ? styles.pwaPillInstalled : styles.pwaPill}>
+          {installed ? "Đã cài" : "PWA"}
+        </span>
       </div>
-      <p className={styles.sectionDesc}>
-        Thêm SaveMeal vào màn hình chính để mở nhanh như ứng dụng, quét QR mượt hơn và xem được trạng thái ngoại tuyến.
+
+      <p className={styles.pwaDesc}>
+        Mở nhanh 1 chạm như ứng dụng thật, quét QR mượt hơn và lưu trạng thái ngoại tuyến.
       </p>
 
       {installed ? (
-        <Notice tone="success">
-          <p>SaveMeal đang chạy ở chế độ ứng dụng trên thiết bị này.</p>
-        </Notice>
-      ) : deferredPrompt ? (
-        <Button type="button" onClick={installNow} disabled={busy}>
-          {busy ? "Đang mở hộp thoại…" : "Cài đặt SaveMeal ngay"}
-        </Button>
+        <div className={styles.pwaInstalledPill} role="status">
+          ✓ SaveMeal đã được cài trên thiết bị này
+        </div>
       ) : (
-        <ul className={styles.installSteps}>
-          {isIos ? (
-            <li className={styles.installStep}>
-              <b>Trên iPhone / iPad (Safari)</b>
-              Nhấn biểu tượng <b>Chia sẻ</b> ở thanh dưới cùng → cuộn xuống chọn <b>Thêm vào MH chính</b> → nhấn{" "}
-              <b>Thêm</b>.
-            </li>
-          ) : (
-            <>
-              <li className={styles.installStep}>
-                <b>Trên Android (Chrome / Edge)</b>
-                Nhấn biểu tượng <b>⋮</b> ở góc trên phải → chọn <b>Cài đặt ứng dụng</b> hoặc{" "}
-                <b>Thêm vào màn hình chính</b>.
-              </li>
-              <li className={styles.installStep}>
-                <b>Trên iPhone / iPad (Safari)</b>
-                Nhấn biểu tượng <b>Chia sẻ</b> ở thanh dưới cùng → chọn <b>Thêm vào MH chính</b>.
-              </li>
-            </>
-          )}
-        </ul>
-      )}
+        <>
+          <button
+            type="button"
+            className={styles.pwaCta}
+            onClick={handleInstallClick}
+            disabled={busy}
+          >
+            {busy ? "Đang mở hộp thoại…" : "Cài SaveMeal ngay"}
+          </button>
 
-      {statusMessage ? (
-        <Notice>
-          <p>{statusMessage}</p>
-        </Notice>
-      ) : null}
+          {feedback ? (
+            <p
+              className={
+                feedback.tone === "success" ? styles.pwaFeedbackSuccess : styles.pwaFeedbackNote
+              }
+              role="status"
+            >
+              {feedback.text}
+            </p>
+          ) : null}
+
+          {showGuide ? (
+            <div className={styles.pwaGuide} role="region" aria-label="Hướng dẫn cài đặt thủ công">
+              <p className={styles.pwaGuideLabel}>
+                {isIos ? "Hướng dẫn trên Safari (iOS)" : "Hướng dẫn cài trên trình duyệt"}
+              </p>
+              <p className={styles.pwaGuideText}>
+                {isIos
+                  ? "Trên Safari: bấm biểu tượng Chia sẻ (↑) → Thêm vào MH chính → Thêm"
+                  : "Bấm biểu tượng ⋮ hoặc biểu tượng cài đặt trên thanh địa chỉ → Cài đặt SaveMeal"}
+              </p>
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }
