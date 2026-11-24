@@ -9,11 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export const DELETED_DISPLAY_NAME = 'Người dùng đã xóa';
 
-type AccountWithAvatar = Account & {
-  avatar: { id: string; storageKey: string; width: number; height: number } | null;
+type ImageSnippet = { id: string; storageKey: string; width: number; height: number };
+
+type AccountWithImages = Account & {
+  avatar: ImageSnippet | null;
+  bankQrImage: ImageSnippet | null;
 };
 
-export function toMeSeller(account: Account): MeSeller {
+export function toMeSeller(account: Account & { bankQrImage?: ImageSnippet | null }): MeSeller {
   const hasPickup =
     account.defaultPickupAddress !== null && account.defaultPickupLat !== null && account.defaultPickupLng !== null;
   return {
@@ -23,6 +26,7 @@ export function toMeSeller(account: Account): MeSeller {
     defaultPickup: hasPickup
       ? { address: account.defaultPickupAddress!, lat: account.defaultPickupLat!, lng: account.defaultPickupLng! }
       : null,
+    bankQrImage: account.bankQrImage ? toImage(account.bankQrImage) : null,
   };
 }
 
@@ -33,22 +37,30 @@ export class MeService {
   async getMe(accountId: string): Promise<Me> {
     const account = await this.prisma.account.findUniqueOrThrow({
       where: { id: accountId },
-      include: { avatar: { select: { id: true, storageKey: true, width: true, height: true } } },
+      include: {
+        avatar: { select: { id: true, storageKey: true, width: true, height: true } },
+        bankQrImage: { select: { id: true, storageKey: true, width: true, height: true } },
+      },
     });
     return this.toMe(account);
   }
 
   /**
    * ME-1 stats (V1/08, V1/35): portions handed over in completed handovers on either side of the
-   * account (as buyer or seller), its own RESERVED orders, and its DRAFT/PUBLISHED listings.
+   * account (as buyer or seller), its own active orders, and its DRAFT/PUBLISHED listings.
    */
-  private async toMe(account: AccountWithAvatar): Promise<Me> {
+  private async toMe(account: AccountWithImages): Promise<Me> {
     const [handedOver, reservationsActive, listingsActive] = await Promise.all([
       this.prisma.reservation.aggregate({
         where: { status: 'COMPLETED', OR: [{ buyerId: account.id }, { sellerId: account.id }] },
         _sum: { quantity: true },
       }),
-      this.prisma.reservation.count({ where: { buyerId: account.id, status: 'RESERVED' } }),
+      this.prisma.reservation.count({
+        where: {
+          buyerId: account.id,
+          status: { in: ['PENDING_PAYMENT', 'AWAITING_SELLER_CONFIRM', 'RESERVED'] },
+        },
+      }),
       this.prisma.foodListing.count({ where: { sellerId: account.id, status: { in: ['DRAFT', 'PUBLISHED'] } } }),
     ]);
     return {
@@ -86,10 +98,27 @@ export class MeService {
       }
     }
     if (body.seller) {
-      const { name, type, defaultPickup } = body.seller;
+      const { name, type, defaultPickup, bankQrImageId } = body.seller;
       if (name !== undefined) data.sellerName = name === null ? null : name.trim() || null;
       if (type !== undefined) data.sellerType = type as SellerType | null;
       if (defaultPickup !== undefined) Object.assign(data, pickupColumns(defaultPickup));
+      if (bankQrImageId !== undefined) {
+        if (bankQrImageId === null) {
+          data.bankQrImage = { disconnect: true };
+        } else {
+          const image = await this.prisma.listingImage.findFirst({
+            where: { id: bankQrImageId, uploaderId: accountId },
+            select: { id: true, purpose: true },
+          });
+          if (!image) throw new AppException('IMAGE_NOT_FOUND');
+          if (image.purpose !== 'PAYMENT_QR') {
+            throw new AppException('VALIDATION_FAILED', {
+              fields: { 'seller.bankQrImageId': 'image must be uploaded with purpose PAYMENT_QR' },
+            });
+          }
+          data.bankQrImage = { connect: { id: image.id } };
+        }
+      }
     }
     await this.prisma.account.update({ where: { id: accountId }, data });
     return this.getMe(accountId);
@@ -105,7 +134,12 @@ export class MeService {
       // Serialise with concurrent reservations/listings for this account.
       await tx.$executeRaw`SELECT 1 FROM accounts WHERE id = ${accountId}::uuid FOR UPDATE`;
       const [activeReservations, activeListings] = await Promise.all([
-        tx.reservation.count({ where: { buyerId: accountId, status: 'RESERVED' } }),
+        tx.reservation.count({
+          where: {
+            buyerId: accountId,
+            status: { in: ['PENDING_PAYMENT', 'AWAITING_SELLER_CONFIRM', 'RESERVED'] },
+          },
+        }),
         tx.foodListing.count({ where: { sellerId: accountId, status: 'PUBLISHED' } }),
       ]);
       if (activeReservations > 0 || activeListings > 0) {
@@ -124,6 +158,7 @@ export class MeService {
           phone: null,
           email: null,
           avatar: { disconnect: true },
+          bankQrImage: { disconnect: true },
           displayName: DELETED_DISPLAY_NAME,
           sellerName: null,
           sellerType: null,

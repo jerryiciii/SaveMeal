@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import { logEvent } from '../common/event-log';
 import { localDate } from '../common/time';
 import { AppConfig } from '../config/app-config';
@@ -118,8 +119,9 @@ export class JobsService {
 
   /**
    * JOB-2: idempotently expires PENDING_PAYMENT holds past payment_expires_at (releasing stock)
-   * and marks RESERVED reservations whose listing pickupEnd + noShowGraceMin <= now as EXPIRED,
-   * revoking their unused pickup tokens and logging RESERVATION_EXPIRED events.
+   * and marks RESERVED and AWAITING_SELLER_CONFIRM reservations whose listing
+   * pickupEnd + noShowGraceMin <= now as EXPIRED, revoking unused pickup tokens, expiring
+   * unfinished payments, and logging RESERVATION_EXPIRED events.
    */
   async expireReservations(now = new Date()): Promise<number> {
     const pendingExpired = await this.payments.expirePendingPayments(undefined, undefined, now);
@@ -133,7 +135,7 @@ export class JobsService {
            SET status = 'EXPIRED', closed_at = ${now}, updated_at = ${now}
           FROM food_listings l
          WHERE r.listing_id = l.id
-           AND r.status = 'RESERVED'
+           AND r.status IN ('RESERVED', 'AWAITING_SELLER_CONFIRM')
            AND l.pickup_end <= ${cutoff}
         RETURNING r.id, r.listing_id, r.seller_id, r.quantity`;
 
@@ -144,6 +146,25 @@ export class JobsService {
         where: { reservationId: { in: ids }, usedAt: null, revokedAt: null },
         data: { revokedAt: now },
       });
+
+      const idParams = ids.map((id) => Prisma.sql`${id}::uuid`);
+      const expiredPayments = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
+        UPDATE payments
+           SET status = 'EXPIRED', updated_at = ${now}
+         WHERE reservation_id IN (${Prisma.join(idParams)})
+           AND status IN ('UNPAID', 'PROOF_SUBMITTED')
+        RETURNING id, reservation_id`;
+
+      for (const p of expiredPayments) {
+        await logEvent(tx, {
+          actorId: null,
+          actorType: 'SYSTEM',
+          event: 'PAYMENT_EXPIRED',
+          entityType: 'payment',
+          entityId: p.id,
+          data: { reservationId: p.reservation_id, reason: 'PICKUP_WINDOW_EXPIRED' },
+        });
+      }
 
       for (const row of expired) {
         await logEvent(tx, {
@@ -184,7 +205,9 @@ export class JobsService {
         FROM listing_images li
        WHERE li.listing_id IS NULL
          AND li.created_at < ${oneDayAgo}
-         AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.avatar_image_id = li.id)
+         AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.avatar_image_id = li.id OR a.bank_qr_image_id = li.id)
+         AND NOT EXISTS (SELECT 1 FROM food_listings fl WHERE fl.bank_qr_image_id = li.id)
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.seller_qr_image_id = li.id OR p.proof_image_id = li.id)
          AND NOT EXISTS (SELECT 1 FROM reports r WHERE li.id = ANY(r.image_ids))`;
 
     let deletedImages = 0;

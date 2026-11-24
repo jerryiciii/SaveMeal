@@ -25,9 +25,9 @@ describe('parseEnv', () => {
       minHoldMin: 5,
       defaultHoldMin: 10,
       fees: {
-        percent: 5,
-        thresholdVnd: 20000,
-        flatVnd: 2000,
+        percent: 0,
+        thresholdVnd: 0,
+        flatVnd: 0,
         paidBy: 'BUYER',
       },
       sepay: {

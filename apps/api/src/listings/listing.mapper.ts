@@ -11,12 +11,17 @@ import { toImage } from '../common/images';
 import { toApiTimeOrNull } from '../common/time';
 import { editableFields, missingChecklist } from './listing-rules';
 
-export type ListingRow = FoodListing & { seller: Account; images: ListingImage[] };
+export type ListingRow = FoodListing & {
+  seller: Account & { bankQrImage?: ListingImage | null };
+  images: ListingImage[];
+  bankQrImage?: ListingImage | null;
+};
 
 /** Prisma include that every listing response needs. */
 export const LISTING_INCLUDE = {
-  seller: true,
+  seller: { include: { bankQrImage: true } },
   images: { orderBy: [{ position: 'asc' as const }, { createdAt: 'asc' as const }] },
+  bankQrImage: true,
 };
 
 export function sellerSummary(account: Account): SellerSummary {
@@ -94,14 +99,23 @@ export function toOwnerView(
   counts: PortionCounts,
   now: Date,
   maxWindowHours: number,
+  paymentsEnabled = false,
 ): ListingOwnerView {
+  const effectiveQr = l.bankQrImage ?? l.seller.bankQrImage ?? null;
+  const effectiveQrId = l.bankQrImageId ?? l.seller.bankQrImageId ?? null;
   return {
     ...toDetail(l),
     // null only on drafts
     quantityTotal: l.quantityTotal!,
     reservedCount: counts.reserved,
     completedCount: counts.completed,
-    missing: missingChecklist({ ...l, imageCount: l.images.length }, now, maxWindowHours),
+    bankQrImage: effectiveQr ? toImage(effectiveQr) : null,
+    missing: missingChecklist(
+      { ...l, bankQrImageId: effectiveQrId, imageCount: l.images.length },
+      now,
+      maxWindowHours,
+      paymentsEnabled,
+    ),
     editableFields: editableFields(l.status),
     closeReason: l.closeReason,
     blockedReason: l.blockedReason,

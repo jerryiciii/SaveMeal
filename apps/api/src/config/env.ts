@@ -92,7 +92,7 @@ export const envSchema = z
     PAYMENTS_ENABLED: boolFlag(false),
     GOOGLE_LOGIN_ENABLED: boolFlag(false),
 
-    // Payments (DOMAIN v1.2 §6, §11).
+    // Payments (DOMAIN v1.3 §6, §11: P2P direct bank QR, 0 platform fee).
     PAYMENT_PROVIDER: z.enum(['mock', 'sepay']).default('mock'),
     SEPAY_BANK_CODE: optionalTrimmed,
     SEPAY_ACCOUNT_NO: optionalTrimmed,
@@ -100,9 +100,10 @@ export const envSchema = z
     SEPAY_WEBHOOK_SECRET: optionalTrimmed,
     MIN_PAYMENT_HOLD_MIN: int(5, 1),
     DEFAULT_PAYMENT_HOLD_MIN: int(10, 1),
-    PLATFORM_FEE_PERCENT: int(5, 0),
-    PLATFORM_FEE_THRESHOLD_VND: int(20000, 0),
-    PLATFORM_FEE_FLAT_VND: int(2000, 0),
+    PLATFORM_FEE_PERCENT: int(0, 0),
+    PLATFORM_FEE_THRESHOLD_VND: int(0, 0),
+    PLATFORM_FEE_FLAT_VND: int(0, 0),
+    APP_PUBLIC_URL: z.string().url().default('https://savemeal.thezah.space'),
 
     // DOMAIN §11 defaults.
     MAX_ACTIVE_LISTINGS: int(5, 1),

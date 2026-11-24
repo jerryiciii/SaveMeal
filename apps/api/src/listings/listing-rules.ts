@@ -1,4 +1,4 @@
-// Pure listing rules from DOMAIN v1.1 §3 and §5 (no I/O, unit-tested).
+// Pure listing rules from DOMAIN v1.3 §3 and §5 (no I/O, unit-tested).
 import type { ChecklistKey, DeclarationKey, ListingStatus } from '@savemeal/shared';
 import { CHECKLIST_KEYS, DECLARATION_KEYS } from '@savemeal/shared';
 
@@ -18,6 +18,7 @@ export type ChecklistInput = {
   pickupAddress: string | null;
   pickupLat: number | null;
   pickupLng: number | null;
+  bankQrImageId?: string | null;
 };
 
 /**
@@ -25,7 +26,12 @@ export type ChecklistInput = {
  * Whether the window has already ended is time-dependent and reported at publish as
  * PICKUP_WINDOW_INVALID instead.
  */
-export function missingChecklist(l: ChecklistInput, now: Date, maxWindowHours: number): ChecklistKey[] {
+export function missingChecklist(
+  l: ChecklistInput,
+  now: Date,
+  maxWindowHours: number,
+  paymentsEnabled = false,
+): ChecklistKey[] {
   const missing = new Set<ChecklistKey>();
   if (l.imageCount < 1) missing.add('PHOTO');
   if (!l.title || l.title.trim().length < 3 || l.title.length > 80) missing.add('NAME');
@@ -43,6 +49,9 @@ export function missingChecklist(l: ChecklistInput, now: Date, maxWindowHours: n
     missing.add('PICKUP_WINDOW');
   }
   if (!l.pickupAddress || l.pickupLat === null || l.pickupLng === null) missing.add('PICKUP_LOCATION');
+  if (paymentsEnabled && l.price !== null && l.price > 0 && !l.bankQrImageId) {
+    missing.add('PAYMENT_QR');
+  }
   return CHECKLIST_KEYS.filter((k) => missing.has(k));
 }
 
@@ -77,6 +86,7 @@ export const ALL_FIELDS = [
   'pickupStart',
   'pickupEnd',
   'pickup',
+  'bankQrImageId',
 ] as const;
 export type ListingField = (typeof ALL_FIELDS)[number];
 

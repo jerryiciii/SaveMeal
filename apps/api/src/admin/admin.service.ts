@@ -276,6 +276,7 @@ export class AdminService {
         data: dto.verified
           ? { sellerVerifiedAt: new Date(), sellerVerifiedBy: admin.id }
           : { sellerVerifiedAt: null, sellerVerifiedBy: null },
+        include: { bankQrImage: { select: { id: true, storageKey: true, width: true, height: true } } },
       });
 
       await logEvent(tx, {
@@ -333,6 +334,7 @@ export class AdminService {
 
     const rows = await this.prisma.account.findMany({
       where: { AND: andFilters },
+      include: { bankQrImage: { select: { id: true, storageKey: true, width: true, height: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       skip: offset,
       take: limit + 1,
@@ -381,7 +383,13 @@ export class AdminService {
 
     return {
       data: items.map((r) =>
-        toOwnerView(r, counts.get(r.id) ?? { reserved: 0, completed: 0 }, now, this.config.listings.maxWindowHours),
+        toOwnerView(
+          r,
+          counts.get(r.id) ?? { reserved: 0, completed: 0 },
+          now,
+          this.config.listings.maxWindowHours,
+          this.config.features.payments,
+        ),
       ),
       page,
     };
