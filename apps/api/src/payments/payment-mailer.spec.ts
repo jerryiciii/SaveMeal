@@ -158,7 +158,10 @@ describe('ResendPaymentMailer', () => {
     expect(payload.text).toContain('Miễn phí');
     expect(payload.text).toContain('4 phần');
     expect(payload.text).toContain('17:30–18:30 (25/11)');
+    expect(payload.text).toContain('https://savemeal.thezah.space/settings?disableAlerts=1');
     expect(payload.html).toContain('https://savemeal.thezah.space/listings/list-123');
+    expect(payload.html).toContain('https://savemeal.thezah.space/settings?disableAlerts=1');
+    expect(payload.html).toContain('Tắt thông báo món gần đây');
   });
 
   it('does not throw when Resend returns HTTP error or rejects (best-effort)', async () => {
