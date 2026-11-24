@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/contract/errors";
 import { DEMO_ADMIN_PHONE, DEMO_BUYER_PHONE, DEMO_SELLER_PHONE } from "@/mocks/db";
 import styles from "./auth.module.css";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /** "0901 234 567" → SMS, "a@b.vn" → EMAIL (AUTH-1 channel). */
 export function detectChannel(identifier: string): "SMS" | "EMAIL" {
   return identifier.includes("@") ? "EMAIL" : "SMS";
@@ -30,7 +32,11 @@ export function LoginScreen() {
     e.preventDefault();
     const value = identifier.trim();
     if (!value) {
-      setError("Nhập số điện thoại hoặc email.");
+      setError(isMockApi ? "Nhập số điện thoại hoặc email." : "Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP.");
+      return;
+    }
+    if (!isMockApi && !EMAIL_RE.test(value)) {
+      setError("Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP.");
       return;
     }
     setBusy(true);
@@ -41,7 +47,7 @@ export function LoginScreen() {
       router.push(`/login/otp?${q.toString()}`);
     } catch (err) {
       if (err instanceof ApiError && err.code === "FEATURE_DISABLED") {
-        setError("SMS chưa mở trong giai đoạn thử nghiệm. Vui lòng nhập email để nhận mã OTP.");
+        setError("Đăng nhập bằng SMS chưa hỗ trợ. Vui lòng nhập địa chỉ email hợp lệ để nhận mã OTP.");
       } else {
         setError(err instanceof ApiError ? err.message : "Không gửi được mã. Vui lòng thử lại.");
       }
@@ -56,13 +62,14 @@ export function LoginScreen() {
       <p className={styles.lead}>Một tài khoản để vừa mua vừa đăng món.</p>
       <form className={styles.form} onSubmit={submit} noValidate>
         <TextField
-          label="Số điện thoại hoặc email"
-          placeholder="Nhập email hoặc số điện thoại"
+          label={isMockApi ? "Số điện thoại hoặc email" : "Email"}
+          placeholder={isMockApi ? "Nhập email hoặc số điện thoại" : "ban@example.com"}
+          type={isMockApi ? "text" : "email"}
           inputMode="email"
-          autoComplete="username"
+          autoComplete={isMockApi ? "username" : "email"}
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
-          hint={!isMockApi ? "Khuyến nghị nhập email để nhận mã OTP trong giai đoạn thử nghiệm." : undefined}
+          hint={!isMockApi ? "Nhập email của bạn để nhận mã OTP 6 số từ SaveMeal." : undefined}
           error={error}
         />
         <Button type="submit" disabled={busy}>

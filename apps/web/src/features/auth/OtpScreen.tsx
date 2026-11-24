@@ -57,6 +57,7 @@ export function OtpScreen() {
     }
   }
 
+  const isEmail = detectChannel(to) === "EMAIL";
   const mm = String(Math.floor(wait / 60)).padStart(2, "0");
   const ss = String(wait % 60).padStart(2, "0");
 
@@ -66,7 +67,15 @@ export function OtpScreen() {
       <section className={styles.screen}>
         <h1 className={styles.title}>Nhập mã xác minh</h1>
         <p className={styles.lead}>
-          Mã {len} số đã gửi tới <b>{to}</b>.
+          {isEmail ? (
+            <>
+              Mã {len} số đã gửi tới email <b>{to}</b>. Kiểm tra cả hộp thư rác nếu chưa thấy.
+            </>
+          ) : (
+            <>
+              Mã {len} số đã gửi tới <b>{to}</b>.
+            </>
+          )}
         </p>
         <form className={styles.form} onSubmit={verify} noValidate>
           <TextField
