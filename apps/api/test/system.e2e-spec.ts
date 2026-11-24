@@ -18,7 +18,7 @@ describe('SYS-1 · GET /api/v1/health', () => {
 
   it('200 with status, db and version (public, no token)', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
-    expect(res.body).toEqual({ data: { status: 'ok', db: 'ok', version: '1.3.0' } });
+    expect(res.body).toEqual({ data: { status: 'ok', db: 'ok', version: '1.3.1' } });
     expect(res.headers['content-type']).toMatch(/^application\/json; charset=utf-8/);
     expect(res.headers['x-request-id']).toMatch(REQUEST_ID);
   });
