@@ -20,7 +20,7 @@
   gap: 8px;
   margin: 0;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: var(--ink);
 }
@@ -71,7 +71,7 @@
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
   box-shadow: 0 4px 12px rgba(17, 17, 17, 0.16);
 }
 
@@ -103,7 +103,7 @@
 .previewTitle {
   margin: 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -119,14 +119,14 @@
   border-radius: 999px;
   background: var(--ink);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--lime);
 }
 
 .title {
   margin: 4px 0 0;
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--ink);
@@ -169,7 +169,7 @@
   background: var(--limesoft);
   color: var(--ink);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .stepText {
@@ -181,7 +181,7 @@
 .stepTitle {
   margin: 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -213,7 +213,7 @@
 .primaryLink {
   background: var(--ink);
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 500;
   box-shadow: 0 4px 14px rgba(17, 17, 17, 0.14);
 }
 
@@ -289,7 +289,7 @@
 .locationTitle {
   margin: 0;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.25;
   text-align: center;

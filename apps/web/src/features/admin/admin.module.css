@@ -60,7 +60,7 @@
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 500;
   line-height: 1;
   flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(17, 17, 17, 0.08);
@@ -69,7 +69,7 @@
 .brandTitle {
   margin: 0;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.025em;
   color: var(--ink, #111111);
 }
@@ -84,7 +84,7 @@
   border: 1px solid var(--line, #e4e4de);
   color: var(--muted, #6e6e73);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.02em;
 }
 
@@ -156,7 +156,7 @@
   background: var(--danger-soft, #ffeded);
   color: var(--danger, #c9252b);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -239,13 +239,13 @@
   background: var(--danger-soft, #ffeded);
   color: var(--danger, #c9252b);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .guardTitle {
   margin: 0;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.25;
   color: var(--ink, #111111);
 }
@@ -273,7 +273,7 @@
   padding: 0 20px;
   border-radius: 999px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .guardLinkPrimary {
@@ -299,7 +299,7 @@
 .pageTitle {
   margin: 0;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.025em;
   color: var(--ink, #111111);
 }
@@ -401,7 +401,7 @@
   background: var(--ink, #111111);
   border-color: var(--ink, #111111);
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .compactButtonPrimary:hover:not(:disabled) {
@@ -413,7 +413,7 @@
   background: var(--danger-soft, #ffeded);
   border-color: rgba(201, 37, 43, 0.22);
   color: var(--danger, #c9252b);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .compactButtonDanger:hover:not(:disabled) {
@@ -425,7 +425,7 @@
   background: var(--lilacsoft, #f3efff);
   border-color: var(--lilac, #dcd1ff);
   color: var(--violet, #5b3fd6);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .compactButtonSky:hover:not(:disabled) {
@@ -525,14 +525,14 @@
 .kpiLabel {
   margin: 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--muted, #6e6e73);
 }
 
 .kpiValue {
   margin: 0;
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   line-height: 1.08;
@@ -614,7 +614,7 @@
 
 .miniStatVal {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--ink, #111111);
 }
@@ -634,7 +634,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink, #111111);
 }
 
@@ -663,7 +663,7 @@
 .breakdownHeading {
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted, #6e6e73);
@@ -685,7 +685,7 @@
 }
 
 .breakdownCount {
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -714,12 +714,12 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
   margin-top: 1px;
 }
 
 .privacyTitle {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--violet, #5b3fd6);
 }
 
@@ -741,7 +741,7 @@
   background: #fafaf7;
   border-bottom: 1px solid var(--hair, #ecece6);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted, #6e6e73);
@@ -801,7 +801,7 @@
 .itemTitle {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.35;
   color: var(--ink, #111111);
 }
@@ -837,7 +837,7 @@
   padding: 0 10px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -904,13 +904,13 @@
 }
 
 .priceInline {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink, #111111);
   font-variant-numeric: tabular-nums;
 }
 
 .priceFree {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--success, #177a43);
 }
 
@@ -994,7 +994,7 @@
   text-align: left;
   padding: 13px 16px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted, #6e6e73);
@@ -1019,7 +1019,7 @@
 }
 
 .orderCode {
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--ink, #111111);
   white-space: nowrap;

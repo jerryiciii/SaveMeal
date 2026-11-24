@@ -38,7 +38,7 @@
 
 .wordmark {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.02em;
   color: #ffffff;
 }
@@ -72,7 +72,7 @@
 .title {
   margin: 0;
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--ink);
@@ -171,7 +171,7 @@
   background: var(--surface);
   border: 1.5px solid var(--line);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--ink);
   transition:
     border-color 120ms ease,
@@ -243,7 +243,7 @@
 }
 
 .countdown {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
@@ -256,6 +256,6 @@
   border: 1px solid var(--line);
   color: var(--ink);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }

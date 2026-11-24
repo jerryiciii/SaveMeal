@@ -26,7 +26,7 @@ const DANGER_BTN_STYLE = {
   borderRadius: "999px",
   color: "var(--danger)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   cursor: "pointer",
 } as const;
 
@@ -37,7 +37,7 @@ const MUTED_BTN_STYLE = {
   borderRadius: "999px",
   color: "var(--muted)",
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: 500,
   cursor: "pointer",
 } as const;
 

@@ -15,7 +15,7 @@
 .h1 {
   margin: 0;
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.025em;
   color: var(--ink);
 }
@@ -67,7 +67,7 @@
   border-radius: 999px;
   background: var(--limesoft);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--success);
 }
 
@@ -77,7 +77,7 @@
   border-radius: 999px;
   background: var(--field);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -90,7 +90,7 @@
 .amount {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -102,7 +102,7 @@
   background: var(--field);
   color: var(--ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .link:hover {
@@ -118,7 +118,7 @@
   background: var(--ink);
   color: var(--surface);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .video {
@@ -144,7 +144,7 @@
 .codeInput input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.3em;
   text-align: center;
 }
@@ -169,5 +169,5 @@
   border: 2px solid var(--ink);
   color: var(--ink);
   font-size: 34px;
-  font-weight: 800;
+  font-weight: 500;
 }

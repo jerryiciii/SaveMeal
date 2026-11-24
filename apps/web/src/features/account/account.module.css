@@ -8,7 +8,7 @@
 .h1 {
   margin: 0;
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: -0.025em;
   color: var(--ink);
 }
@@ -54,7 +54,7 @@
   background: var(--limesoft);
   color: var(--success) !important;
   font-size: 11px !important;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .stats {
@@ -76,7 +76,7 @@
 
 .stats b {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -142,7 +142,7 @@
   background: var(--ink);
   color: var(--surface);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .reset {
@@ -150,6 +150,6 @@
   background: none;
   padding: 0;
   color: var(--violet);
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
