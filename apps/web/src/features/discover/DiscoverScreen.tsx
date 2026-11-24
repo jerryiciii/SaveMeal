@@ -91,10 +91,24 @@ function DiscoverScreenInner() {
   const searchKey = searchParams.toString();
   const filters = useMemo(() => parseFiltersFromSearchParams(new URLSearchParams(searchKey)), [searchKey]);
 
-  const [config, setConfig] = useState<AppConfig | null>(null);
+  const cachedConfig = saveMeal.peekConfig() ?? null;
+  const initialCenter = cachedConfig ? (getClientLocation() ?? cachedConfig.defaultCenter) : null;
+  const initialRequestKey = `${searchKey}|${initialCenter?.lat ?? ""}|${initialCenter?.lng ?? ""}|0`;
+  const initialCachedEntry = (() => {
+    if (!initialCenter) return { key: "", state: { kind: "loading" as const } };
+    const params = { ...filtersToListingParams(filters), lat: initialCenter.lat, lng: initialCenter.lng };
+    const cachedList = saveMeal.peekSearchListings({ ...params, limit: 20 });
+    const cachedPins = saveMeal.peekMapPins(params);
+    if (cachedList && cachedPins) {
+      return { key: initialRequestKey, state: { kind: "ready" as const, cards: cachedList.data, pins: cachedPins } };
+    }
+    return { key: "", state: { kind: "loading" as const } };
+  })();
+
+  const [config, setConfig] = useState<AppConfig | null>(cachedConfig);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [center, setCenter] = useState<ClientPoint | null>(null);
-  const [me, setMe] = useState<ClientPoint | null>(null);
+  const [center, setCenter] = useState<ClientPoint | null>(initialCenter);
+  const [me, setMe] = useState<ClientPoint | null>(() => getClientLocation());
   const [reload, setReload] = useState(0);
   const [locError, setLocError] = useState<string | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
@@ -102,13 +116,13 @@ function DiscoverScreenInner() {
   const locationPromptChecked = useRef(false);
 
   const requestKey = `${searchKey}|${center?.lat ?? ""}|${center?.lng ?? ""}|${reload}`;
-  const [entry, setEntry] = useState<{ key: string; state: State }>({ key: "", state: { kind: "loading" } });
+  const [entry, setEntry] = useState<{ key: string; state: State }>(initialCachedEntry);
   const [pinEntry, setPinEntry] = useState<{ key: string; pin: MapPinData } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     saveMeal
-      .getConfig()
+      .getConfig({ cache: true, force: reload > 0 })
       .then((c) => {
         if (cancelled) return;
         setConfig(c);
@@ -144,8 +158,12 @@ function DiscoverScreenInner() {
     if (!center) return;
     let cancelled = false;
     const forKey = requestKey;
+    const force = reload > 0;
     const params = { ...filtersToListingParams(filters), lat: center.lat, lng: center.lng };
-    Promise.all([saveMeal.searchListings({ ...params, limit: 20 }), saveMeal.mapPins(params)])
+    Promise.all([
+      saveMeal.searchListings({ ...params, limit: 20 }, { cache: true, force }),
+      saveMeal.mapPins(params, { cache: true, force }),
+    ])
       .then(([list, pins]) => {
         if (!cancelled) setEntry({ key: forKey, state: { kind: "ready", cards: list.data, pins } });
       })
@@ -160,7 +178,7 @@ function DiscoverScreenInner() {
     return () => {
       cancelled = true;
     };
-  }, [filters, center, requestKey]);
+  }, [filters, center, requestKey, reload]);
 
   const state: State = configError
     ? { kind: "error", message: configError }

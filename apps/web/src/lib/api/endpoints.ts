@@ -1,4 +1,5 @@
 import type { ApiClient } from "./client";
+import { listingQueryKey, TtlCache } from "./ttlCache";
 import type {
   AppConfig,
   BuyerCancelReason,
@@ -48,11 +49,30 @@ export type PickupProof = { qrPayload: string } | { code: string };
 
 const data = <T>(p: Promise<Envelope<T>>) => p.then((r) => r.data);
 
+const CONFIG_TTL_MS = 10 * 60_000;
+const LISTINGS_TTL_MS = 60_000;
+
 /** Typed wrappers per contract v1.1 endpoint ID (MVP demo slice, DOMAIN §10). */
 export function endpoints(api: ApiClient) {
+  const configCache = new TtlCache<AppConfig>(CONFIG_TTL_MS, 1);
+  const searchCache = new TtlCache<ListEnvelope<ListingCard>>(LISTINGS_TTL_MS, 40);
+  const pinsCache = new TtlCache<MapPin[]>(LISTINGS_TTL_MS, 40);
+
+  const invalidateListingCache = () => {
+    searchCache.clear();
+    pinsCache.clear();
+  };
+
   return {
+    /** Clear cached discovery/search results (called automatically after mutations). */
+    invalidateListingCache,
+
     /** SYS-2 */
-    getConfig: () => data(api.request<Envelope<AppConfig>>("GET", "/config", { auth: false })),
+    peekConfig: () => configCache.get("config"),
+    getConfig: (opts?: { cache?: boolean; force?: boolean }) => {
+      const fetcher = () => data(api.request<Envelope<AppConfig>>("GET", "/config", { auth: false }));
+      return opts?.cache ? configCache.getOrFetch("config", fetcher, opts.force) : fetcher();
+    },
 
     /** AUTH-1 */
     requestOtp: (channel: "SMS" | "EMAIL", identifier: string) =>
@@ -96,34 +116,57 @@ export function endpoints(api: ApiClient) {
     },
 
     /** LIST-1 (view=list) */
-    searchListings: (params: Omit<ListingSearchParams, "view">) =>
-      api.request<ListEnvelope<ListingCard>>("GET", "/listings", { query: { ...params, view: "list" } }),
+    peekSearchListings: (params: Omit<ListingSearchParams, "view">) => searchCache.get(listingQueryKey(params)),
+    searchListings: (params: Omit<ListingSearchParams, "view">, opts?: { cache?: boolean; force?: boolean }) => {
+      const fetcher = () => api.request<ListEnvelope<ListingCard>>("GET", "/listings", { query: { ...params, view: "list" } });
+      return opts?.cache ? searchCache.getOrFetch(listingQueryKey(params), fetcher, opts.force) : fetcher();
+    },
     /** LIST-1 (view=map) */
-    mapPins: (params: Omit<ListingSearchParams, "view" | "cursor" | "limit">) =>
-      api.request<{ data: MapPin[] }>("GET", "/listings", { query: { ...params, view: "map" } }).then((r) => r.data),
+    peekMapPins: (params: Omit<ListingSearchParams, "view" | "cursor" | "limit">) => pinsCache.get(listingQueryKey(params)),
+    mapPins: (params: Omit<ListingSearchParams, "view" | "cursor" | "limit">, opts?: { cache?: boolean; force?: boolean }) => {
+      const fetcher = () =>
+        api.request<{ data: MapPin[] }>("GET", "/listings", { query: { ...params, view: "map" } }).then((r) => r.data);
+      return opts?.cache ? pinsCache.getOrFetch(listingQueryKey(params), fetcher, opts.force) : fetcher();
+    },
     /** LIST-2 (public detail, or owner view for the seller) */
     getListing: (listingId: string) =>
       data(api.request<Envelope<ListingDetail | ListingOwnerView>>("GET", `/listings/${encodeURIComponent(listingId)}`)),
     /** LIST-3 */
     createListing: (input: ListingInput & { title: string; category: ListingDetail["category"] }) =>
-      data(api.request<Envelope<ListingOwnerView>>("POST", "/listings", { body: input })),
+      data(api.request<Envelope<ListingOwnerView>>("POST", "/listings", { body: input })).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
     /** LIST-4 */
     updateListing: (listingId: string, input: ListingInput) =>
-      data(api.request<Envelope<ListingOwnerView>>("PATCH", `/listings/${encodeURIComponent(listingId)}`, { body: input })),
+      data(api.request<Envelope<ListingOwnerView>>("PATCH", `/listings/${encodeURIComponent(listingId)}`, { body: input })).then(
+        (res) => {
+          invalidateListingCache();
+          return res;
+        },
+      ),
     /** LIST-6 */
     publishListing: (listingId: string, declaration: Record<DeclarationKey, boolean>) =>
       data(
         api.request<Envelope<ListingOwnerView>>("POST", `/listings/${encodeURIComponent(listingId)}/publish`, {
           body: { declaration },
         }),
-      ),
+      ).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
     /** LIST-8 */
     myListings: (tab: "active" | "done") =>
       api.request<ListEnvelope<ListingOwnerView>>("GET", "/me/listings", { query: { tab } }),
 
     /** RES-1 */
     reserve: (listingId: string, quantity: number, idempotencyKey: string) =>
-      data(api.request<Envelope<Reservation>>("POST", "/reservations", { body: { listingId, quantity }, idempotencyKey })),
+      data(api.request<Envelope<Reservation>>("POST", "/reservations", { body: { listingId, quantity }, idempotencyKey })).then(
+        (res) => {
+          invalidateListingCache();
+          return res;
+        },
+      ),
     /** RES-2 */
     myReservations: (tab: "upcoming" | "history") =>
       api.request<ListEnvelope<Reservation>>("GET", "/me/reservations", { query: { tab } }),
@@ -135,7 +178,10 @@ export function endpoints(api: ApiClient) {
         api.request<Envelope<Reservation>>("POST", `/reservations/${encodeURIComponent(id)}/cancel`, {
           body: { reason, note: note ?? null },
         }),
-      ),
+      ).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
     /** RES-5 */
     mySales: (status: string = "RESERVED") => api.request<ListEnvelope<Reservation>>("GET", "/me/sales", { query: { status } }),
     /** RES-6 */
@@ -149,7 +195,10 @@ export function endpoints(api: ApiClient) {
         api.request<Envelope<{ reservation: Reservation; listingRemaining: number }>>("POST", "/pickups/confirm", {
           body: { reservationId, ...proof },
         }),
-      ),
+      ).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
   };
 }
 

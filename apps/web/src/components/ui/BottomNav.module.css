@@ -1,9 +1,68 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  justify-content: flex-end;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
+}
+
+.navCollapsed {
+  justify-content: flex-end;
+}
+
+.navExpanded {
+  justify-content: stretch;
+}
+
+.expandedRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  transform-origin: right center;
+  animation: navExpand 180ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+}
+
+@keyframes navExpand {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.toggle {
+  appearance: none;
+  border: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--lime);
+  box-shadow:
+    0 0 0 3px rgba(244, 244, 240, 0.9),
+    0 10px 26px rgba(17, 17, 17, 0.28);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.toggle:hover {
+  background: #232326;
+}
+
+.toggle:active {
+  transform: scale(0.94);
 }
 
 .dock {
@@ -12,11 +71,11 @@
   align-items: center;
   gap: 4px;
   flex: 1;
-  height: 64px;
+  height: 60px;
   padding: 6px;
   border-radius: 999px;
   background: var(--ink);
-  box-shadow: 0 10px 28px rgba(17, 17, 17, 0.22);
+  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.24);
   pointer-events: auto;
 }
 
@@ -25,10 +84,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   height: 100%;
   border-radius: 999px;
-  color: #a1a1aa;
+  color: #a8a8ad;
   transition:
     background-color 120ms ease,
     color 120ms ease;
@@ -39,7 +98,7 @@
 }
 
 .active {
-  background: #262629;
+  background: #2b2b2e;
   color: #ffffff;
 }
 
@@ -49,7 +108,7 @@
 
 .label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
 }
 
@@ -63,7 +122,9 @@
   border-radius: 50%;
   background: var(--lime);
   color: var(--ink);
-  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.16);
+  box-shadow:
+    0 0 0 3px rgba(244, 244, 240, 0.9),
+    0 10px 24px -6px rgba(110, 140, 0, 0.55);
   pointer-events: auto;
   transition:
     transform 120ms ease,
