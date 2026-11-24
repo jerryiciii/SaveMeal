@@ -12,13 +12,13 @@ export const metadata: Metadata = {
   title: { default: "SaveMeal", template: "%s · SaveMeal" },
   description: "Mua món ngon cuối ngày giá ưu đãi quanh bạn: đặt giữ, trả tiền và nhận tại quầy.",
   applicationName: "SaveMeal",
-  appleWebApp: { capable: true, title: "SaveMeal", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "SaveMeal", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111922",
-  colorScheme: "dark",
+  themeColor: "#f4f4f0",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

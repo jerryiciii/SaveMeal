@@ -1,57 +1,83 @@
 /*
- * SaveMeal design tokens — Figma V1 page 0:1, frame 13:48
- * ("41 · LASTBITE Design System · Foundation") plus values measured on screens 01–40.
- * Dark mode only (the V1 design is dark).
+ * SaveMeal V2.1 Design Tokens — Figma page 143:2 ("V2 · SaveMeal — Pixel từ canvas")
+ * Light Warm Cream + Ink Black + Electric Lime palette.
  */
 :root {
-  /* Foundation palette (13:48) */
-  --color-night: #111923;
-  --color-raised: #293441;
-  --color-muted: #344150;
-  --color-mint: #65e4b3;
-  --color-orange: #ffb66c;
-  --color-sky: #83bdff;
-  --color-alert: #ff828b;
+  /* Core V2.1 palette */
+  --canvas: #f4f4f0;
+  --surface: #ffffff;
+  --ink: #111111;
+  --ink2: #2b2b2e;
+  --lime: #d7f75b;
+  --limedeep: #a9d21f;
+  --limesoft: #f2fbd3;
+  --peach: #ffd3b0;
+  --lilac: #dcd1ff;
+  --lilacsoft: #f3efff;
+  --violet: #5b3fd6;
+  --field: #f0f0eb;
+  --line: #e4e4de;
+  --hair: #ecece6;
+  --muted: #6e6e73;
+  --subtle: #8e8e93;
+  --disabled: #e6e6e0;
+  --disabled-text: #55555a;
+  --success: #177a43;
+  --success-soft: #e4f6eb;
+  --warn: #a34e09;
+  --warn-soft: #fff2e5;
+  --danger: #c9252b;
+  --danger-strong: #e0383e;
+  --danger-soft: #ffeded;
 
-  /* Screen surfaces (01 · Bản đồ khám phá, 2:2) */
-  --surface-app: #111922;
-  --surface-field: #343d4c;
-  --surface-chip: #2a303a;
-  --surface-chip-active: #285248;
-  --surface-card: #2a303a;
-  --surface-sheet: #20252e;
-  --surface-nav: #1b212a;
-  --sheet-handle: #687486;
+  /* Semantic surfaces (mapped to V2.1) */
+  --surface-app: var(--canvas);
+  --surface-sheet: var(--canvas);
+  --surface-card: var(--surface);
+  --surface-field: var(--field);
+  --surface-chip: var(--surface);
+  --surface-chip-active: var(--ink);
+  --surface-nav: var(--ink);
+  --sheet-handle: #d2d2cc;
+
+  /* Legacy foundation aliases (mapped to V2.1) */
+  --color-night: var(--ink);
+  --color-raised: var(--field);
+  --color-muted: var(--line);
+  --color-mint: var(--lime);
+  --color-orange: var(--warn);
+  --color-sky: var(--violet);
+  --color-alert: var(--danger-strong);
 
   /* Text */
-  --text-primary: #f7f9fb;
-  --text-secondary: #9aaabd;
-  --text-muted: #a2b1c0;
-  --text-accent: #67e5b5;
-  --text-on-mint: #142e29;
-  --text-on-pin: #19333b;
-  --map-label: #b7c4d1;
+  --text-primary: var(--ink);
+  --text-secondary: var(--muted);
+  --text-muted: var(--subtle);
+  --text-accent: var(--success);
+  --text-on-mint: var(--ink);
+  --text-on-pin: var(--ink);
+  --map-label: var(--muted);
 
   /* Pins */
-  --pin-free: #67e5b5;
-  --pin-priced: #ffb66b;
+  --pin-free: var(--lime);
+  --pin-priced: var(--ink);
 
   /* Radii */
-  --radius-field: 27px;
-  --radius-chip: 18px;
+  --radius-button: 999px;
+  --radius-chip: 999px;
   --radius-card: 20px;
   --radius-photo: 16px;
   --radius-sheet: 28px;
-  --radius-button: 19px;
+  --radius-field: 16px;
 
   /* Layout */
   --app-max-width: 430px;
   --gutter: 20px;
-  --nav-height: 79px;
+  --nav-height: 92px;
 
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 *,
@@ -68,8 +94,8 @@ body {
 }
 
 body {
-  background: #0b1118;
-  color: var(--text-primary);
+  background: #e8e8e2;
+  color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -86,8 +112,9 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-sky);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(215, 247, 91, 0.7);
 }
 
 .visually-hidden {

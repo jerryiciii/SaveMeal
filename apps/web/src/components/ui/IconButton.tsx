@@ -11,7 +11,7 @@ type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "c
 export function IconButton({ icon, label, className, ...rest }: IconButtonProps) {
   return (
     <button type="button" aria-label={label} className={[styles.button, className].filter(Boolean).join(" ")} {...rest}>
-      <Icon name={icon} size={24} color="var(--color-sky)" />
+      <Icon name={icon} size={22} color="currentColor" />
     </button>
   );
 }

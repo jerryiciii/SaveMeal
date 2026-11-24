@@ -1,10 +1,18 @@
-/* Phone-sized app frame; centred on wider screens. */
+/* Phone-sized app frame; centred on wider screens with subtle V2.1 elevation. */
 .frame {
   position: relative;
   min-height: 100dvh;
   max-width: var(--app-max-width);
   margin: 0 auto;
-  background: var(--surface-app);
-  /* clip (not hidden) so the frame does not become a scroll container and sticky nav keeps working */
+  background: var(--canvas);
+  /* clip (not hidden) so the frame does not become a scroll container and sticky/fixed nav keeps working */
   overflow-x: clip;
+}
+
+@media (min-width: 460px) {
+  .frame {
+    box-shadow:
+      0 0 0 1px rgba(17, 17, 17, 0.06),
+      0 18px 48px rgba(17, 17, 17, 0.12);
+  }
 }
