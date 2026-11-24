@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthKeys } from './auth-keys';
 import { AuthService } from './auth.service';
+import { BrevoOtpSender, ResendOtpSender } from './email-otp-sender';
 import { ConsoleOtpSender, OTP_SENDER } from './otp-sender';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
@@ -22,8 +23,25 @@ import { TokenService } from './token.service';
     {
       provide: OTP_SENDER,
       inject: [AppConfig],
-      // Only `console` exists so far; config validation forbids it in production.
-      useFactory: (config: AppConfig) => (config.otpProvider === 'console' ? new ConsoleOtpSender() : null),
+      useFactory: (config: AppConfig) => {
+        if (config.otpProvider === 'resend') {
+          const from = config.otpEmail.fromName
+            ? `${config.otpEmail.fromName} <${config.otpEmail.from!}>`
+            : config.otpEmail.from!;
+          return new ResendOtpSender({
+            apiKey: config.otpEmail.resendApiKey!,
+            from,
+          });
+        }
+        if (config.otpProvider === 'brevo') {
+          return new BrevoOtpSender({
+            apiKey: config.otpEmail.brevoApiKey!,
+            senderEmail: config.otpEmail.from!,
+            senderName: config.otpEmail.fromName,
+          });
+        }
+        return new ConsoleOtpSender();
+      },
     },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

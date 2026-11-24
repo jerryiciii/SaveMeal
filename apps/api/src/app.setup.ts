@@ -3,6 +3,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
 import { AppException } from './common/errors/app-exception';
+import { setMediaPublicBaseUrl } from './common/images';
 import { requestLoggerMiddleware } from './common/logging/request-logger';
 import { getRequestId, requestIdMiddleware } from './common/request-id';
 import { createValidationPipe } from './common/validation';
@@ -26,24 +27,28 @@ function bodyParserErrorHandler(err: unknown, req: Request, res: Response, next:
  * JSON body parsing, validation and the error envelope. Create the app with { bodyParser: false }.
  */
 export function configureApp(app: INestApplication): INestApplication {
+  const config = app.get(AppConfig);
+  setMediaPublicBaseUrl(config.mediaPublicBaseUrl);
   const expressApp = app as NestExpressApplication;
   expressApp.disable('x-powered-by');
-  expressApp.set('trust proxy', 'loopback');
+  expressApp.set('trust proxy', config.trustProxy);
   app.setGlobalPrefix(API_PREFIX);
   app.use(requestIdMiddleware);
   app.use(requestLoggerMiddleware);
   // Uploaded images (IMG-1), already re-encoded and stripped of metadata. Unknown files fall
-  // through to the router and get the 404 envelope.
-  app.use(
-    `/${API_PREFIX}/media`,
-    express.static(app.get(AppConfig).uploadDir, {
-      index: false,
-      dotfiles: 'deny',
-      immutable: true,
-      maxAge: '7d',
-      setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
-    }),
-  );
+  // through to the router and get the 404 envelope. Mounted only for local disk storage.
+  if (config.mediaStorage === 'local') {
+    app.use(
+      `/${API_PREFIX}/media`,
+      express.static(config.uploadDir, {
+        index: false,
+        dotfiles: 'deny',
+        immutable: true,
+        maxAge: '7d',
+        setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+      }),
+    );
+  }
   app.use(express.json({ limit: '100kb' }));
   app.use(bodyParserErrorHandler);
   app.useGlobalPipes(createValidationPipe());

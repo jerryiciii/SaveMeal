@@ -17,6 +17,15 @@ const boolFlag = (defaultValue: boolean) =>
 
 const int = (defaultValue: number, min = 0) => z.coerce.number().int().min(min).default(defaultValue);
 
+const optionalTrimmed = z
+  .string()
+  .optional()
+  .transform((value) => {
+    if (value === undefined) return undefined;
+    const trimmed = value.trim();
+    return trimmed === '' ? undefined : trimmed;
+  });
+
 /** "15m", "30d", "900s", "12h" → seconds. */
 export function parseDurationSec(value: string): number {
   const match = /^(\d+)\s*(s|m|h|d)$/.exec(value.trim());
@@ -103,17 +112,89 @@ export const envSchema = z
     MAP_STYLE_URL: z.string().url().default('https://tiles.openfreemap.org/styles/liberty'),
     MAP_ATTRIBUTION: z.string().min(1).default('© OpenStreetMap contributors'),
 
+    // Express `trust proxy` setting: 'loopback' for local dev/test, or '1' behind a cloud reverse
+    // proxy so rate-limiters read the real client IP from X-Forwarded-For.
+    TRUST_PROXY: z
+      .string()
+      .optional()
+      .transform((value): boolean | number | string => {
+        if (value === undefined || value.trim() === '') return 'loopback';
+        const v = value.trim();
+        if (v.toLowerCase() === 'true') return true;
+        if (v.toLowerCase() === 'false') return false;
+        if (/^\d+$/.test(v)) return Number(v);
+        return v;
+      }),
+
     // Auth. AUTH_SECRET keys the JWT signature, the HMACs of OTP codes and identifiers, and the
     // encryption of pending OTP identifiers. Required in production; a random per-boot secret is
     // used in development/test when it is unset (tokens then die on restart).
     AUTH_SECRET: z.string().optional(),
     // How OTP codes are delivered. `console` logs them (development only).
-    OTP_PROVIDER: z.enum(['console']).default('console'),
+    OTP_PROVIDER: z.enum(['console', 'resend', 'brevo']).default('console'),
+    OTP_EMAIL_FROM: optionalTrimmed,
+    OTP_EMAIL_FROM_NAME: optionalTrimmed.transform((value) => value ?? 'SaveMeal'),
+    RESEND_API_KEY: optionalTrimmed,
+    BREVO_API_KEY: optionalTrimmed,
 
-    // Where uploaded images are stored (local disk for the pilot; relative to apps/api).
+    // Where uploaded images are stored (`local` disk for dev/pilot, or `supabase` Storage).
+    MEDIA_STORAGE: z.enum(['local', 'supabase']).default('local'),
     UPLOAD_DIR: z.string().min(1).default('uploads'),
+    SUPABASE_URL: optionalTrimmed,
+    SUPABASE_SERVICE_ROLE_KEY: optionalTrimmed,
+    SUPABASE_STORAGE_BUCKET: optionalTrimmed.transform((value) => value ?? 'savemeal-media'),
+    MEDIA_PUBLIC_BASE_URL: optionalTrimmed,
   })
   .superRefine((env, ctx) => {
+    if (env.OTP_PROVIDER === 'resend' || env.OTP_PROVIDER === 'brevo') {
+      if (!env.OTP_EMAIL_FROM || !z.string().email().safeParse(env.OTP_EMAIL_FROM).success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['OTP_EMAIL_FROM'],
+          message: `must be a valid email when OTP_PROVIDER is "${env.OTP_PROVIDER}"`,
+        });
+      }
+    }
+    if (env.OTP_PROVIDER === 'resend' && !env.RESEND_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RESEND_API_KEY'],
+        message: 'is required when OTP_PROVIDER is "resend"',
+      });
+    }
+    if (env.OTP_PROVIDER === 'brevo' && !env.BREVO_API_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['BREVO_API_KEY'],
+        message: 'is required when OTP_PROVIDER is "brevo"',
+      });
+    }
+
+    if (env.MEDIA_STORAGE === 'supabase') {
+      if (!env.SUPABASE_URL || !z.string().url().safeParse(env.SUPABASE_URL).success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SUPABASE_URL'],
+          message: 'must be a valid URL when MEDIA_STORAGE is "supabase"',
+        });
+      }
+      if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SUPABASE_SERVICE_ROLE_KEY'],
+          message: 'is required when MEDIA_STORAGE is "supabase"',
+        });
+      }
+    }
+
+    if (env.MEDIA_PUBLIC_BASE_URL !== undefined && !z.string().url().safeParse(env.MEDIA_PUBLIC_BASE_URL).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['MEDIA_PUBLIC_BASE_URL'],
+        message: 'must be a valid URL',
+      });
+    }
+
     if (env.NODE_ENV !== 'production') return;
     if (!env.AUTH_SECRET || env.AUTH_SECRET.length < 32) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AUTH_SECRET'], message: 'is required (≥ 32 chars) in production' });

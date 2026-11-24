@@ -35,17 +35,50 @@ export class AppConfig {
   };
 
   readonly map: { styleUrl: string; attribution: string };
+  readonly trustProxy: boolean | number | string;
 
   /** Root secret for auth keys; null means "generate a random one at boot" (non-production). */
   readonly authSecret: string | null;
   readonly otpProvider: Env['OTP_PROVIDER'];
-  /** Absolute directory for uploaded images. */
+  readonly otpEmail: {
+    from: string | null;
+    fromName: string;
+    resendApiKey: string | null;
+    brevoApiKey: string | null;
+  };
+  /** Absolute directory for uploaded images (used when mediaStorage === 'local'). */
   readonly uploadDir: string;
+  readonly mediaStorage: Env['MEDIA_STORAGE'];
+  readonly supabaseStorage: {
+    url: string | null;
+    serviceRoleKey: string | null;
+    bucket: string;
+  };
+  /** Public base URL prefix for stored images (no trailing slash). */
+  readonly mediaPublicBaseUrl: string;
 
   constructor(env: Env) {
     this.authSecret = env.AUTH_SECRET?.trim() ? env.AUTH_SECRET.trim() : null;
     this.otpProvider = env.OTP_PROVIDER;
+    this.otpEmail = {
+      from: env.OTP_EMAIL_FROM ?? null,
+      fromName: env.OTP_EMAIL_FROM_NAME,
+      resendApiKey: env.RESEND_API_KEY ?? null,
+      brevoApiKey: env.BREVO_API_KEY ?? null,
+    };
     this.uploadDir = resolve(env.UPLOAD_DIR);
+    this.mediaStorage = env.MEDIA_STORAGE;
+    const supabaseUrl = env.SUPABASE_URL ? env.SUPABASE_URL.replace(/\/+$/, '') : null;
+    this.supabaseStorage = {
+      url: supabaseUrl,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
+      bucket: env.SUPABASE_STORAGE_BUCKET,
+    };
+    this.mediaPublicBaseUrl = env.MEDIA_PUBLIC_BASE_URL
+      ? env.MEDIA_PUBLIC_BASE_URL.replace(/\/+$/, '')
+      : env.MEDIA_STORAGE === 'supabase' && supabaseUrl
+        ? `${supabaseUrl}/storage/v1/object/public/${env.SUPABASE_STORAGE_BUCKET}`
+        : '/api/v1/media';
     this.nodeEnv = env.NODE_ENV;
     this.port = env.PORT;
     this.databaseUrl = env.DATABASE_URL;
@@ -71,6 +104,7 @@ export class AppConfig {
       refreshTokenTtlSec: env.REFRESH_TOKEN_TTL,
     };
     this.map = { styleUrl: env.MAP_STYLE_URL, attribution: env.MAP_ATTRIBUTION };
+    this.trustProxy = env.TRUST_PROXY;
   }
 
   get isProduction(): boolean {

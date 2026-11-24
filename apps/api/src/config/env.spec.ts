@@ -27,8 +27,32 @@ describe('parseEnv', () => {
       accessTokenTtlSec: 900,
       refreshTokenTtlSec: 30 * 86400,
     });
+    expect(config.map.styleUrl).toBe('https://tiles.openfreemap.org/styles/liberty');
     expect(config.map.attribution).toBe('© OpenStreetMap contributors');
+    expect(config.trustProxy).toBe('loopback');
+    expect(config.otpProvider).toBe('console');
+    expect(config.otpEmail).toEqual({
+      from: null,
+      fromName: 'SaveMeal',
+      resendApiKey: null,
+      brevoApiKey: null,
+    });
+    expect(config.mediaStorage).toBe('local');
+    expect(config.mediaPublicBaseUrl).toBe('/api/v1/media');
     expect(config.isProduction).toBe(false);
+  });
+
+  it.each([
+    [undefined, 'loopback'],
+    ['', 'loopback'],
+    ['1', 1],
+    ['2', 2],
+    ['true', true],
+    ['false', false],
+    ['loopback', 'loopback'],
+  ])('parses TRUST_PROXY=%p as %p', (raw, expected) => {
+    const config = new AppConfig(parseEnv({ ...base, ...(raw !== undefined ? { TRUST_PROXY: raw } : {}) }));
+    expect(config.trustProxy).toBe(expected);
   });
 
   it('resolves the listing-age sanity limit per category', () => {
@@ -68,6 +92,106 @@ describe('parseEnv', () => {
     );
     expect(() => parseEnv({ ...base, MAX_LISTING_AGE_HOURS: '{"MEAL":6}' })).toThrow(/MAX_LISTING_AGE_HOURS/);
     expect(() => parseEnv({ ...base, MAX_LISTING_AGE_HOURS: 'nope' })).toThrow(/MAX_LISTING_AGE_HOURS/);
+  });
+
+  it('validates OTP_PROVIDER=resend requirements', () => {
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'resend' })).toThrow(/OTP_EMAIL_FROM/);
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'resend' })).toThrow(/RESEND_API_KEY/);
+    expect(() =>
+      parseEnv({ ...base, OTP_PROVIDER: 'resend', OTP_EMAIL_FROM: 'not-an-email', RESEND_API_KEY: 're_123' }),
+    ).toThrow(/OTP_EMAIL_FROM/);
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'resend', OTP_EMAIL_FROM: 'no-reply@savemeal.vn' })).toThrow(
+      /RESEND_API_KEY/,
+    );
+
+    const config = new AppConfig(
+      parseEnv({
+        ...base,
+        NODE_ENV: 'production',
+        AUTH_SECRET: 'a'.repeat(32),
+        OTP_PROVIDER: 'resend',
+        OTP_EMAIL_FROM: 'no-reply@savemeal.vn',
+        OTP_EMAIL_FROM_NAME: 'SaveMeal Pilot',
+        RESEND_API_KEY: 're_test_123',
+      }),
+    );
+    expect(config.otpProvider).toBe('resend');
+    expect(config.otpEmail).toEqual({
+      from: 'no-reply@savemeal.vn',
+      fromName: 'SaveMeal Pilot',
+      resendApiKey: 're_test_123',
+      brevoApiKey: null,
+    });
+  });
+
+  it('validates OTP_PROVIDER=brevo requirements and forbids console in production', () => {
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'brevo' })).toThrow(/OTP_EMAIL_FROM/);
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'brevo' })).toThrow(/BREVO_API_KEY/);
+    expect(() => parseEnv({ ...base, OTP_PROVIDER: 'brevo', OTP_EMAIL_FROM: 'no-reply@savemeal.vn' })).toThrow(
+      /BREVO_API_KEY/,
+    );
+    expect(() =>
+      parseEnv({ ...base, NODE_ENV: 'production', AUTH_SECRET: 'a'.repeat(32), OTP_PROVIDER: 'console' }),
+    ).toThrow(/OTP_PROVIDER/);
+
+    const config = new AppConfig(
+      parseEnv({
+        ...base,
+        OTP_PROVIDER: 'brevo',
+        OTP_EMAIL_FROM: 'no-reply@savemeal.vn',
+        BREVO_API_KEY: 'xkeysib_test_123',
+      }),
+    );
+    expect(config.otpProvider).toBe('brevo');
+    expect(config.otpEmail).toEqual({
+      from: 'no-reply@savemeal.vn',
+      fromName: 'SaveMeal',
+      resendApiKey: null,
+      brevoApiKey: 'xkeysib_test_123',
+    });
+  });
+
+  it('validates MEDIA_STORAGE=supabase and derives mediaPublicBaseUrl', () => {
+    expect(() => parseEnv({ ...base, MEDIA_STORAGE: 'supabase' })).toThrow(/SUPABASE_URL/);
+    expect(() => parseEnv({ ...base, MEDIA_STORAGE: 'supabase' })).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(() =>
+      parseEnv({
+        ...base,
+        MEDIA_STORAGE: 'supabase',
+        SUPABASE_URL: 'not-a-url',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc_key',
+      }),
+    ).toThrow(/SUPABASE_URL/);
+    expect(() => parseEnv({ ...base, MEDIA_PUBLIC_BASE_URL: 'not-a-url' })).toThrow(/MEDIA_PUBLIC_BASE_URL/);
+
+    const derived = new AppConfig(
+      parseEnv({
+        ...base,
+        MEDIA_STORAGE: 'supabase',
+        SUPABASE_URL: 'https://demo.supabase.co/',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc_key',
+      }),
+    );
+    expect(derived.mediaStorage).toBe('supabase');
+    expect(derived.supabaseStorage).toEqual({
+      url: 'https://demo.supabase.co',
+      serviceRoleKey: 'svc_key',
+      bucket: 'savemeal-media',
+    });
+    expect(derived.mediaPublicBaseUrl).toBe('https://demo.supabase.co/storage/v1/object/public/savemeal-media');
+
+    const overridden = new AppConfig(
+      parseEnv({
+        ...base,
+        MEDIA_STORAGE: 'supabase',
+        SUPABASE_URL: 'https://demo.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'svc_key',
+        SUPABASE_STORAGE_BUCKET: 'custom-bucket',
+        MEDIA_PUBLIC_BASE_URL: 'https://cdn.savemeal.vn/media/',
+      }),
+    );
+    expect(overridden.supabaseStorage.bucket).toBe('custom-bucket');
+    expect(overridden.mediaPublicBaseUrl).toBe('https://cdn.savemeal.vn/media');
   });
 });
 
