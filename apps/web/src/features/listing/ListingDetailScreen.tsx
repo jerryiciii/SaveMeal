@@ -316,7 +316,7 @@ export function ListingDetailScreen({ id }: { id: string }) {
       <div className={styles.stickyBar}>
         {owner ? (
           <Link className={styles.textLink} href="/my-listings">
-            Đây là tin của bạn · Quản lý tin
+            Tin bạn đăng (không thể tự đặt giữ) · Quản lý tin
           </Link>
         ) : l.myActiveReservationId ? (
           <Link href={`/orders/${l.myActiveReservationId}`} className={styles.ctaLink}>

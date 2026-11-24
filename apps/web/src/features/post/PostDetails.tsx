@@ -2,14 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Button, Chip, Notice, ScreenHeader, TextArea, TextField } from "@/components/ui";
 import { getClientLocation } from "@/features/discover/clientLocation";
 import { STORAGE_LABEL } from "@/features/orders/labels";
 import { useSession } from "@/features/auth/SessionProvider";
 import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
-import type { ListingOwnerView, PickupLocation, Storage } from "@/lib/contract/types";
+import type { Image, ListingOwnerView, PickupLocation, Storage } from "@/lib/contract/types";
+import { downscaleImage } from "@/lib/image";
 import { addMinutes, nextHalfHour, vnDate, vnDayOffset, vnIso, vnTime } from "@/lib/time";
 import { useLoad } from "@/lib/useLoad";
 import styles from "./post.module.css";
@@ -93,11 +94,30 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
   });
   const [pinned, setPinned] = useState<boolean>(() => Boolean(listing.pickup || me?.seller.defaultPickup || getClientLocation()));
   const [sellerName, setSellerName] = useState(me?.seller.name ?? me?.displayName ?? "");
+  const [bankQr, setBankQr] = useState<Image | null>(listing.bankQrImage ?? me?.seller.bankQrImage ?? null);
+  const [qrUploading, setQrUploading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const qrInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+
+  async function handleQrFile(file: File | null) {
+    if (!file) return;
+    setQrError(null);
+    setQrUploading(true);
+    try {
+      const blob = await downscaleImage(file);
+      const uploaded = await saveMeal.uploadImage(blob, "PAYMENT_QR");
+      setBankQr(uploaded);
+    } catch (err) {
+      setQrError(err instanceof ApiError ? err.message : "Không tải được ảnh QR. Vui lòng thử lại.");
+    } finally {
+      setQrUploading(false);
+    }
+  }
 
   async function findOnMap() {
     const q = address.trim();
@@ -186,6 +206,7 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
     setError(null);
     try {
       const pickup = { address: address.trim(), lat: coords.lat, lng: coords.lng };
+      const isPaid = listing.price > 0;
       await saveMeal.updateListing(listing.id, {
         pickupStart: startIso,
         pickupEnd: endIso,
@@ -194,9 +215,21 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
         storageNote: storageNote.trim() || null,
         ingredients: ingredients.trim() || null,
         pickup,
+        ...(isPaid ? { bankQrImageId: bankQr?.id ?? null } : {}),
       });
-      if (me && (!me.seller.defaultPickup || (sellerName.trim() && sellerName.trim() !== me.seller.name))) {
-        session.setMe(await saveMeal.updateMe({ seller: { name: sellerName.trim() || null, defaultPickup: pickup } }));
+      const needsProfilePatch = Boolean(
+        me && (!me.seller.defaultPickup || (sellerName.trim() && sellerName.trim() !== me.seller.name)),
+      );
+      const bankQrChanged = Boolean(me && isPaid && bankQr?.id && bankQr.id !== me.seller.bankQrImage?.id);
+      if (me && (needsProfilePatch || bankQrChanged)) {
+        session.setMe(
+          await saveMeal.updateMe({
+            seller: {
+              ...(needsProfilePatch ? { name: sellerName.trim() || null, defaultPickup: pickup } : {}),
+              ...(bankQrChanged && bankQr ? { bankQrImageId: bankQr.id } : {}),
+            },
+          }),
+        );
       }
       router.push(`/post/${listing.id}/checklist`);
     } catch (err) {
@@ -277,8 +310,90 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
             setGeoMessage(null);
           }}
         />
+        {listing.price > 0 ? (
+          <section className={styles.qrCard} aria-label="Ảnh QR ngân hàng nhận tiền">
+            <div className={styles.qrHead}>
+              <h2 className={styles.qrTitle}>Ảnh QR ngân hàng nhận tiền (chuyển khoản P2P)</h2>
+              <span className={styles.qrPill}>0đ phí sàn</span>
+            </div>
+            <input
+              ref={qrInputRef}
+              type="file"
+              accept="image/*"
+              className="visually-hidden"
+              onChange={(e) => {
+                void handleQrFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+            {bankQr ? (
+              <div className={styles.upl}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- uploaded payment QR preview */}
+                <img src={bankQr.url} alt="Ảnh QR ngân hàng nhận tiền" className={styles.qrThumb} />
+                <div className={styles.qrMeta}>
+                  <p className={styles.qrStatus}>
+                    {qrUploading ? (
+                      <span className={styles.qrSpinRow}>
+                        <span className={styles.qrSpinner} aria-hidden="true" />
+                        Đang tải ảnh QR mới…
+                      </span>
+                    ) : (
+                      "Đã có ảnh QR nhận tiền"
+                    )}
+                  </p>
+                  <p className={styles.qrSub}>Tự động lưu làm QR mặc định cho các lần đăng sau.</p>
+                  <div className={styles.qrActions}>
+                    <button
+                      type="button"
+                      className={styles.qrActionBtn}
+                      disabled={qrUploading}
+                      onClick={() => qrInputRef.current?.click()}
+                    >
+                      Đổi ảnh QR
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.qrRemoveBtn}
+                      disabled={qrUploading}
+                      onClick={() => {
+                        setBankQr(null);
+                        setQrError(null);
+                      }}
+                    >
+                      Xóa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`${styles.upl} ${styles.empty}`}
+                disabled={qrUploading}
+                onClick={() => qrInputRef.current?.click()}
+              >
+                {qrUploading ? (
+                  <span className={styles.qrSpinRow}>
+                    <span className={styles.qrSpinner} aria-hidden="true" />
+                    Đang tải ảnh QR…
+                  </span>
+                ) : (
+                  <>
+                    <span className={styles.qrUploadTitle}>Tải ảnh QR ngân hàng của bạn</span>
+                    <span className={styles.qrUploadSub}>
+                      Người mua chuyển khoản trực tiếp · 0đ phí sàn · tự lưu cho lần đăng sau
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+            {qrError ? <Notice tone="error">{qrError}</Notice> : null}
+          </section>
+        ) : (
+          <p className={styles.freeQrNote}>Món miễn phí (0đ) không cần ảnh QR ngân hàng.</p>
+        )}
         {error ? <Notice tone="error">{error}</Notice> : null}
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || qrUploading}>
           {busy ? "Đang lưu…" : "Tiếp tục · Kiểm tra an toàn"}
         </Button>
       </form>

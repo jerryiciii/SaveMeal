@@ -30,4 +30,5 @@ export const CHECKLIST_LABEL: Record<ChecklistKey, string> = {
   STORAGE: "Cách bảo quản",
   PICKUP_WINDOW: "Khung giờ nhận (tối đa 4 giờ, chưa qua)",
   PICKUP_LOCATION: "Địa điểm nhận",
+  PAYMENT_QR: "Ảnh QR ngân hàng nhận tiền",
 };

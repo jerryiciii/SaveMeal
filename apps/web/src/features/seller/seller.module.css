@@ -171,3 +171,190 @@
   font-size: 34px;
   font-weight: 500;
 }
+
+/* Screen 30b · Seller payment proof review & P2P sections */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.countBadge,
+.countBadgeWarn,
+.countBadgeMuted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.countBadge {
+  background: var(--limesoft);
+  color: var(--success);
+}
+
+.countBadgeWarn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.countBadgeMuted {
+  background: var(--field);
+  color: var(--muted);
+}
+
+.reviewCard {
+  border-radius: 24px;
+  border-color: rgba(163, 78, 9, 0.28);
+  gap: 10px;
+}
+
+.cardMuted {
+  background: var(--canvas);
+  border-style: dashed;
+}
+
+.badgeWarn {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.paidBadge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.amountRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--canvas);
+  border: 1px solid var(--hair);
+}
+
+.amountLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.amountStrong {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.proofBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+}
+
+.proofHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proofLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.proofLink {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--violet);
+}
+
+.proofImgWrap {
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.proofImg {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  background: var(--surface);
+}
+
+.reviewActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.rejectBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--danger-soft);
+  border: 1px solid rgba(201, 37, 43, 0.2);
+}
+
+.rejectTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rejectFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

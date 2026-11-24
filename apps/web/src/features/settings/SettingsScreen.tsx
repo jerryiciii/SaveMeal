@@ -54,7 +54,49 @@ function SettingsForm({ me }: { me: Me }) {
   const [allDevices, setAllDevices] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const [qrBusy, setQrBusy] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [qrSuccess, setQrSuccess] = useState<string | null>(null);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+
   const objectUrlRef = useRef<string | null>(null);
+
+  const bankQr = me.seller.bankQrImage ?? null;
+
+  async function handleBankQrUpload(file: File | null) {
+    if (!file) return;
+    setQrError(null);
+    setQrSuccess(null);
+    setQrBusy(true);
+    try {
+      const blob = await downscaleImage(file);
+      const uploaded = await saveMeal.uploadImage(blob, "PAYMENT_QR");
+      const updated = await saveMeal.updateMe({ seller: { bankQrImageId: uploaded.id } });
+      session.setMe(updated);
+      await session.reloadMe().catch(() => {});
+      setQrSuccess("Đã cập nhật ảnh QR ngân hàng mặc định.");
+    } catch (err) {
+      setQrError(err instanceof ApiError ? err.message : "Không tải được ảnh QR. Vui lòng thử lại.");
+    } finally {
+      setQrBusy(false);
+    }
+  }
+
+  async function handleBankQrClear() {
+    setQrError(null);
+    setQrSuccess(null);
+    setQrBusy(true);
+    try {
+      const updated = await saveMeal.updateMe({ seller: { bankQrImageId: null } });
+      session.setMe(updated);
+      await session.reloadMe().catch(() => {});
+      setQrSuccess("Đã xóa ảnh QR ngân hàng mặc định.");
+    } catch (err) {
+      setQrError(err instanceof ApiError ? err.message : "Không xóa được ảnh QR. Vui lòng thử lại.");
+    } finally {
+      setQrBusy(false);
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -339,6 +381,70 @@ function SettingsForm({ me }: { me: Me }) {
             {saving ? "Đang lưu…" : "Lưu thay đổi"}
           </Button>
         </form>
+
+        <section className={styles.card} aria-label="Ảnh QR ngân hàng mặc định">
+          <div className={styles.cardHead}>
+            <h2 className={styles.sectionTitle}>Ảnh QR ngân hàng mặc định (người bán)</h2>
+            <span className={styles.badge}>0đ phí sàn</span>
+          </div>
+          <p className={styles.sectionDesc}>
+            Tự động điền sẵn mỗi khi bạn đăng món có thu phí. Người mua chuyển khoản trực tiếp vào tài khoản của bạn.
+          </p>
+
+          <input
+            ref={qrInputRef}
+            type="file"
+            accept="image/*"
+            className="visually-hidden"
+            onChange={(e) => {
+              void handleBankQrUpload(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+
+          {bankQr ? (
+            <div className={styles.qrPreviewBox}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- default seller bank QR */}
+              <img src={bankQr.url} alt="Ảnh QR ngân hàng mặc định" className={styles.qrThumb} />
+              <div className={styles.qrMeta}>
+                <p className={styles.qrStatus}>{qrBusy ? "Đang cập nhật ảnh QR…" : "Đã lưu ảnh QR mặc định"}</p>
+                <div className={styles.qrActions}>
+                  <button
+                    type="button"
+                    className={styles.qrActionBtn}
+                    disabled={qrBusy}
+                    onClick={() => qrInputRef.current?.click()}
+                  >
+                    Đổi ảnh QR
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.textBtnDanger}
+                    disabled={qrBusy}
+                    onClick={handleBankQrClear}
+                  >
+                    Xóa ảnh QR
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={styles.qrEmptyBtn}
+              disabled={qrBusy}
+              onClick={() => qrInputRef.current?.click()}
+            >
+              <span className={styles.qrEmptyTitle}>
+                {qrBusy ? "Đang tải ảnh QR…" : "Tải ảnh QR ngân hàng của bạn"}
+              </span>
+              <span className={styles.qrEmptySub}>Hỗ trợ JPG, PNG, WebP · dùng cho chuyển khoản P2P</span>
+            </button>
+          )}
+
+          {qrError ? <Notice tone="error">{qrError}</Notice> : null}
+          {qrSuccess ? <Notice tone="success">{qrSuccess}</Notice> : null}
+        </section>
 
         <PwaInstallCard />
 

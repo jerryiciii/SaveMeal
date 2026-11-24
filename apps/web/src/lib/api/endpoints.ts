@@ -6,6 +6,7 @@ import type {
   DeclarationKey,
   Envelope,
   Image,
+  ImagePurpose,
   ListEnvelope,
   ListingCard,
   ListingDetail,
@@ -13,6 +14,7 @@ import type {
   ListingSearchParams,
   MapPin,
   Me,
+  Payment,
   PickupLocation,
   PickupToken,
   Reservation,
@@ -36,6 +38,7 @@ export type ListingInput = Partial<{
   pickupStart: string;
   pickupEnd: string;
   pickup: PickupLocation;
+  bankQrImageId: string | null;
 }>;
 
 export type PickupLookup = {
@@ -104,11 +107,16 @@ export function endpoints(api: ApiClient) {
     updateMe: (patch: {
       displayName?: string;
       avatarImageId?: string | null;
-      seller?: { name?: string | null; type?: SellerType | null; defaultPickup?: PickupLocation | null };
+      seller?: {
+        name?: string | null;
+        type?: SellerType | null;
+        defaultPickup?: PickupLocation | null;
+        bankQrImageId?: string | null;
+      };
     }) => data(api.request<Envelope<Me>>("PATCH", "/me", { body: patch })),
 
     /** IMG-1 */
-    uploadImage: (file: Blob, purpose: "LISTING" | "REPORT" | "AVATAR") => {
+    uploadImage: (file: Blob, purpose: ImagePurpose) => {
       const form = new FormData();
       form.set("file", file);
       form.set("purpose", purpose);
@@ -160,13 +168,16 @@ export function endpoints(api: ApiClient) {
       api.request<ListEnvelope<ListingOwnerView>>("GET", "/me/listings", { query: { tab } }),
 
     /** RES-1 */
-    reserve: (listingId: string, quantity: number, idempotencyKey: string) =>
-      data(api.request<Envelope<Reservation>>("POST", "/reservations", { body: { listingId, quantity }, idempotencyKey })).then(
-        (res) => {
-          invalidateListingCache();
-          return res;
-        },
-      ),
+    reserve: (listingId: string, quantity: number, idempotencyKey: string, holdMinutes?: number) =>
+      data(
+        api.request<Envelope<Reservation>>("POST", "/reservations", {
+          body: holdMinutes !== undefined ? { listingId, quantity, holdMinutes } : { listingId, quantity },
+          idempotencyKey,
+        }),
+      ).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
     /** RES-2 */
     myReservations: (tab: "upcoming" | "history") =>
       api.request<ListEnvelope<Reservation>>("GET", "/me/reservations", { query: { tab } }),
@@ -194,6 +205,34 @@ export function endpoints(api: ApiClient) {
       data(
         api.request<Envelope<{ reservation: Reservation; listingRemaining: number }>>("POST", "/pickups/confirm", {
           body: { reservationId, ...proof },
+        }),
+      ).then((res) => {
+        invalidateListingCache();
+        return res;
+      }),
+
+    /** PAY-1 (v1.3 P2P) */
+    getPayment: (reservationId: string) =>
+      data(api.request<Envelope<Payment>>("GET", `/reservations/${encodeURIComponent(reservationId)}/payment`)),
+    /** PAY-2 (v1.3 P2P) */
+    submitPaymentProof: (reservationId: string, proofImageId: string) =>
+      data(
+        api.request<Envelope<Reservation>>("POST", `/reservations/${encodeURIComponent(reservationId)}/payment-proof`, {
+          body: { proofImageId },
+        }),
+      ),
+    /** PAY-3 (v1.3 P2P) */
+    confirmPayment: (reservationId: string) =>
+      data(
+        api.request<Envelope<Reservation>>("POST", `/reservations/${encodeURIComponent(reservationId)}/payment/confirm`, {
+          body: {},
+        }),
+      ),
+    /** PAY-4 (v1.3 P2P) */
+    rejectPayment: (reservationId: string, reason: string) =>
+      data(
+        api.request<Envelope<Reservation>>("POST", `/reservations/${encodeURIComponent(reservationId)}/payment/reject`, {
+          body: { reason },
         }),
       ).then((res) => {
         invalidateListingCache();
