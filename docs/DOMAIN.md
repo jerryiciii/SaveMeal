@@ -1,6 +1,6 @@
-# Domain model: SaveMeal (v1.3)
+# Domain model: SaveMeal (v1.3.1)
 
-This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` (v1.3) defines
+This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` (v1.3.1) defines
 how they are exposed. When the code disagrees with this file, the code is wrong.
 
 **Product spec (source of truth since v1.1):** the competition dossier
@@ -49,7 +49,7 @@ The table names are snake_case and the Prisma models PascalCase (`FoodListing` �
 
 | Table | Key fields |
 |---|---|
-| **accounts** | id, phone? (E.164, unique), email? (unique), display_name, avatar_image_id?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, suspended_reason?, **seller fields** (all optional): seller_name, seller_type `INDIVIDUAL\|SHOP\|CAFE\|BAKERY\|CANTEEN`, seller_verified_at?, seller_verified_by?, default_pickup_address?, default_pickup_lat?, default_pickup_lng?, bank_qr_image_id? (default seller bank QR image), created_at, deleted_at? |
+| **accounts** | id, phone? (E.164, unique), email? (unique), display_name, avatar_image_id?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, suspended_reason?, **seller fields** (all optional): seller_name, seller_type `INDIVIDUAL\|SHOP\|CAFE\|BAKERY\|CANTEEN`, seller_verified_at?, seller_verified_by?, default_pickup_address?, default_pickup_lat?, default_pickup_lng?, bank_qr_image_id? (default seller bank QR image), **nearby alert fields** (opt-in, D15): nearby_alerts_enabled (bool, default `false`), nearby_alert_lat? (float, rounded to 2 decimals), nearby_alert_lng? (float, rounded to 2 decimals), nearby_alert_radius_km (int, default `3`), nearby_alert_last_sent_at? (timestamptz), created_at, deleted_at? |
 | otp_requests, refresh_tokens | Auth support tables (hashed codes and tokens; see the contract §0) |
 | **food_listings** | id, seller_id → accounts, title, description?, category, origin (nguồn gốc, required), prepared_at (chế biến/đóng gói, required), storage `ROOM_TEMP\|CHILLED\|FROZEN`, storage_note?, ingredients?, allergens[] (optional info), original_price? (reference price, optional), price (sale price ≥ 0), quantity_total, quantity_available, pickup_start, pickup_end, pickup_address, pickup_lat, pickup_lng, bank_qr_image_id? (defaults to `accounts.bank_qr_image_id`), declaration (json of the 6 seller attestations), declared_at?, status, under_review (bool), published_at?, closed_at?, close_reason?, blocked_reason?, created_at |
 | **listing_images** | id, listing_id? (null until attached), uploader_id, purpose `LISTING\|REPORT\|AVATAR\|PAYMENT_QR\|PAYMENT_PROOF`, storage_key, width, height, bytes, position, created_at. EXIF/GPS is stripped on upload. |
@@ -91,7 +91,7 @@ The table names are snake_case and the Prisma models PascalCase (`FoodListing` �
 |---|---|---|---|---|
 | — → `DRAFT` | `POST /listings` | USER | The account is `ACTIVE`. The seller has at most `MAX_ACTIVE_LISTINGS` (5) non-terminal listings. | event_log |
 | `DRAFT` → `DRAFT` | `PATCH` | Owner | — | — |
-| `DRAFT` → `PUBLISHED` | `POST /listings/:id/publish` | Owner | **Required-info checklist** (§5) complete. All 6 declarations `true`. Window valid (§5). | Sets `quantity_available = quantity_total`, `published_at` and `declared_at`, and writes an event_log (which serves as evidence) |
+| `DRAFT` → `PUBLISHED` | `POST /listings/:id/publish` | Owner | **Required-info checklist** (§5) complete. All 6 declarations `true`. Window valid (§5). | Sets `quantity_available = quantity_total`, `published_at` and `declared_at`, writes an event_log (which serves as evidence), and sends best-effort Resend email alerts to eligible opted-in nearby `ACTIVE` users (D15) |
 | `PUBLISHED` → `PUBLISHED` | `PATCH` (restricted, below) | Owner | — | — |
 | `PUBLISHED` → `EXPIRED` | JOB-1 at `pickup_end` | SYSTEM | — | `closed_at`. Remaining `RESERVED` orders are handled by JOB-2. |
 | `DRAFT\|PUBLISHED` → `WITHDRAWN` | `POST /listings/:id/withdraw` | Owner | — | Every `PENDING_PAYMENT`, `AWAITING_SELLER_CONFIRM`, or `RESERVED` order → `CANCELLED` (`SELLER_WITHDREW`), its pickup tokens are revoked, and `UNPAID` / `PROOF_SUBMITTED` payments → `EXPIRED` |
@@ -138,7 +138,7 @@ is **derived** (`quantity_available = 0`) and is not a status; a cancellation ca
 | From → To | Trigger | Actor | Guards | Stock & payment side effects |
 |---|---|---|---|---|
 | — → `PENDING_PAYMENT` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=true`, `total_price > 0`, `payment_expires_at ≤ pickup_end`, §6 | `quantity_available −= q` atomically. Creates `payments` row (`status = UNPAID`, `amount = total_price`, `seller_qr_image_id`). `pickup_token` is `null`. |
-| — → `RESERVED` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=false` **or** `total_price = 0`, §6 | `quantity_available −= q` atomically. Issues the first pickup token. `payment` is `null`. |
+| — → `RESERVED` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=false` **or** `total_price = 0`, §6 | `quantity_available −= q` atomically. Issues the first pickup token. `payment` is `null`. Sends best-effort Resend transactional emails to the seller (if `seller.email` is set) and buyer (if `buyer.email` is set). |
 | `PENDING_PAYMENT` → `AWAITING_SELLER_CONFIRM` | `POST /reservations/:id/payment-proof` | BUYER | `reservation.status = PENDING_PAYMENT`, `payment.status = UNPAID`, valid `proofImageId` (`purpose = PAYMENT_PROOF`) | Marks `payment.status = PROOF_SUBMITTED`, sets `proof_image_id` & `proof_submitted_at`. Writes `PAYMENT_PROOF_SUBMITTED`. Sends Resend email to seller. Hold timer no longer auto-expires this order. |
 | `PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM` → `RESERVED` | `POST /reservations/:id/payment/confirm` | SELLER | `reservation.status IN (PENDING_PAYMENT, AWAITING_SELLER_CONFIRM)` | Atomically marks `payment.status = CONFIRMED` (`confirmed_at = now`). Issues the first pickup token. Writes `PAYMENT_CONFIRMED` + `RESERVATION_PAID`. Sends Resend email to buyer. |
 | `PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM` → `CANCELLED` | `POST /reservations/:id/payment/reject` | SELLER | `reservation.status IN (PENDING_PAYMENT, AWAITING_SELLER_CONFIRM)`, `reason` (3–300 chars) | `+= q` atomically if the listing is still `PUBLISHED` and `now < pickup_end`. Sets `cancel_reason = PAYMENT_REJECTED`, `payment.status = REJECTED` (`rejected_at = now`, `reject_reason`). Writes `PAYMENT_REJECTED` + `RESERVATION_CANCELLED`. Sends Resend email to buyer. |
@@ -307,6 +307,7 @@ A handed-over portion is **not** reported as "waste avoided" (spec §2.2 step 5,
 | D12 | UI source | Figma V1 (page `0:1`), chosen by the user on 2026-11-23 | Decided |
 | D13 | Name | The product is **SaveMeal** everywhere (code, docs, UI). "LastFood" is only the competition paper's title. The order-code prefix is `SM–`. | Decided (user) |
 | D14 | Pickup window vs demo | Confirm is allowed from `pickup_start − EARLY_PICKUP_MIN` (default 30). Demos set the window around the demo time. | Decided |
+| D15 | Opt-in nearby listing alerts | Search coordinates on `GET /listings` are **never** stored. Separately, a user may explicitly opt in to nearby-listing email alerts via `PATCH /me` (`nearbyAlerts`). When enabled, the server stores the user's chosen area rounded to **2 decimal places** (~1.1 km precision, never exact GPS) plus `radiusKm` (`1`, `3`, or `5`, default `3`). Turning `nearbyAlerts.enabled = false` or deleting the account (`DELETE /me`) immediately clears the stored area coordinates (`null`). | Decided (v1.3.1) |
 
 ## 10. MVP demo slice (spec §7.3). Build this first.
 
@@ -338,5 +339,5 @@ and JOB-2. That is **21 endpoints and 2 jobs**.
 `OTP_MAX_ATTEMPTS=5`, `ACCESS_TOKEN_TTL=15m`, `REFRESH_TOKEN_TTL=30d`,
 `PAYMENTS_ENABLED=false` (remains `false` until FE finishes wiring screens `25b`, `21`, `30b`, `06b`),
 `MIN_PAYMENT_HOLD_MIN=5`, `DEFAULT_PAYMENT_HOLD_MIN=10`,
-`RESEND_API_KEY`, `EMAIL_FROM` (for P2P payment confirmation emails),
+`RESEND_API_KEY`, `EMAIL_FROM` (for P2P payment emails, instant-`RESERVED` order emails, and opt-in nearby-listing alerts),
 `GOOGLE_LOGIN_ENABLED=false` (Later). Automated gateway env vars (SePay/PayOS) are Later.

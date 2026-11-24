@@ -5,7 +5,7 @@
 > [`DOMAIN.md`](DOMAIN.md). Section numbers like "D§3" refer to that file. The product spec is the
 > competition dossier (D§0). The UI is Figma V1.
 
-Version: **v1.3** (2026-11-24) · **42 MVP endpoints** + 26 Later · 4 jobs (D§7) · changelog in §18
+Version: **v1.3.1** (2026-11-24) · **42 MVP endpoints** + 26 Later · 4 jobs (D§7) · changelog in §18
 
 Every endpoint is tagged **[MVP]** (build now) or **[LATER]** (designed only; do not build, and no
 milestone includes it). The demo slice to build first is in D§10.
@@ -108,6 +108,7 @@ type Me = {
   avatar: Image | null; role: "USER" | "ADMIN"; status: AccountStatus;
   seller: { name: string | null; type: SellerType | null; verified: boolean;
             defaultPickup: PickupLocation | null; bankQrImage: Image | null };
+  nearbyAlerts: { enabled: boolean; lat: number | null; lng: number | null; radiusKm: number };
   stats: { portionsHandedOver: number; reservationsActive: number; listingsActive: number }; // V1/08, V1/35
   createdAt: string };
 
@@ -201,7 +202,7 @@ type ListingInput = {                  // LIST-3 (partial allowed for a draft) /
 ## 2. System
 
 - **SYS-1 · `GET /health` [MVP].** Role PUBLIC. Returns 200
-  `{ "data": { "status": "ok", "db": "ok", "version": "1.3.0" } }`.
+  `{ "data": { "status": "ok", "db": "ok", "version": "1.3.1" } }`.
 - **SYS-2 · `GET /config` [MVP].** Role PUBLIC. Returns 200 with:
 
 ```json
@@ -268,17 +269,24 @@ type ListingInput = {                  // LIST-3 (partial allowed for a draft) /
 - **ME-1 · `GET /me` [MVP].** Role USER. Returns 200 `{ data: Me }`.
 - **ME-2 · `PATCH /me` [MVP].**
   - Role: USER.
-  - Request: `{ displayName?, avatarImageId?, seller?: { name?, type?, defaultPickup?: PickupLocation | null, bankQrImageId?: string | null } }`.
+  - Request: `{ displayName?, avatarImageId?, seller?: { name?, type?, defaultPickup?: PickupLocation | null, bankQrImageId?: string | null }, nearbyAlerts?: { enabled?: boolean; lat?: number | null; lng?: number | null; radiusKm?: number } }`.
   - 200: `Me`.
   - Errors: `400 VALIDATION_FAILED`, `404 IMAGE_NOT_FOUND`.
   - Phone and email cannot be changed in v1. Setting seller info is optional; anyone can sell (D§9
     D1/D4). `seller.bankQrImageId` references an image uploaded via IMG-1 with `purpose=PAYMENT_QR`
     (exposed as `Me.seller.bankQrImage`).
+  - **Opt-in nearby alerts (D§9 D15):** search coordinates on `LIST-1` are never stored; users may
+    separately opt in to nearby-listing email alerts via `nearbyAlerts`. If `enabled: true`, `lat`
+    and `lng` must be provided or already saved (else `400 VALIDATION_FAILED`). `radiusKm` must be
+    `1`, `3`, or `5` (default `3`). The server rounds `lat` and `lng` to **2 decimal places**
+    (~1.1 km precision, never exact GPS). Setting `enabled: false` immediately clears `lat` and
+    `lng` to `null`.
 - **ME-3 · `DELETE /me` [MVP].**
   - Role: USER.
   - Request: `{ "confirm": "XOA TAI KHOAN" }`.
   - 204: soft-deletes the account and anonymises personal data (phone, email and avatar set to null;
-    name "Người dùng đã xóa"). Tokens are revoked, and the account's own `DRAFT` listings are
+    name "Người dùng đã xóa"; clears stored `nearbyAlerts` area coordinates to `null` and disables
+    alerts). Tokens are revoked, and the account's own `DRAFT` listings are
     deleted. Anonymised reservations, reports and event_logs are kept.
   - Errors: `409 ACCOUNT_HAS_ACTIVE_ITEMS` (`details: { activeReservations, activeListings }`).
 - **SELLER-1 · `GET /sellers/{accountId}` [MVP].**
@@ -380,6 +388,11 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
     - `429 RATE_LIMITED`.
   - Transition: `DRAFT` → `PUBLISHED`. It sets `quantityAvailable = quantityTotal` and writes the
     `LISTING_PUBLISHED` event with the declaration as evidence.
+  - Side effect (opt-in nearby alerts, D§9 D15): best-effort sends a Resend email notification to
+    eligible nearby `ACTIVE` users (`nearby_alerts_enabled = true`, `email != null`,
+    `id != sellerId`, Haversine distance ≤ user's `radiusKm`, cooldown ≥ 2 hours since
+    `nearby_alert_last_sent_at`, capped at 20 recipients per publish to protect free-tier email
+    quota and keep publish fast).
 - **LIST-7 · `POST /listings/{listingId}/withdraw` [MVP].**
   - Role: OWNER.
   - Request: `{ "reason": "STORAGE_NOT_OK" | "SOLD_ELSEWHERE" | "OTHER", "note": "≤ 200|null" }`.
@@ -425,6 +438,13 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
   - Transition: runs lazy-expiry on expired `PENDING_PAYMENT` holds first (D§6), then — →
     `PENDING_PAYMENT` or `RESERVED`, with `quantityAvailable −= quantity` in one conditional
     `UPDATE` inside a transaction (D§6).
+  - Side effect (instant-`RESERVED` emails): when `RES-1` creates an immediately `RESERVED`
+    reservation (e.g., `price === 0` free item, or `PAYMENTS_ENABLED=false`), the server sends
+    best-effort transactional emails via Resend:
+    - To the **seller** (if `seller.email` is set): order code (`SM–NNNN`), listing title, quantity,
+      pickup window, total price (`0đ` / offline), and link to `/sell/orders`.
+    - To the **buyer** (if `buyer.email` is set): order code, listing title, pickup window &
+      address, and link to `/orders/{id}` to open the pickup QR.
 - **RES-2 · `GET /me/reservations` [MVP].**
   - Role: USER.
   - Query: `tab=upcoming|history` (`upcoming` = `PENDING_PAYMENT`, `AWAITING_SELLER_CONFIRM`, and
@@ -699,6 +719,23 @@ webhooks (SePay/PayOS) and platform fees are deferred to Later (§10).
 | (no frame) Admin | ADM-1..9 | Built from the V1 design system (frame `13:48`) |
 
 ## 18. Changelog
+
+### v1.3.1 (2026-11-24): free-order / instant-`RESERVED` emails and opt-in nearby listing alerts
+
+1. **Instant-`RESERVED` transactional emails (`RES-1`).** When `POST /reservations` creates an
+   immediately `RESERVED` order (free listing `price === 0`, or when `PAYMENTS_ENABLED=false`), the
+   server sends best-effort Resend emails to the seller (if `seller.email` is set: order code
+   `SM–NNNN`, listing title, quantity, pickup window, total price `0đ`/offline, link to
+   `/sell/orders`) and to the buyer (if `buyer.email` is set: order code, listing title, pickup
+   window & address, link to `/orders/{id}` to open the pickup QR).
+2. **Opt-in nearby listing alerts (`ME-2`, `ME-3`, `LIST-6`, D§9 D15).** Search coordinates on
+   `GET /listings` remain unstored. Added `nearbyAlerts` (`{ enabled, lat, lng, radiusKm }`) to
+   `Me` and `PATCH /me` (`ME-2`), storing opted-in area coordinates rounded to 2 decimal places
+   (~1.1 km precision, never exact GPS) with `radiusKm` in `{1, 3, 5}` (default `3`). Disabling
+   alerts or deleting the account (`ME-3`) immediately clears stored coordinates to `null`.
+   Publishing a listing (`LIST-6`) best-effort sends Resend email alerts to up to 20 eligible nearby
+   `ACTIVE` users (`nearby_alerts_enabled = true`, `email != null`, `id != sellerId`, Haversine
+   distance ≤ `radiusKm`, ≥ 2 h cooldown since `nearby_alert_last_sent_at`).
 
 ### v1.3 (2026-11-24): P2P Direct Bank QR + Transfer Proof + Resend Email payments
 
