@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  formatOrderCode,
   RESERVATION_STATUSES,
   type PageInfo,
   type PickupBlockingReason,
@@ -15,8 +16,9 @@ import { AppException } from '../common/errors/app-exception';
 import { logEvent } from '../common/event-log';
 import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
 import { RateLimiter } from '../common/rate-limiter';
-import { localDate, toApiTime } from '../common/time';
+import { formatPickupWindow, localDate, toApiTime } from '../common/time';
 import { AppConfig } from '../config/app-config';
+import { PAYMENT_MAILER, type PaymentMailer } from '../payments/payment-mailer';
 import { PAYMENT_INCLUDE } from '../payments/payment.mapper';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -53,6 +55,7 @@ export class ReservationsService {
     private readonly config: AppConfig,
     private readonly rateLimiter: RateLimiter,
     private readonly payments: PaymentsService,
+    @Inject(PAYMENT_MAILER) private readonly mailer: PaymentMailer,
   ) {}
 
   // ------------------------------------------------------------------------------------------
@@ -70,6 +73,9 @@ export class ReservationsService {
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const result = await this.prisma.$transaction((tx) => this.createInTx(tx, account, dto, idempotencyKey, now));
+        if (result.created && result.row.status === 'RESERVED') {
+          await this.notifyReservationCreated(result.row);
+        }
         return toReservation(result.row, 'BUYER', result.pickupToken, now);
       } catch (error) {
         if (this.isCodeCollision(error) && attempt < 4) continue;
@@ -79,13 +85,55 @@ export class ReservationsService {
     throw new AppException('INTERNAL');
   }
 
+  private async notifyReservationCreated(row: ReservationRow): Promise<void> {
+    const orderCode = formatOrderCode(row.code);
+    const sellerName = row.seller.sellerName ?? row.seller.displayName ?? 'Người bán';
+    const buyerName = row.buyer.displayName ?? 'Người mua';
+    const pickupWindow = formatPickupWindow(row.listing.pickupStart!, row.listing.pickupEnd!);
+    const tasks: Promise<void>[] = [];
+
+    if (row.seller.email) {
+      tasks.push(
+        this.mailer.sendReservationCreatedToSeller({
+          toEmail: row.seller.email,
+          sellerName,
+          buyerName,
+          listingTitle: row.listing.title,
+          orderCode,
+          quantity: row.quantity,
+          totalPrice: row.totalPrice,
+          pickupWindow,
+          reservationId: row.id,
+        }),
+      );
+    }
+    if (row.buyer.email) {
+      tasks.push(
+        this.mailer.sendReservationCreatedToBuyer({
+          toEmail: row.buyer.email,
+          buyerName,
+          sellerName,
+          listingTitle: row.listing.title,
+          orderCode,
+          quantity: row.quantity,
+          pickupWindow,
+          pickupAddress: row.listing.pickupAddress ?? '',
+          reservationId: row.id,
+        }),
+      );
+    }
+    if (tasks.length > 0) {
+      await Promise.allSettled(tasks);
+    }
+  }
+
   private async createInTx(
     tx: Tx,
     account: AuthAccount,
     dto: CreateReservationDto,
     idempotencyKey: string,
     now: Date,
-  ): Promise<{ row: ReservationRow; pickupToken: PickupToken | null }> {
+  ): Promise<{ row: ReservationRow; pickupToken: PickupToken | null; created: boolean }> {
     // Serialises concurrent reservation attempts by the same buyer so limits and idempotency cannot race.
     await tx.$executeRaw`SELECT 1 FROM accounts WHERE id = ${account.id}::uuid FOR UPDATE`;
 
@@ -96,7 +144,7 @@ export class ReservationsService {
     if (existingByKey) {
       const sameBody = existingByKey.listingId === dto.listingId && existingByKey.quantity === dto.quantity;
       const withinWindow = now.getTime() - existingByKey.createdAt.getTime() <= IDEMPOTENCY_TTL_MS;
-      if (sameBody && withinWindow) return { row: existingByKey, pickupToken: null };
+      if (sameBody && withinWindow) return { row: existingByKey, pickupToken: null, created: false };
       throw new AppException('IDEMPOTENCY_KEY_REUSED');
     }
 
@@ -243,6 +291,7 @@ export class ReservationsService {
       return {
         row: { ...created, payment },
         pickupToken: null,
+        created: true,
       };
     }
 
@@ -296,6 +345,7 @@ export class ReservationsService {
     return {
       row: created,
       pickupToken: { qrPayload: generated.qrPayload, expiresAt: toApiTime(expiresAt) },
+      created: true,
     };
   }
 

@@ -6,10 +6,13 @@ import { AppConfig } from '../src/config/app-config';
 import { parseEnv } from '../src/config/env';
 import {
   PAYMENT_MAILER,
+  type NearbyListingAlertEmailParams,
   type PaymentConfirmedEmailParams,
   type PaymentMailer,
   type PaymentRejectedEmailParams,
   type ProofSubmittedEmailParams,
+  type ReservationCreatedBuyerEmailParams,
+  type ReservationCreatedSellerEmailParams,
 } from '../src/payments/payment-mailer';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './app';
@@ -23,6 +26,9 @@ class CapturingPaymentMailer implements PaymentMailer {
   readonly proofSubmitted: ProofSubmittedEmailParams[] = [];
   readonly confirmed: PaymentConfirmedEmailParams[] = [];
   readonly rejected: PaymentRejectedEmailParams[] = [];
+  readonly reservationCreatedSeller: ReservationCreatedSellerEmailParams[] = [];
+  readonly reservationCreatedBuyer: ReservationCreatedBuyerEmailParams[] = [];
+  readonly nearbyListingAlerts: NearbyListingAlertEmailParams[] = [];
 
   async sendProofSubmittedToSeller(params: ProofSubmittedEmailParams): Promise<void> {
     this.proofSubmitted.push(params);
@@ -36,10 +42,25 @@ class CapturingPaymentMailer implements PaymentMailer {
     this.rejected.push(params);
   }
 
+  async sendReservationCreatedToSeller(params: ReservationCreatedSellerEmailParams): Promise<void> {
+    this.reservationCreatedSeller.push(params);
+  }
+
+  async sendReservationCreatedToBuyer(params: ReservationCreatedBuyerEmailParams): Promise<void> {
+    this.reservationCreatedBuyer.push(params);
+  }
+
+  async sendNearbyListingAlert(params: NearbyListingAlertEmailParams): Promise<void> {
+    this.nearbyListingAlerts.push(params);
+  }
+
   clear(): void {
     this.proofSubmitted.length = 0;
     this.confirmed.length = 0;
     this.rejected.length = 0;
+    this.reservationCreatedSeller.length = 0;
+    this.reservationCreatedBuyer.length = 0;
+    this.nearbyListingAlerts.length = 0;
   }
 }
 

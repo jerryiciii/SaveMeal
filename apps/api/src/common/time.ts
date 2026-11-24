@@ -37,3 +37,14 @@ export function localWallTime(base: Date, hh: number, mm: number, dayOffset = 0)
 export function localDayStart(base: Date, dayOffset = 0): Date {
   return localWallTime(base, 0, 0, dayOffset);
 }
+
+/** Human-readable local (+07:00) pickup window for emails, e.g. "17:00–18:00 (25/11)". */
+export function formatPickupWindow(start: Date, end: Date): string {
+  const startIso = toApiTime(start);
+  const endIso = toApiTime(end);
+  const startHm = startIso.slice(11, 16);
+  const endHm = endIso.slice(11, 16);
+  const day = startIso.slice(8, 10);
+  const month = startIso.slice(5, 7);
+  return `${startHm}–${endHm} (${day}/${month})`;
+}

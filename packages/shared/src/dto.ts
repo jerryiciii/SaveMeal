@@ -62,6 +62,13 @@ export type MeSeller = {
   bankQrImage: Image | null;
 };
 
+export type NearbyAlertsSettings = {
+  enabled: boolean;
+  lat: number | null;
+  lng: number | null;
+  radiusKm: number;
+};
+
 export type Me = {
   id: string;
   displayName: string | null;
@@ -71,6 +78,7 @@ export type Me = {
   role: UserRole;
   status: AccountStatus;
   seller: MeSeller;
+  nearbyAlerts: NearbyAlertsSettings;
   stats: { portionsHandedOver: number; reservationsActive: number; listingsActive: number };
   createdAt: string;
 };
@@ -324,6 +332,12 @@ export type UpdateMeBody = {
     type?: SellerType | null;
     defaultPickup?: PickupLocation | null;
     bankQrImageId?: string | null;
+  };
+  nearbyAlerts?: {
+    enabled?: boolean;
+    lat?: number | null;
+    lng?: number | null;
+    radiusKm?: number;
   };
 };
 

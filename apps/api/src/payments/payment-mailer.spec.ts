@@ -79,6 +79,88 @@ describe('ResendPaymentMailer', () => {
     expect(payload.text).toContain('Chưa nhận được tiền trong tài khoản');
   });
 
+  it('sends reservation created email to seller with 0đ (Miễn phí) for free orders and /sell/orders CTA', async () => {
+    const fetchFn = jest.fn<ReturnType<FetchFn>, Parameters<FetchFn>>().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'email_4' }), { status: 200 }),
+    );
+    const mailer = new ResendPaymentMailer({ ...baseOptions, fetchFn });
+
+    await mailer.sendReservationCreatedToSeller({
+      toEmail: 'seller@example.com',
+      sellerName: 'Tiệm Bánh A',
+      buyerName: 'Nguyễn Văn B',
+      listingTitle: 'Bánh mì miễn phí',
+      orderCode: 'SM–4281',
+      quantity: 2,
+      totalPrice: 0,
+      pickupWindow: '17:00–18:00 (25/11)',
+      reservationId: 'res-4',
+    });
+
+    const payload = JSON.parse(fetchFn.mock.calls[0]![1]?.body as string);
+    expect(payload.to).toEqual(['seller@example.com']);
+    expect(payload.subject).toContain('SM–4281');
+    expect(payload.text).toContain('0đ (Miễn phí)');
+    expect(payload.text).toContain('2 phần');
+    expect(payload.text).toContain('17:00–18:00 (25/11)');
+    expect(payload.text).toContain('Nguyễn Văn B');
+    expect(payload.html).toContain('https://savemeal.thezah.space/sell/orders');
+  });
+
+  it('sends reservation created email to buyer with pickup address and /orders/:id CTA', async () => {
+    const fetchFn = jest.fn<ReturnType<FetchFn>, Parameters<FetchFn>>().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'email_5' }), { status: 200 }),
+    );
+    const mailer = new ResendPaymentMailer({ ...baseOptions, fetchFn });
+
+    await mailer.sendReservationCreatedToBuyer({
+      toEmail: 'buyer@example.com',
+      buyerName: 'Nguyễn Văn B',
+      sellerName: 'Tiệm Bánh A',
+      listingTitle: 'Bánh mì miễn phí',
+      orderCode: 'SM–4281',
+      quantity: 1,
+      pickupWindow: '17:00–18:00 (25/11)',
+      pickupAddress: '12 Ngô Thì Sĩ, Đà Nẵng',
+      reservationId: 'res-5',
+    });
+
+    const payload = JSON.parse(fetchFn.mock.calls[0]![1]?.body as string);
+    expect(payload.to).toEqual(['buyer@example.com']);
+    expect(payload.subject).toContain('SM–4281');
+    expect(payload.text).toContain('12 Ngô Thì Sĩ, Đà Nẵng');
+    expect(payload.text).toContain('17:00–18:00 (25/11)');
+    expect(payload.html).toContain('https://savemeal.thezah.space/orders/res-5');
+  });
+
+  it('sends nearby listing alert email with distance, price formatting, and /listings/:id CTA', async () => {
+    const fetchFn = jest.fn<ReturnType<FetchFn>, Parameters<FetchFn>>().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'email_6' }), { status: 200 }),
+    );
+    const mailer = new ResendPaymentMailer({ ...baseOptions, fetchFn });
+
+    await mailer.sendNearbyListingAlert({
+      toEmail: 'nearby@example.com',
+      recipientName: 'Lan',
+      listingId: 'list-123',
+      listingTitle: 'Bánh ngọt cuối ngày',
+      sellerName: 'Tiệm Bánh Mây',
+      price: 0,
+      quantityAvailable: 4,
+      pickupWindow: '17:30–18:30 (25/11)',
+      distanceKm: 1.24,
+    });
+
+    const payload = JSON.parse(fetchFn.mock.calls[0]![1]?.body as string);
+    expect(payload.to).toEqual(['nearby@example.com']);
+    expect(payload.subject).toContain('~1.2 km');
+    expect(payload.subject).toContain('Bánh ngọt cuối ngày');
+    expect(payload.text).toContain('Miễn phí');
+    expect(payload.text).toContain('4 phần');
+    expect(payload.text).toContain('17:30–18:30 (25/11)');
+    expect(payload.html).toContain('https://savemeal.thezah.space/listings/list-123');
+  });
+
   it('does not throw when Resend returns HTTP error or rejects (best-effort)', async () => {
     const errorFetch = jest.fn<ReturnType<FetchFn>, Parameters<FetchFn>>().mockResolvedValue(
       new Response('rate limited', { status: 429 }),
@@ -149,6 +231,45 @@ describe('ConsolePaymentMailer', () => {
         amount: 15000,
         reason: 'Sai số tiền',
         reservationId: 'res-1',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      mailer.sendReservationCreatedToSeller({
+        toEmail: 'seller@example.com',
+        sellerName: 'A',
+        buyerName: 'B',
+        listingTitle: 'Bánh',
+        orderCode: 'SM–1000',
+        quantity: 1,
+        totalPrice: 0,
+        pickupWindow: '17:00–18:00 (25/11)',
+        reservationId: 'res-1',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      mailer.sendReservationCreatedToBuyer({
+        toEmail: 'buyer@example.com',
+        buyerName: 'B',
+        sellerName: 'A',
+        listingTitle: 'Bánh',
+        orderCode: 'SM–1000',
+        quantity: 1,
+        pickupWindow: '17:00–18:00 (25/11)',
+        pickupAddress: 'Đà Nẵng',
+        reservationId: 'res-1',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      mailer.sendNearbyListingAlert({
+        toEmail: 'nearby@example.com',
+        recipientName: 'Lan',
+        listingId: 'list-1',
+        listingTitle: 'Bánh',
+        sellerName: 'A',
+        price: 15000,
+        quantityAvailable: 3,
+        pickupWindow: '17:00–18:00 (25/11)',
+        distanceKm: 0.8,
       }),
     ).resolves.toBeUndefined();
   });

@@ -35,10 +35,49 @@ export interface PaymentRejectedEmailParams {
   reservationId: string;
 }
 
+export interface ReservationCreatedSellerEmailParams {
+  toEmail: string;
+  sellerName: string;
+  buyerName: string;
+  listingTitle: string;
+  orderCode: string;
+  quantity: number;
+  totalPrice: number;
+  pickupWindow: string;
+  reservationId: string;
+}
+
+export interface ReservationCreatedBuyerEmailParams {
+  toEmail: string;
+  buyerName: string;
+  sellerName: string;
+  listingTitle: string;
+  orderCode: string;
+  quantity: number;
+  pickupWindow: string;
+  pickupAddress: string;
+  reservationId: string;
+}
+
+export interface NearbyListingAlertEmailParams {
+  toEmail: string;
+  recipientName: string;
+  listingId: string;
+  listingTitle: string;
+  sellerName: string;
+  price: number;
+  quantityAvailable: number;
+  pickupWindow: string;
+  distanceKm: number;
+}
+
 export interface PaymentMailer {
   sendProofSubmittedToSeller(params: ProofSubmittedEmailParams): Promise<void>;
   sendPaymentConfirmedToBuyer(params: PaymentConfirmedEmailParams): Promise<void>;
   sendPaymentRejectedToBuyer(params: PaymentRejectedEmailParams): Promise<void>;
+  sendReservationCreatedToSeller(params: ReservationCreatedSellerEmailParams): Promise<void>;
+  sendReservationCreatedToBuyer(params: ReservationCreatedBuyerEmailParams): Promise<void>;
+  sendNearbyListingAlert(params: NearbyListingAlertEmailParams): Promise<void>;
 }
 
 export const PAYMENT_MAILER = Symbol('PAYMENT_MAILER');
@@ -174,6 +213,90 @@ export class ResendPaymentMailer implements PaymentMailer {
     await this.sendBestEffort(params.toEmail, subject, text, html, 'payment_rejected');
   }
 
+  async sendReservationCreatedToSeller(params: ReservationCreatedSellerEmailParams): Promise<void> {
+    const priceText = params.totalPrice === 0 ? '0đ (Miễn phí)' : formatVnd(params.totalPrice);
+    const url = `${this.appPublicUrl}/sell/orders`;
+    const subject = `[SaveMeal] Có đơn đặt mới ${params.orderCode} - ${params.listingTitle}`;
+    const text = [
+      `Xin chào ${params.sellerName},`,
+      '',
+      `${params.buyerName} vừa đặt ${params.quantity} phần "${params.listingTitle}" (mã đơn ${params.orderCode}).`,
+      `Tổng tiền: ${priceText}`,
+      `Khung giờ nhận: ${params.pickupWindow}`,
+      '',
+      `Xem đơn bán trên SaveMeal: ${url}`,
+    ].join('\n');
+    const html = buildHtmlEmail(
+      `Đơn đặt mới ${params.orderCode}`,
+      [
+        `Xin chào <strong>${escapeHtml(params.sellerName)}</strong>,`,
+        `<strong>${escapeHtml(params.buyerName)}</strong> vừa đặt <strong>${params.quantity} phần</strong> "${escapeHtml(params.listingTitle)}" với mã đơn <strong>${escapeHtml(params.orderCode)}</strong>.`,
+        `Tổng tiền: <strong>${escapeHtml(priceText)}</strong><br/>Khung giờ nhận: <strong>${escapeHtml(params.pickupWindow)}</strong>`,
+        'Hãy chuẩn bị phần ăn và xác nhận bàn giao khi người mua xuất trình mã QR hoặc mã đơn.',
+      ],
+      'Xem đơn bán',
+      url,
+    );
+
+    await this.sendBestEffort(params.toEmail, subject, text, html, 'reservation_created_seller');
+  }
+
+  async sendReservationCreatedToBuyer(params: ReservationCreatedBuyerEmailParams): Promise<void> {
+    const url = `${this.appPublicUrl}/orders/${params.reservationId}`;
+    const subject = `[SaveMeal] Đặt giữ thành công đơn ${params.orderCode} - ${params.listingTitle}`;
+    const text = [
+      `Xin chào ${params.buyerName},`,
+      '',
+      `Bạn đã đặt giữ thành công ${params.quantity} phần "${params.listingTitle}" từ ${params.sellerName} (mã đơn ${params.orderCode}).`,
+      `Khung giờ nhận: ${params.pickupWindow}`,
+      `Địa điểm nhận: ${params.pickupAddress}`,
+      '',
+      `Mở mã QR nhận món: ${url}`,
+    ].join('\n');
+    const html = buildHtmlEmail(
+      `Đặt giữ thành công đơn ${params.orderCode}`,
+      [
+        `Xin chào <strong>${escapeHtml(params.buyerName)}</strong>,`,
+        `Bạn đã đặt giữ thành công <strong>${params.quantity} phần</strong> "${escapeHtml(params.listingTitle)}" từ <strong>${escapeHtml(params.sellerName)}</strong> (mã đơn <strong>${escapeHtml(params.orderCode)}</strong>).`,
+        `Khung giờ nhận: <strong>${escapeHtml(params.pickupWindow)}</strong><br/>Địa điểm nhận: <strong>${escapeHtml(params.pickupAddress)}</strong>`,
+        'Hãy mở đơn hàng để xuất trình mã QR hoặc mã đơn khi đến nhận món.',
+      ],
+      'Xem mã QR nhận món',
+      url,
+    );
+
+    await this.sendBestEffort(params.toEmail, subject, text, html, 'reservation_created_buyer');
+  }
+
+  async sendNearbyListingAlert(params: NearbyListingAlertEmailParams): Promise<void> {
+    const priceText = params.price === 0 ? 'Miễn phí' : formatVnd(params.price);
+    const distanceText = `~${params.distanceKm.toFixed(1)} km`;
+    const url = `${this.appPublicUrl}/listings/${params.listingId}`;
+    const subject = `[SaveMeal] Món mới gần bạn (${distanceText}): ${params.listingTitle}`;
+    const text = [
+      `Xin chào ${params.recipientName},`,
+      '',
+      `${params.sellerName} vừa đăng "${params.listingTitle}" cách khu vực bạn chọn ${distanceText}.`,
+      `Giá: ${priceText} · Số lượng: ${params.quantityAvailable} phần`,
+      `Khung giờ nhận: ${params.pickupWindow}`,
+      '',
+      `Xem chi tiết món: ${url}`,
+    ].join('\n');
+    const html = buildHtmlEmail(
+      `Món mới gần bạn (${distanceText})`,
+      [
+        `Xin chào <strong>${escapeHtml(params.recipientName)}</strong>,`,
+        `<strong>${escapeHtml(params.sellerName)}</strong> vừa đăng <strong>${escapeHtml(params.listingTitle)}</strong> cách khu vực bạn chọn <strong>${escapeHtml(distanceText)}</strong>.`,
+        `Giá: <strong>${escapeHtml(priceText)}</strong> · Số lượng: <strong>${params.quantityAvailable} phần</strong><br/>Khung giờ nhận: <strong>${escapeHtml(params.pickupWindow)}</strong>`,
+        'Bạn có thể tắt thông báo món gần đây bất cứ lúc nào trong phần Cài đặt trên SaveMeal.',
+      ],
+      'Xem chi tiết món',
+      url,
+    );
+
+    await this.sendBestEffort(params.toEmail, subject, text, html, 'nearby_listing_alert');
+  }
+
   private async sendBestEffort(
     toEmail: string,
     subject: string,
@@ -236,6 +359,26 @@ export class ConsolePaymentMailer implements PaymentMailer {
   async sendPaymentRejectedToBuyer(params: PaymentRejectedEmailParams): Promise<void> {
     this.logger.log(
       `[console PaymentMailer] payment_rejected → ${maskIdentifier(params.toEmail)} (order ${params.orderCode}, reason=${params.reason})`,
+    );
+  }
+
+  async sendReservationCreatedToSeller(params: ReservationCreatedSellerEmailParams): Promise<void> {
+    const priceText = params.totalPrice === 0 ? '0đ (Miễn phí)' : formatVnd(params.totalPrice);
+    this.logger.log(
+      `[console PaymentMailer] reservation_created_seller → ${maskIdentifier(params.toEmail)} (order ${params.orderCode}, qty=${params.quantity}, ${priceText})`,
+    );
+  }
+
+  async sendReservationCreatedToBuyer(params: ReservationCreatedBuyerEmailParams): Promise<void> {
+    this.logger.log(
+      `[console PaymentMailer] reservation_created_buyer → ${maskIdentifier(params.toEmail)} (order ${params.orderCode}, qty=${params.quantity})`,
+    );
+  }
+
+  async sendNearbyListingAlert(params: NearbyListingAlertEmailParams): Promise<void> {
+    const priceText = params.price === 0 ? 'Miễn phí' : formatVnd(params.price);
+    this.logger.log(
+      `[console PaymentMailer] nearby_listing_alert → ${maskIdentifier(params.toEmail)} (listing ${params.listingId}, ${priceText}, ~${params.distanceKm.toFixed(1)} km)`,
     );
   }
 }

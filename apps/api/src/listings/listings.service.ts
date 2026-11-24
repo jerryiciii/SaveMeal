@@ -1,11 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma, type FoodListing } from '@prisma/client';
 import type { ListingOwnerView, ListingStatus, PageInfo } from '@savemeal/shared';
 import type { AuthAccount } from '../auth/auth.guard';
 import { AppException } from '../common/errors/app-exception';
 import { logEvent } from '../common/event-log';
 import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
+import { formatPickupWindow } from '../common/time';
 import { AppConfig } from '../config/app-config';
+import { PAYMENT_MAILER, type PaymentMailer } from '../payments/payment-mailer';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateListingDto, DeclarationDto, MyListingsQuery, UpdateListingDto, WithdrawListingDto } from './listing.dto';
@@ -16,13 +18,42 @@ type Tx = Prisma.TransactionClient;
 type ListingData = Prisma.FoodListingUncheckedUpdateInput;
 
 const PUBLISH_PER_HOUR = 10;
+const NEARBY_ALERT_COOLDOWN_MS = 2 * 3600_000;
+const NEARBY_ALERT_MAX_RECIPIENTS = 20;
+const EARTH_RADIUS_KM = 6371;
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+interface PublishedListingSnapshot {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  title: string;
+  price: number;
+  quantityTotal: number;
+  pickupStart: Date;
+  pickupEnd: Date;
+  pickupLat: number;
+  pickupLng: number;
+}
 
 @Injectable()
 export class ListingsService {
+  private readonly logger = new Logger(ListingsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly payments: PaymentsService,
+    @Inject(PAYMENT_MAILER) private readonly mailer: PaymentMailer,
   ) {}
 
   // ------------------------------------------------------------------------------------------
@@ -254,7 +285,7 @@ export class ListingsService {
     });
     if (recent >= PUBLISH_PER_HOUR) throw AppException.rateLimited(3600_000);
 
-    await this.prisma.$transaction(async (tx) => {
+    const published = await this.prisma.$transaction(async (tx): Promise<PublishedListingSnapshot> => {
       await tx.$executeRaw`SELECT 1 FROM food_listings WHERE id = ${id}::uuid FOR UPDATE`;
       const listing = await this.ownedListing(account, id, tx);
       if (listing.status !== 'DRAFT') {
@@ -263,7 +294,10 @@ export class ListingsService {
       const now = new Date();
       const [imageCount, seller] = await Promise.all([
         tx.listingImage.count({ where: { listingId: id } }),
-        tx.account.findUnique({ where: { id: account.id }, select: { bankQrImageId: true } }),
+        tx.account.findUnique({
+          where: { id: account.id },
+          select: { bankQrImageId: true, sellerName: true, displayName: true },
+        }),
       ]);
       const effectiveBankQrImageId = listing.bankQrImageId ?? seller?.bankQrImageId ?? null;
       const missing = missingChecklist(
@@ -307,8 +341,92 @@ export class ListingsService {
           timeToPublishSec: Math.round((now.getTime() - listing.createdAt.getTime()) / 1000),
         },
       });
+
+      return {
+        id: listing.id,
+        sellerId: listing.sellerId,
+        sellerName: seller?.sellerName ?? seller?.displayName ?? 'Người bán',
+        title: listing.title,
+        price: listing.price!,
+        quantityTotal: listing.quantityTotal!,
+        pickupStart: listing.pickupStart!,
+        pickupEnd: listing.pickupEnd!,
+        pickupLat: listing.pickupLat!,
+        pickupLng: listing.pickupLng!,
+      };
     });
+
+    await this.notifyNearbyUsers(published);
     return this.ownerView(id);
+  }
+
+  /** Best-effort D15 nearby listing email alerts after LIST-6 commits. Never throws. */
+  private async notifyNearbyUsers(published: PublishedListingSnapshot): Promise<void> {
+    try {
+      const now = new Date();
+      const cooldownCutoff = new Date(now.getTime() - NEARBY_ALERT_COOLDOWN_MS);
+      const candidates = await this.prisma.account.findMany({
+        where: {
+          status: 'ACTIVE',
+          nearbyAlertsEnabled: true,
+          email: { not: null },
+          id: { not: published.sellerId },
+          nearbyAlertLat: { not: null },
+          nearbyAlertLng: { not: null },
+          OR: [{ nearbyAlertLastSentAt: null }, { nearbyAlertLastSentAt: { lte: cooldownCutoff } }],
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          nearbyAlertLat: true,
+          nearbyAlertLng: true,
+          nearbyAlertRadiusKm: true,
+        },
+      });
+
+      const matched = candidates
+        .map((candidate) => ({
+          candidate,
+          distanceKm: haversineKm(
+            published.pickupLat,
+            published.pickupLng,
+            candidate.nearbyAlertLat!,
+            candidate.nearbyAlertLng!,
+          ),
+        }))
+        .filter(({ candidate, distanceKm }) => distanceKm <= candidate.nearbyAlertRadiusKm)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, NEARBY_ALERT_MAX_RECIPIENTS);
+
+      if (matched.length === 0) return;
+
+      await this.prisma.account.updateMany({
+        where: { id: { in: matched.map(({ candidate }) => candidate.id) } },
+        data: { nearbyAlertLastSentAt: now },
+      });
+
+      const pickupWindow = formatPickupWindow(published.pickupStart, published.pickupEnd);
+      await Promise.allSettled(
+        matched.map(({ candidate, distanceKm }) =>
+          this.mailer.sendNearbyListingAlert({
+            toEmail: candidate.email!,
+            recipientName: candidate.displayName ?? 'Bạn',
+            listingId: published.id,
+            listingTitle: published.title,
+            sellerName: published.sellerName,
+            price: published.price,
+            quantityAvailable: published.quantityTotal,
+            pickupWindow,
+            distanceKm,
+          }),
+        ),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Nearby listing alerts failed for listing ${published.id}: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
   }
 
   /** LIST-7. DRAFT|PUBLISHED → WITHDRAWN; RESERVED orders are cancelled (SELLER_WITHDREW). */

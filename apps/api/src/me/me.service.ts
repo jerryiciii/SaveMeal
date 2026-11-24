@@ -72,6 +72,12 @@ export class MeService {
       role: account.role,
       status: account.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE',
       seller: toMeSeller(account),
+      nearbyAlerts: {
+        enabled: account.nearbyAlertsEnabled,
+        lat: account.nearbyAlertLat,
+        lng: account.nearbyAlertLng,
+        radiusKm: account.nearbyAlertRadiusKm,
+      },
       stats: {
         portionsHandedOver: handedOver._sum.quantity ?? 0,
         reservationsActive,
@@ -120,6 +126,32 @@ export class MeService {
         }
       }
     }
+    if (body.nearbyAlerts) {
+      const current = await this.prisma.account.findUniqueOrThrow({
+        where: { id: accountId },
+        select: { nearbyAlertsEnabled: true, nearbyAlertLat: true, nearbyAlertLng: true },
+      });
+      const nextEnabled = body.nearbyAlerts.enabled ?? current.nearbyAlertsEnabled;
+      if (body.nearbyAlerts.radiusKm !== undefined) {
+        data.nearbyAlertRadiusKm = body.nearbyAlerts.radiusKm;
+      }
+      if (!nextEnabled) {
+        data.nearbyAlertsEnabled = false;
+        data.nearbyAlertLat = null;
+        data.nearbyAlertLng = null;
+      } else {
+        const rawLat = body.nearbyAlerts.lat !== undefined ? body.nearbyAlerts.lat : current.nearbyAlertLat;
+        const rawLng = body.nearbyAlerts.lng !== undefined ? body.nearbyAlerts.lng : current.nearbyAlertLng;
+        if (rawLat === null || rawLat === undefined || rawLng === null || rawLng === undefined) {
+          throw new AppException('VALIDATION_FAILED', {
+            fields: { nearbyAlerts: 'lat and lng are required when nearbyAlerts is enabled' },
+          });
+        }
+        data.nearbyAlertsEnabled = true;
+        data.nearbyAlertLat = Math.round(rawLat * 100) / 100;
+        data.nearbyAlertLng = Math.round(rawLng * 100) / 100;
+      }
+    }
     await this.prisma.account.update({ where: { id: accountId }, data });
     return this.getMe(accountId);
   }
@@ -165,6 +197,10 @@ export class MeService {
           defaultPickupAddress: null,
           defaultPickupLat: null,
           defaultPickupLng: null,
+          nearbyAlertsEnabled: false,
+          nearbyAlertLat: null,
+          nearbyAlertLng: null,
+          nearbyAlertLastSentAt: null,
         },
       });
       await logEvent(tx, {
