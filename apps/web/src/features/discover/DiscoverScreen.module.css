@@ -9,6 +9,12 @@
   position: relative;
   height: clamp(290px, 42vh, 360px);
   flex: none;
+  transition: height 240ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+.mapPeek {
+  height: calc(100dvh - 156px - env(safe-area-inset-bottom, 0px));
+  min-height: 440px;
 }
 
 .topBar {
@@ -179,6 +185,23 @@
   border-radius: 28px 28px 0 0;
   padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   box-shadow: none;
+}
+
+.sheetPeek {
+  flex: none;
+  padding: 6px var(--gutter) calc(74px + env(safe-area-inset-bottom, 0px));
+}
+
+.dragZone {
+  touch-action: none;
+  user-select: none;
+}
+
+.sheetActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
 }
 
 .handleBtn {

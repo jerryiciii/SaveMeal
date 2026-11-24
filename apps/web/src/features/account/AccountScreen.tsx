@@ -181,21 +181,6 @@ export function AccountScreen() {
         </div>
       </div>
 
-      <div className={styles.stats}>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{me.stats.reservationsActive}</span>
-          <span className={styles.statLabel}>đơn đang giữ</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{me.stats.listingsActive}</span>
-          <span className={styles.statLabel}>tin đang đăng</span>
-        </div>
-        <div className={`${styles.stat} ${styles.statAccent}`}>
-          <span className={styles.statValueAccent}>{me.stats.portionsHandedOver}</span>
-          <span className={styles.statLabelAccent}>suất đã giao</span>
-        </div>
-      </div>
-
       <ul className={styles.group}>
         {LINKS.map((l) => (
           <li key={l.href} className={styles.groupItem}>

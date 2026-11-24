@@ -8,6 +8,7 @@ import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
 import type { Image as UploadedImage, PickupToken, Reservation } from "@/lib/contract/types";
 import { formatPickupDay, formatPickupWindow, formatVnd } from "@/lib/format";
+import { appleMapsDirectionsUrl, googleMapsDirectionsUrl } from "@/lib/maps";
 import { downscaleImage } from "@/lib/image";
 import { useLoad } from "@/lib/useLoad";
 import { CANCEL_REASON_LABEL, RESERVATION_STATUS_LABEL } from "./labels";
@@ -197,14 +198,24 @@ export function OrderScreen({ id }: { id: string }) {
           <dd>{paymentConfirmed ? "0đ (đã chuyển khoản)" : r.totalPrice === 0 ? "Miễn phí" : formatVnd(r.totalPrice)}</dd>
         </div>
       </dl>
-      <a
-        className={styles.directionBtn}
-        href={`https://www.openstreetmap.org/?mlat=${r.listing.pickup.lat}&mlon=${r.listing.pickup.lng}#map=18/${r.listing.pickup.lat}/${r.listing.pickup.lng}`}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Chỉ đường đến điểm nhận
-      </a>
+      <div className={styles.directionRow}>
+        <a
+          className={styles.directionBtn}
+          href={googleMapsDirectionsUrl(r.listing.pickup.lat, r.listing.pickup.lng)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Chỉ đường (Google Maps)
+        </a>
+        <a
+          className={styles.appleMapsBtn}
+          href={appleMapsDirectionsUrl(r.listing.pickup.lat, r.listing.pickup.lng, r.listing.pickup.address)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Apple Maps
+        </a>
+      </div>
     </div>
   );
 
