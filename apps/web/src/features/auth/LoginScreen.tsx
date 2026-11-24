@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { Button, Notice, TextField } from "@/components/ui";
 import { isMockApi, saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
-import { DEMO_BUYER_PHONE, DEMO_SELLER_PHONE } from "@/mocks/db";
+import { DEMO_ADMIN_PHONE, DEMO_BUYER_PHONE, DEMO_SELLER_PHONE } from "@/mocks/db";
 import styles from "./auth.module.css";
 
 /** "0901 234 567" → SMS, "a@b.vn" → EMAIL (AUTH-1 channel). */
@@ -67,8 +67,8 @@ export function LoginScreen() {
       {isMockApi ? (
         <Notice>
           <p>
-            Chế độ demo (mock): người bán <b>{DEMO_SELLER_PHONE}</b>, người mua <b>{DEMO_BUYER_PHONE}</b>. Mã OTP luôn là{" "}
-            <b>123456</b>.
+            Chế độ demo (mock): người bán <b>{DEMO_SELLER_PHONE}</b>, người mua <b>{DEMO_BUYER_PHONE}</b>, quản trị{" "}
+            <b>{DEMO_ADMIN_PHONE}</b>. Mã OTP luôn là <b>123456</b>.
           </p>
         </Notice>
       ) : null}

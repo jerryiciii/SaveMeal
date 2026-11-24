@@ -9,6 +9,7 @@ import type {
   SellerType,
   Storage as StorageMethod,
 } from "@/lib/contract/types";
+import { saveReports, seedDemoReports } from "./reportsStore";
 
 /**
  * Mock database for the in-browser mock API. In the browser it is persisted to
@@ -95,13 +96,14 @@ export type Db = {
   idempotency: Record<string, { status: number; body: unknown }>;
 };
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 const STORAGE_KEY = "sm-mock-db";
 const MINUTE = 60_000;
 const HALF_HOUR = 30 * MINUTE;
 
 /** Demo phone numbers shown on the mock login screen. OTP in mock mode is always 123456. */
 export const MOCK_OTP = "123456";
+export const DEMO_ADMIN_PHONE = "+84900000000";
 export const DEMO_SELLER_PHONE = "+84900000001";
 export const DEMO_BUYER_PHONE = "+84900000002";
 
@@ -116,6 +118,10 @@ export function seedDb(now: Date = new Date()): Db {
   const anchor = Math.ceil(t / HALF_HOUR) * HALF_HOUR;
   const created = iso(t - 3 * 60 * MINUTE);
 
+  const admin: DbAccount = {
+    id: "acc-admin", phone: DEMO_ADMIN_PHONE, email: null, displayName: "Quản trị SaveMeal", role: "ADMIN", status: "ACTIVE",
+    seller: { name: null, type: null, verified: false, defaultPickup: null }, createdAt: created,
+  };
   const may: DbAccount = {
     id: "acc-may", phone: DEMO_SELLER_PHONE, email: null, displayName: "Chị Mây", role: "USER", status: "ACTIVE",
     seller: { name: "Tiệm bánh Mây", type: "BAKERY", verified: true,
@@ -135,7 +141,7 @@ export function seedDb(now: Date = new Date()): Db {
     seller: { name: s.name, type: s.type, verified: s.verified, defaultPickup: { address: s.address, lat: s.lat, lng: s.lng } },
     createdAt: created,
   }));
-  const accounts = [may, buyer, ...others];
+  const accounts = [admin, may, buyer, ...others];
 
   type Seed = Pick<DbListing, "id" | "sellerId" | "title" | "category" | "price" | "originalPrice" | "origin" | "storage" | "ingredients" | "allergens"> & {
     qty: number;
@@ -204,9 +210,13 @@ export function loadDb(now: Date = new Date()): Db {
     }
     const fresh = seedDb(now);
     saveDb(fresh);
+    saveReports(seedDemoReports(now));
     return fresh;
   }
-  memoryDb ??= seedDb(now);
+  if (!memoryDb) {
+    memoryDb = seedDb(now);
+    saveReports(seedDemoReports(now));
+  }
   return memoryDb;
 }
 
@@ -229,5 +239,6 @@ export function resetDb(now: Date = new Date()): Db {
   memoryDb = null;
   saveDb(fresh);
   if (!storage()) memoryDb = fresh;
+  saveReports(seedDemoReports(now));
   return fresh;
 }

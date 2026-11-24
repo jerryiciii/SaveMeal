@@ -10,8 +10,12 @@ import type {
   SellerSummary,
 } from "@/lib/contract/types";
 import { DECLARATION_KEYS } from "@/lib/contract/types";
+import { handleAdminMock } from "./adminHandlers";
 import { loadDb, MOCK_OTP, saveDb, type Db, type DbAccount, type DbListing, type DbReservation } from "./db";
 import { mockConfig, mockOrigin } from "./fixtures";
+import { getAccountAvatarImageId, getAccountDeletedAt, loadReports, saveReports } from "./reportsStore";
+import { handleSellerMock } from "./sellerHandlers";
+import { handleTrustMock } from "./trustHandlers";
 
 /**
  * In-process mock of the SaveMeal API (docs/API_CONTRACT.md v1.1). Same signature
@@ -210,7 +214,7 @@ function toOwner(db: Db, l: DbListing, now: Date): ListingOwnerView {
     missing: l.status === "DRAFT" ? missingChecklist(l, now) : [],
     editableFields: l.status === "DRAFT" ? ["*"] : l.status === "PUBLISHED" ? PUBLISHED_EDITABLE : [],
     closeReason: l.closeReason,
-    blockedReason: null,
+    blockedReason: l.status === "BLOCKED" ? l.closeReason : null,
     createdAt: l.createdAt,
     publishedAt: l.publishedAt,
   };
@@ -262,7 +266,7 @@ function toMe(db: Db, a: DbAccount): Me {
     displayName: a.displayName,
     phone: a.phone,
     email: a.email,
-    avatar: null,
+    avatar: imageOf(db, getAccountAvatarImageId(a) ?? undefined),
     role: a.role,
     status: a.status,
     seller: a.seller,
@@ -309,7 +313,7 @@ function requireUser(req: Req): DbAccount {
   const auth = req.headers.authorization ?? req.headers.Authorization ?? "";
   const m = /^Bearer mock-at\.([^.]+)\./.exec(auth);
   const acc = m ? req.db.accounts.find((a) => a.id === m[1]) : undefined;
-  if (!acc) fail(401, "UNAUTHENTICATED", "Vui lòng đăng nhập.");
+  if (!acc || getAccountDeletedAt(acc)) fail(401, "UNAUTHENTICATED", "Vui lòng đăng nhập.");
   if (acc.status !== "ACTIVE") fail(403, "ACCOUNT_SUSPENDED", "Tài khoản đang bị tạm khóa.");
   return acc;
 }
@@ -400,7 +404,7 @@ on("POST", /^\/auth\/otp\/verify$/, (req) => {
 on("POST", /^\/auth\/refresh$/, (req) => {
   const id = req.session.get();
   const acc = id ? req.db.accounts.find((a) => a.id === id) : undefined;
-  if (!acc) fail(401, "REFRESH_INVALID", "Phiên đăng nhập đã hết hạn.");
+  if (!acc || getAccountDeletedAt(acc)) fail(401, "REFRESH_INVALID", "Phiên đăng nhập đã hết hạn.");
   return { status: 200, body: { data: { accessToken: accessToken(acc.id), accessTokenExpiresAt: new Date(req.now.getTime() + 15 * MINUTE).toISOString() } } };
 });
 
@@ -450,7 +454,14 @@ on("POST", /^\/images$/, async (req) => {
 on("GET", /^\/listings$/, (req) => {
   const q = req.url.searchParams;
   const num = (k: string) => (q.has(k) ? Number(q.get(k)) : undefined);
-  const csv = (k: string) => (q.get(k) ? q.get(k)!.split(",") : []);
+  const csv = (k: string) =>
+    q.get(k)
+      ? q
+          .get(k)!
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
   const lat = num("lat") ?? mockOrigin.lat;
   const lng = num("lng") ?? mockOrigin.lng;
   const radiusKm = num("radiusKm") ?? 3;
@@ -460,19 +471,26 @@ on("GET", /^\/listings$/, (req) => {
   const text = (q.get("q") ?? "").trim().toLocaleLowerCase("vi");
   const categories = csv("category");
   const priceMax = num("priceMax");
+  if (priceMax !== undefined && (Number.isNaN(priceMax) || priceMax < 0)) {
+    fail(400, "VALIDATION_FAILED", "Giá tối đa không hợp lệ.", { fields: { priceMax: "min 0" } });
+  }
   const free = q.get("free") === "true";
   const sellerId = q.get("sellerId");
   const includeSoldOut = q.get("includeSoldOut") === "true";
   const pickupDay = q.get("pickupDay");
+  if (pickupDay && pickupDay !== "today" && pickupDay !== "tomorrow") {
+    fail(400, "VALIDATION_FAILED", "Ngày nhận không hợp lệ.", { fields: { pickupDay: "today|tomorrow" } });
+  }
   const pickupFrom = q.get("pickupFrom");
   const pickupTo = q.get("pickupTo");
   const today = localDay(req.now.toISOString());
   const tomorrow = localDay(new Date(req.now.getTime() + 86_400_000).toISOString());
+  const hasExplicitCoords = q.has("lat") || q.has("lng");
 
   let rows = req.db.listings
     .filter((l) => l.status === "PUBLISHED" && !l.underReview && l.pickup && account(req.db, l.sellerId).status === "ACTIVE")
     .map((l) => ({ l, d: haversineMeters({ lat, lng }, l.pickup!) }))
-    .filter(({ d }) => d <= radiusKm * 1000)
+    .filter(({ d }) => (sellerId && !hasExplicitCoords) || d <= radiusKm * 1000)
     .filter(({ l }) => includeSoldOut || l.quantityAvailable > 0)
     .filter(({ l }) => !text || (l.title ?? "").toLocaleLowerCase("vi").includes(text) || sellerSummary(account(req.db, l.sellerId)).name.toLocaleLowerCase("vi").includes(text))
     .filter(({ l }) => categories.length === 0 || categories.includes(l.category))
@@ -815,16 +833,42 @@ export function createMockFetch({ latencyMs = 0, now = () => new Date() }: MockF
     } else if (init?.body instanceof FormData) {
       form = init.body;
     }
+    const headers = headerRecord(init?.headers);
+    const t = now();
+    const db = loadDb(t);
+    runJobs(db, t);
+
+    // 1. Admin moderation & KPIs (/admin/*)
+    const reports = loadReports();
+    const adminRes = handleAdminMock({ method, path, url, body: parsed, headers, now: t, db, reports });
+    if (adminRes) {
+      saveDb(db);
+      saveReports(reports);
+      return json(adminRes.status, adminRes.body);
+    }
+
+    // 2. Trust, quality reporting, profile avatar & account deletion (/reports, /me, /auth/logout)
+    const trustRes = handleTrustMock({ method, path, url, body: parsed, headers, now: t, db, session });
+    if (trustRes) {
+      saveDb(db);
+      return json(trustRes.status, trustRes.body);
+    }
+
+    // 3. Seller profile & listing management (GET /sellers/:id, DELETE/PATCH /listings/:id, withdraw, DELETE /images/:id)
+    const sellerRes = handleSellerMock({ method, path, url, body: parsed, headers, now: t, db });
+    if (sellerRes) {
+      saveDb(db);
+      return json(sellerRes.status, sellerRes.body);
+    }
+
+    // 4. Built-in MVP handlers
     for (const route of handlers) {
       if (route.method !== method) continue;
       const m = path.match(route.pattern);
       if (!m) continue;
-      const t = now();
-      const db = loadDb(t);
-      runJobs(db, t);
       try {
         const res = await route.handler({
-          url, method, params: m.slice(1).map(decodeURIComponent), body: parsed, form, headers: headerRecord(init?.headers), now: t, db, session,
+          url, method, params: m.slice(1).map(decodeURIComponent), body: parsed, form, headers, now: t, db, session,
         });
         saveDb(db);
         return json(res.status, res.body);
