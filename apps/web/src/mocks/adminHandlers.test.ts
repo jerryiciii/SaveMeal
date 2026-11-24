@@ -224,7 +224,7 @@ describe("adminHandlers · ADM-4, ADM-5 & ADM-6 accounts", () => {
 
     const searched = await admin.listAccounts({ q: "mây" });
     expect(searched.data.length).toBeGreaterThanOrEqual(2);
-    expect(searched.data.find((a) => a.id === "acc-may")?.phone).toBe("+84900000001");
+    expect(searched.data.find((a) => a.id === "acc-may")?.phone).toBe("+84900000002");
 
     const sellersOnly = await admin.listAccounts({ sellerOnly: true });
     expect(sellersOnly.data.some((a) => a.id === "acc-minh")).toBe(false);

@@ -238,7 +238,7 @@ function ReportActionForm({
       const updated = await adminApi.updateReport(report.id, {
         status,
         action,
-        resolution: resolution.trim() || null,
+        resolution: resolution.trim(),
         clearReview: report.listingId ? clearReview : false,
       });
       onSaved(updated);

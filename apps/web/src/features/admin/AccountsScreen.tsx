@@ -328,7 +328,7 @@ function SellerVerifyForm({
     setBusy(true);
     setError(null);
     try {
-      const res = await adminApi.setSellerVerification(account.id, nextVerified, note.trim() || null);
+      const res = await adminApi.setSellerVerification(account.id, nextVerified, note.trim());
       onSaved(res.seller);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Không thể cập nhật trạng thái xác minh.");

@@ -96,16 +96,16 @@ export type Db = {
   idempotency: Record<string, { status: number; body: unknown }>;
 };
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 const STORAGE_KEY = "sm-mock-db";
 const MINUTE = 60_000;
 const HALF_HOUR = 30 * MINUTE;
 
-/** Demo phone numbers shown on the mock login screen. OTP in mock mode is always 123456. */
+/** Demo phone numbers aligned with apps/api/prisma/seed.ts. OTP in mock mode is always 123456. */
 export const MOCK_OTP = "123456";
-export const DEMO_ADMIN_PHONE = "+84900000000";
-export const DEMO_SELLER_PHONE = "+84900000001";
-export const DEMO_BUYER_PHONE = "+84900000002";
+export const DEMO_ADMIN_PHONE = "+84900000001";
+export const DEMO_SELLER_PHONE = "+84900000002";
+export const DEMO_BUYER_PHONE = "+84900000004";
 
 const PHOTO: DbImage = { id: "img-croissant", url: "/mock/croissant.png", width: 200, height: 196, uploaderId: null };
 
