@@ -75,16 +75,16 @@ describe("UI kit", () => {
   });
 
   it("BottomNav starts collapsed and expands to mark the current tab", async () => {
-    pathname = "/saved";
+    pathname = "/notifications";
     const { BottomNav } = await import("./BottomNav");
     render(<BottomNav />);
 
     const toggle = screen.getByRole("button", { name: "Mở thanh điều hướng" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("link", { name: "Đã lưu" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Thông báo" })).toBeNull();
 
     fireEvent.click(toggle);
-    expect(screen.getByRole("link", { name: "Đã lưu" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Thông báo" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Khám phá" }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByRole("link", { name: "Đăng món" })).toBeTruthy();
 

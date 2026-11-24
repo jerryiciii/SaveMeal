@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
-import { ComingSoon } from "@/components/ComingSoon";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Đã lưu" };
-
-/** Figma V1 15 · Saved listings (7:168). LATER in contract v1.1 (SAVE-1..3). */
+/** Legacy `/saved` route redirected to live Notifications tab (`/notifications`). */
 export default function SavedPage() {
-  return <ComingSoon title="Đã lưu" subtitle="Những món bạn muốn quay lại xem" milestone="phiên bản sau" />;
+  redirect("/notifications");
 }

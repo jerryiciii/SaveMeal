@@ -145,3 +145,52 @@
     0 0 0 2px var(--ink),
     0 8px 20px rgba(17, 17, 17, 0.2);
 }
+
+.toggle {
+  position: relative;
+}
+
+.toggleBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger-strong, #e0383e);
+  color: #ffffff;
+  border: 2px solid var(--canvas);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabBadge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger-strong, #e0383e);
+  color: #ffffff;
+  border: 1.5px solid var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

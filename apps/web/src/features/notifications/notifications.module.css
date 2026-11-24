@@ -1,0 +1,269 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) var(--gutter) calc(96px + env(safe-area-inset-bottom, 0px));
+  background: var(--canvas);
+  min-height: 100dvh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.unreadPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--danger-strong, #e0383e);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.markAllBtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.trackBtn {
+  appearance: none;
+  border: 0;
+  height: 36px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.trackBtnOn {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px -8px rgba(17, 17, 17, 0.08);
+  transition: transform 100ms ease;
+}
+
+.card:active {
+  transform: scale(0.99);
+}
+
+.cardUnread {
+  box-shadow:
+    inset 0 0 0 1.5px rgba(224, 56, 62, 0.35),
+    0 8px 24px -8px rgba(17, 17, 17, 0.08);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTopRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tone_danger {
+  background: var(--danger-soft, #ffeded);
+  color: var(--danger, #c9252b);
+}
+
+.tone_lime {
+  background: var(--limesoft, #f2fbd3);
+  color: #3d4a0e;
+}
+
+.tone_lilac {
+  background: var(--lilacsoft, #f3efff);
+  color: var(--violet, #5b3fd6);
+}
+
+.tone_neutral {
+  background: var(--field);
+  color: var(--ink2);
+}
+
+.time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.redDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--danger-strong, #e0383e);
+  flex: none;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.cardBody {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px 20px;
+  border-radius: 24px;
+  background: #ffffff;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 8px 24px -8px rgba(17, 17, 17, 0.08);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.emptyDesc {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.inlineLink {
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton {
+  height: 104px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, #e7e7e1 0%, #f8f8f4 50%, #e7e7e1 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
