@@ -130,6 +130,8 @@ export const envSchema = z
     // encryption of pending OTP identifiers. Required in production; a random per-boot secret is
     // used in development/test when it is unset (tokens then die on restart).
     AUTH_SECRET: z.string().optional(),
+    // Optional bearer secret for SYS-3 (`GET /internal/cron/daily`, e.g. Vercel Cron).
+    CRON_SECRET: optionalTrimmed,
     // How OTP codes are delivered. `console` logs them (development only).
     OTP_PROVIDER: z.enum(['console', 'resend', 'brevo']).default('console'),
     OTP_EMAIL_FROM: optionalTrimmed,
@@ -192,6 +194,14 @@ export const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['MEDIA_PUBLIC_BASE_URL'],
         message: 'must be a valid URL',
+      });
+    }
+
+    if (env.CRON_SECRET !== undefined && env.CRON_SECRET.length < 16) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CRON_SECRET'],
+        message: 'must be at least 16 characters when set',
       });
     }
 

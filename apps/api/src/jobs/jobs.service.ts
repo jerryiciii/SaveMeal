@@ -50,23 +50,27 @@ export class JobsService {
     private readonly media: MediaStorage,
   ) {}
 
+  private shouldSkipInProcessCron(): boolean {
+    return this.config.nodeEnv === 'test' || Boolean(process.env.VERCEL);
+  }
+
   @Cron(CronExpression.EVERY_MINUTE)
   async handleExpireListings(): Promise<void> {
-    if (this.config.nodeEnv === 'test') return;
+    if (this.shouldSkipInProcessCron()) return;
     const count = await this.expireListings();
     if (count > 0) this.logger.log(`JOB-1 expired ${count} listing(s)`);
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async handleExpireReservations(): Promise<void> {
-    if (this.config.nodeEnv === 'test') return;
+    if (this.shouldSkipInProcessCron()) return;
     const count = await this.expireReservations();
     if (count > 0) this.logger.log(`JOB-2 expired ${count} reservation(s)`);
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async handleCleanupExpiredData(): Promise<void> {
-    if (this.config.nodeEnv === 'test') return;
+    if (this.shouldSkipInProcessCron()) return;
     const res = await this.cleanupExpiredData();
     this.logger.log(
       `JOB-3 cleaned otp=${res.otpRequests} refresh=${res.refreshTokens} pickup=${res.pickupTokens} images=${res.images}`,
@@ -75,7 +79,7 @@ export class JobsService {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleRebuildMetrics(): Promise<void> {
-    if (this.config.nodeEnv === 'test') return;
+    if (this.shouldSkipInProcessCron()) return;
     const count = await this.rebuildMetrics();
     this.logger.log(`JOB-4 rebuilt ${count} transaction_metrics row(s)`);
   }

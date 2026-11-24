@@ -39,6 +39,8 @@ export class AppConfig {
 
   /** Root secret for auth keys; null means "generate a random one at boot" (non-production). */
   readonly authSecret: string | null;
+  /** Optional bearer secret for SYS-3 (`GET /internal/cron/daily`). */
+  readonly cronSecret: string | null;
   readonly otpProvider: Env['OTP_PROVIDER'];
   readonly otpEmail: {
     from: string | null;
@@ -59,6 +61,7 @@ export class AppConfig {
 
   constructor(env: Env) {
     this.authSecret = env.AUTH_SECRET?.trim() ? env.AUTH_SECRET.trim() : null;
+    this.cronSecret = env.CRON_SECRET ?? null;
     this.otpProvider = env.OTP_PROVIDER;
     this.otpEmail = {
       from: env.OTP_EMAIL_FROM ?? null,

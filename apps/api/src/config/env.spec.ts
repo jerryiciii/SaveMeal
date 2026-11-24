@@ -39,7 +39,17 @@ describe('parseEnv', () => {
     });
     expect(config.mediaStorage).toBe('local');
     expect(config.mediaPublicBaseUrl).toBe('/api/v1/media');
+    expect(config.cronSecret).toBeNull();
     expect(config.isProduction).toBe(false);
+  });
+
+  it('validates optional CRON_SECRET (min 16 chars when non-empty)', () => {
+    expect(new AppConfig(parseEnv({ ...base, CRON_SECRET: '' })).cronSecret).toBeNull();
+    expect(new AppConfig(parseEnv({ ...base, CRON_SECRET: '   ' })).cronSecret).toBeNull();
+    expect(() => parseEnv({ ...base, CRON_SECRET: 'short-secret' })).toThrow(/CRON_SECRET/);
+
+    const secret = 'cron-secret-123456';
+    expect(new AppConfig(parseEnv({ ...base, CRON_SECRET: ` ${secret} ` })).cronSecret).toBe(secret);
   });
 
   it.each([
