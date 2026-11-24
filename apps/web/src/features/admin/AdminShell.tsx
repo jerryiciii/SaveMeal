@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -96,9 +97,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className={styles.topbarInner}>
           <div className={styles.brandGroup}>
             <Link href="/admin" className={styles.brandLink}>
-              <span className={styles.brandSpark} aria-hidden="true">
-                ✦
-              </span>
+              <Image
+                src="/icons/logo-128.png"
+                alt=""
+                width={30}
+                height={30}
+                className={styles.brandSpark}
+                style={{ objectFit: "cover" }}
+              />
               <span className={styles.brandTitle}>SaveMeal</span>
             </Link>
             <span className={styles.adminBadge}>Admin</span>

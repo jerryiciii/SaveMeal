@@ -60,14 +60,15 @@ export function LoginScreen() {
     <div className={styles.loginShell}>
       <header className={styles.hero}>
         <div className={styles.brandLockup}>
-          <span className={styles.sparkBadge} aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M8 1.5L9.75 6.25L14.5 8L9.75 9.75L8 14.5L6.25 9.75L1.5 8L6.25 6.25L8 1.5Z"
-                fill="#111111"
-              />
-            </svg>
-          </span>
+          <Image
+            src="/icons/logo-128.png"
+            alt=""
+            width={32}
+            height={32}
+            priority
+            className={styles.sparkBadge}
+            style={{ objectFit: "cover" }}
+          />
           <span className={styles.wordmark}>SaveMeal</span>
         </div>
         <div className={styles.heroArt}>
