@@ -272,6 +272,7 @@ export class ResendPaymentMailer implements PaymentMailer {
     const priceText = params.price === 0 ? 'Miễn phí' : formatVnd(params.price);
     const distanceText = `~${params.distanceKm.toFixed(1)} km`;
     const url = `${this.appPublicUrl}/listings/${params.listingId}`;
+    const unsubscribeUrl = `${this.appPublicUrl}/settings?disableAlerts=1`;
     const subject = `[SaveMeal] Món mới gần bạn (${distanceText}): ${params.listingTitle}`;
     const text = [
       `Xin chào ${params.recipientName},`,
@@ -281,6 +282,7 @@ export class ResendPaymentMailer implements PaymentMailer {
       `Khung giờ nhận: ${params.pickupWindow}`,
       '',
       `Xem chi tiết món: ${url}`,
+      `Tắt thông báo món gần đây: ${unsubscribeUrl}`,
     ].join('\n');
     const html = buildHtmlEmail(
       `Món mới gần bạn (${distanceText})`,
@@ -288,7 +290,7 @@ export class ResendPaymentMailer implements PaymentMailer {
         `Xin chào <strong>${escapeHtml(params.recipientName)}</strong>,`,
         `<strong>${escapeHtml(params.sellerName)}</strong> vừa đăng <strong>${escapeHtml(params.listingTitle)}</strong> cách khu vực bạn chọn <strong>${escapeHtml(distanceText)}</strong>.`,
         `Giá: <strong>${escapeHtml(priceText)}</strong> · Số lượng: <strong>${params.quantityAvailable} phần</strong><br/>Khung giờ nhận: <strong>${escapeHtml(params.pickupWindow)}</strong>`,
-        'Bạn có thể tắt thông báo món gần đây bất cứ lúc nào trong phần Cài đặt trên SaveMeal.',
+        `<a href="${escapeHtml(unsubscribeUrl)}" style="color: #6b7280; text-decoration: underline;">Tắt thông báo món gần đây</a>`,
       ],
       'Xem chi tiết món',
       url,
