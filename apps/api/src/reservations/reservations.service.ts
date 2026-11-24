@@ -109,8 +109,13 @@ export class ReservationsService {
       throw new AppException('ALREADY_RESERVED', { reservationId: existingActive.id });
     }
 
+    const activeCutoff = new Date(now.getTime() - this.config.reservations.noShowGraceMin * ONE_MINUTE_MS);
     const activeCount = await tx.reservation.count({
-      where: { buyerId: account.id, status: 'RESERVED' },
+      where: {
+        buyerId: account.id,
+        status: 'RESERVED',
+        listing: { pickupEnd: { gt: activeCutoff } },
+      },
     });
     if (activeCount >= this.config.reservations.maxActivePerAccount) {
       throw new AppException('ACTIVE_RESERVATION_LIMIT', { limit: this.config.reservations.maxActivePerAccount });
