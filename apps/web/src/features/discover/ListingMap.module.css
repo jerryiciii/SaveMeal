@@ -1,6 +1,8 @@
 .map {
-  position: absolute;
+  position: absolute !important;
   inset: 0 0 -28px;
+  width: 100%;
+  height: calc(100% + 28px);
   background: #d9e2dc;
 }
 
