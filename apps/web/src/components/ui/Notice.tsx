@@ -1,0 +1,11 @@
+import type { ReactNode } from "react";
+import styles from "./Notice.module.css";
+
+/** Inline message box: info (raised), error (alert tint), success (mint tint). */
+export function Notice({ tone = "info", children }: { tone?: "info" | "error" | "success"; children: ReactNode }) {
+  return (
+    <div className={`${styles.notice} ${styles[tone]}`} role={tone === "error" ? "alert" : "status"}>
+      {children}
+    </div>
+  );
+}

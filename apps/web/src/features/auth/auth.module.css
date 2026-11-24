@@ -1,0 +1,56 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px var(--gutter) 32px;
+}
+
+.brand {
+  margin: 40px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.lead {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.code input {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-align: center;
+}
+
+.muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: var(--color-sky);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
