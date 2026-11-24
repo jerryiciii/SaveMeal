@@ -290,7 +290,7 @@ export function ListingDetailScreen({ id }: { id: string }) {
               target="_blank"
               rel="noreferrer"
             >
-              Chỉ đường (Google Maps)
+              Google Maps
             </a>
             <a
               className={styles.dirSecondary}
