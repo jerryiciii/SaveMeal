@@ -92,7 +92,7 @@ export function PinMiniSheet({ pin, card, onClose }: PinMiniSheetProps) {
           rel="noreferrer"
           className={styles.dirBtn}
         >
-          Chỉ đường
+          Google Maps
         </a>
         <Link href={`/listings/${pin.id}`} className={styles.cta}>
           Xem chi tiết
