@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/my-listings", title: "Tin đã đăng", sub: "Quản lý suất và khung giờ nhận" },
   { href: "/sales", title: "Đơn chờ nhận", sub: "Người mua đang đến lấy món" },
   { href: "/sales/scan", title: "Quét mã nhận món", sub: "Xác nhận giao món bằng QR" },
+  { href: "/settings", title: "Cài đặt & PWA", sub: "Hồ sơ, cài ứng dụng và bảo mật" },
 ];
 
 /** Figma V1 08 · Tài khoản mua & bán / 35 · Trung tâm tài khoản 2 vai trò (ME-1). */
@@ -26,9 +27,15 @@ export function AccountScreen() {
     <section className={styles.body}>
       <h1 className={styles.h1}>Tài khoản</h1>
       <div className={styles.profile}>
-        <b>{me.displayName ?? "Người dùng SaveMeal"}</b>
-        <span>{me.seller.name ? `Người mua & người đăng · ${me.seller.name}` : "Vừa mua, vừa có thể đăng pass"}</span>
-        {me.seller.verified ? <span className={styles.verified}>Đã xác minh</span> : null}
+        {me.avatar?.url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user avatar URL
+          <img className={styles.avatar} src={me.avatar.url} alt="" />
+        ) : null}
+        <div className={styles.profileInfo}>
+          <b>{me.displayName ?? "Người dùng SaveMeal"}</b>
+          <span>{me.seller.name ? `Người mua & người đăng · ${me.seller.name}` : "Vừa mua, vừa có thể đăng pass"}</span>
+          {me.seller.verified ? <span className={styles.verified}>Đã xác minh</span> : null}
+        </div>
       </div>
       <div className={styles.stats}>
         <div>
@@ -53,6 +60,14 @@ export function AccountScreen() {
             </Link>
           </li>
         ))}
+        {me.role === "ADMIN" ? (
+          <li>
+            <Link href="/admin" className={`${styles.link} ${styles.adminLink}`}>
+              <b>Quản trị hệ thống</b>
+              <span>Kiểm duyệt báo cáo, tin đăng và KPI</span>
+            </Link>
+          </li>
+        ) : null}
       </ul>
       <Link className={styles.primary} href="/post">
         Đăng món mới

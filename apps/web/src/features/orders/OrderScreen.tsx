@@ -141,6 +141,15 @@ export function OrderScreen({ id }: { id: string }) {
             Hủy đơn
           </Link>
         ) : null}
+        {r.canReport ? (
+          <Link
+            className={styles.link}
+            style={{ textAlign: "center", marginTop: 4 }}
+            href={`/report?reservationId=${encodeURIComponent(r.id)}&listingId=${encodeURIComponent(r.listing.id)}`}
+          >
+            Báo cáo vấn đề
+          </Link>
+        ) : null}
         {r.status !== "RESERVED" ? (
           <Link className={styles.link} href="/">
             Khám phá món khác

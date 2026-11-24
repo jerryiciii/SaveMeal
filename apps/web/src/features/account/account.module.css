@@ -13,12 +13,28 @@
 
 .profile {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
   padding: 16px;
   border-radius: var(--radius-card);
   background: var(--surface-card);
   font-size: 16px;
+}
+
+.avatar {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-raised);
+}
+
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .profile span {
@@ -85,6 +101,15 @@
 .link span {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.adminLink {
+  border: 1px solid rgba(101, 228, 179, 0.35);
+  background: rgba(101, 228, 179, 0.08);
+}
+
+.adminLink b {
+  color: var(--text-accent);
 }
 
 .primary {
