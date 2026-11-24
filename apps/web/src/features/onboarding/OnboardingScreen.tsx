@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import styles from "./onboarding.module.css";
 
@@ -25,14 +26,15 @@ export function OnboardingScreen() {
     <div className={styles.screen}>
       <div className={styles.top}>
         <p className={styles.brand}>
-          <span className={styles.sparkBadge} aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M8 1.5L9.75 6.25L14.5 8L9.75 9.75L8 14.5L6.25 9.75L1.5 8L6.25 6.25L8 1.5Z"
-                fill="#111111"
-              />
-            </svg>
-          </span>
+          <Image
+            src="/icons/logo-128.png"
+            alt=""
+            width={28}
+            height={28}
+            priority
+            className={styles.sparkBadge}
+            style={{ objectFit: "cover" }}
+          />
           <span>SaveMeal</span>
         </p>
         <div className={styles.heroCard} aria-hidden="true">

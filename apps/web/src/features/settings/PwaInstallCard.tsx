@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { triggerNativePwaInstall, usePwaInstall } from "@/pwa/pwaInstallStore";
 import styles from "./settings.module.css";
@@ -38,17 +39,14 @@ export function PwaInstallCard() {
   return (
     <section className={styles.pwaHero} aria-label="Cài đặt ứng dụng SaveMeal (PWA)">
       <div className={styles.pwaTop}>
-        <div className={styles.pwaIconBadge} aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 3v11m0 0l-4-4m4 4l4-4M5 17.5V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+        <Image
+          src="/icons/logo-128.png"
+          alt=""
+          width={40}
+          height={40}
+          className={styles.pwaIconBadge}
+          style={{ objectFit: "cover" }}
+        />
         <div className={styles.pwaTitleWrap}>
           <h2 className={styles.pwaTitle}>Cài SaveMeal vào màn hình chính</h2>
         </div>
