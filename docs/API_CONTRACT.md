@@ -5,7 +5,7 @@
 > [`DOMAIN.md`](DOMAIN.md). Section numbers like "D§3" refer to that file. The product spec is the
 > competition dossier (D§0). The UI is Figma V1.
 
-Version: **v1.1.1** (2026-11-24) · **38 MVP endpoints** + 25 Later · 4 jobs (D§7) · changelog in §18
+Version: **v1.2** (2026-11-24) · **46 MVP endpoints** + 20 Later · 4 jobs (D§7) · changelog in §18
 
 Every endpoint is tagged **[MVP]** (build now) or **[LATER]** (designed only; do not build, and no
 milestone includes it). The demo slice to build first is in D§10.
@@ -57,6 +57,7 @@ milestone includes it). The demo slice to build first is in D§10.
 | `BUYER` | The USER who made the reservation |
 | `SELLER` | The USER who owns the reservation's listing |
 | `ADMIN` | `role = ADMIN` |
+| `WEBHOOK` | Payment gateway webhook (`Authorization: Apikey <SEPAY_WEBHOOK_SECRET>`) |
 
 ### Headers and rate limits
 
@@ -86,7 +87,10 @@ type Category = "BAKERY" | "MEAL" | "DRINK" | "PACKAGED" | "OTHER";
 type Storage = "ROOM_TEMP" | "CHILLED" | "FROZEN";
 type Allergen = "GLUTEN" | "MILK" | "EGG" | "PEANUT" | "TREE_NUT" | "SOY" | "FISH" | "SHELLFISH" | "SESAME";
 type ListingStatus = "DRAFT" | "PUBLISHED" | "EXPIRED" | "WITHDRAWN" | "BLOCKED";
-type ReservationStatus = "RESERVED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+type ReservationStatus = "PENDING_PAYMENT" | "RESERVED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+type PaymentProvider = "SEPAY" | "MOCK";
+type PaymentStatus = "UNPAID" | "PAID" | "EXPIRED" | "REFUND_DUE" | "REFUNDED";
+type PayoutStatus = "NONE" | "PENDING_PAYOUT" | "SETTLED";
 type CancelReason = "BUYER_LATE" | "BUYER_WRONG_QTY" | "BUYER_CHANGED_PLAN" | "BUYER_OTHER"
   | "SELLER_WITHDREW" | "LISTING_BLOCKED" | "ADMIN";
 type ReportType = "WRONG_INFO" | "UNSAFE_FOOD" | "NOT_RECEIVED" | "SELLER_ABSENT" | "OTHER";
@@ -137,14 +141,34 @@ type ListingOwnerView = ListingDetail & {  // OWNER / ADMIN
 
 type PickupToken = { qrPayload: string /* "SM1.<token>" */; expiresAt: string };
 
+type Payment = {
+  id: string; reservationId: string; provider: PaymentProvider;
+  status: PaymentStatus; payoutStatus: PayoutStatus;
+  foodAmount: number; platformFee: number; payableAmount: number; sellerNet: number;
+  bankCode: string; accountNo: string; accountName: string;
+  transferContent: string;                // unique code e.g. "SM4281A9F2"
+  qrImageUrl: string; checkoutUrl: string | null;
+  expiresAt: string; paidAt: string | null;
+  refundedAt: string | null; settledAt: string | null };
+
+type PayoutAccount = {
+  bankCode: string; accountNo: string; accountName: string; updatedAt: string };
+
+type PayoutItem = {
+  paymentId: string; reservationId: string; reservationCode: string; listingTitle: string;
+  foodAmount: number; sellerNet: number; payoutStatus: PayoutStatus;
+  completedAt: string | null; settledAt: string | null };
+
 type Reservation = {
   id: string; code: string /* "SM–4281" */; status: ReservationStatus;
-  quantity: number; unitPrice: number; totalPrice: number;   // paid offline at pickup
+  quantity: number; unitPrice: number; totalPrice: number;
+  platformFee: number; payableAmount: number;
   listing: { id: string; title: string; image: Image | null; pickupStart: string; pickupEnd: string;
              pickup: PickupLocation; status: ListingStatus };
   seller: SellerSummary;
   buyer: { displayName: string } | null;  // SELLER / ADMIN only; never phone or email
-  pickupToken: PickupToken | null;        // BUYER only, while RESERVED (current token, if unexpired)
+  pickupToken: PickupToken | null;        // BUYER only, while RESERVED (null while PENDING_PAYMENT)
+  payment: Payment | null;                // non-null for paid orders when PAYMENTS_ENABLED=true
   cancelReason: CancelReason | null;
   createdAt: string; completedAt: string | null; closedAt: string | null;
   canCancel: boolean; canReport: boolean };
@@ -180,7 +204,7 @@ type ListingInput = {                  // LIST-3 (partial allowed for a draft) /
 ## 2. System
 
 - **SYS-1 · `GET /health` [MVP].** Role PUBLIC. Returns 200
-  `{ "data": { "status": "ok", "db": "ok", "version": "1.1.0" } }`.
+  `{ "data": { "status": "ok", "db": "ok", "version": "1.2.0" } }`.
 - **SYS-2 · `GET /config` [MVP].** Role PUBLIC. Returns 200 with:
 
 ```json
@@ -190,14 +214,16 @@ type ListingInput = {                  // LIST-3 (partial allowed for a draft) /
              "allergens": ["GLUTEN","…"], "sellerTypes": ["INDIVIDUAL","…"], "reportTypes": ["…"],
              "cancelReasons": ["BUYER_LATE","BUYER_WRONG_QTY","BUYER_CHANGED_PLAN","BUYER_OTHER"] },
   "limits": { "maxQtyPerReservation": 2, "maxActiveReservations": 3, "radiusKmOptions": [1,3,5], "maxRadiusKm": 10,
-              "maxImagesPerListing": 4, "maxWindowHours": 4, "pickupTokenTtlMin": 10, "earlyPickupMin": 30 },
+              "maxImagesPerListing": 4, "maxWindowHours": 4, "pickupTokenTtlMin": 10, "earlyPickupMin": 30,
+              "minPaymentHoldMin": 5, "defaultPaymentHoldMin": 10 },
+  "fees": { "percent": 5, "thresholdVnd": 20000, "flatVnd": 2000, "paidBy": "BUYER" },
   "defaultCenter": { "lat": 16.0544, "lng": 108.2022, "label": "Đà Nẵng" },
   "popularSearches": ["Bánh mì","Bánh ngọt","Cơm trưa","Món miễn phí"],
   "map": { "styleUrl": "https://…/style.json", "attribution": "© OpenStreetMap contributors" }
 } }
 ```
 
-- **SYS-3 · `GET /internal/cron/daily` [INFRA].** (Infrastructure endpoint; not counted in the 38 MVP
+- **SYS-3 · `GET /internal/cron/daily` [INFRA].** (Infrastructure endpoint; not counted in the 46 MVP
   endpoints.) Role `CRON` (`Authorization: Bearer <CRON_SECRET>`). Runs JOB-1 (`expireListings`),
   JOB-2 (`expireReservations`), JOB-3 (`cleanupExpiredData`) and JOB-4 (`rebuildMetrics`)
   sequentially for serverless deployments (e.g. Vercel Cron). Returns 200:
@@ -352,9 +378,10 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
   - Request: `{ "reason": "STORAGE_NOT_OK" | "SOLD_ELSEWHERE" | "OTHER", "note": "≤ 200|null" }`.
   - 200: `ListingOwnerView` with `status: WITHDRAWN`.
   - Errors: `409 INVALID_STATE_TRANSITION`.
-  - Transition: `DRAFT|PUBLISHED` → `WITHDRAWN`. `RESERVED` orders → `CANCELLED`
-    (`SELLER_WITHDREW`), and their tokens are revoked. Buyers see it on their order status (there
-    is no push in the MVP).
+  - Transition: `DRAFT|PUBLISHED` → `WITHDRAWN`. Every `PENDING_PAYMENT` or `RESERVED` order →
+    `CANCELLED` (`SELLER_WITHDREW`), its tokens are revoked, `UNPAID` payments → `EXPIRED`, and
+    `PAID` payments → `REFUND_DUE` (refund = `payableAmount`). Buyers see it on their order status
+    (there is no push in the MVP).
 - **LIST-8 · `GET /me/listings` [MVP].**
   - Role: USER.
   - Query: `tab=active|done` (`active` = `DRAFT` and `PUBLISHED`; `done` = terminal), `cursor`,
@@ -367,36 +394,52 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
 
 - **RES-1 · `POST /reservations` [MVP]: reserve atomically.**
   - Role: USER. The `Idempotency-Key` header is required.
-  - Request: `{ "listingId": "uuid", "quantity": 1 }`.
-  - 201: `{ data: Reservation }` with `status: RESERVED` and `pickupToken` set (the QR is generated
-    right away; spec §7.3 step 3).
+  - Request: `{ "listingId": "uuid", "quantity": 1, "holdMinutes": 10 }` (`holdMinutes` is optional,
+    integer ≥ `minPaymentHoldMin` (5), default `defaultPaymentHoldMin` (10); ignored for free items
+    or when `PAYMENTS_ENABLED=false`).
+  - 201: `{ data: Reservation }`:
+    - When `PAYMENTS_ENABLED=true` and `totalPrice > 0`: `status: PENDING_PAYMENT`, `pickupToken:
+      null`, and `payment` populated (`status: UNPAID`, VietQR details, `expiresAt = now +
+      holdMinutes`). Stock is decremented immediately.
+    - When free (`totalPrice === 0`) or `PAYMENTS_ENABLED=false`: `status: RESERVED`, `pickupToken`
+      set right away, `platformFee: 0`, `payableAmount: totalPrice`, `payment: null`.
   - Errors:
     - `409 LISTING_SOLD_OUT` (`details.quantityAvailable`);
     - `409 LISTING_NOT_AVAILABLE` (not published, under review or the window has ended);
     - `422 QUANTITY_LIMIT_EXCEEDED`;
+    - `422 PAYMENT_HOLD_INVALID` (`holdMinutes < minPaymentHoldMin` or `now + holdMinutes >
+      listing.pickupEnd`);
     - `409 ACTIVE_RESERVATION_LIMIT`;
     - `409 ALREADY_RESERVED` (`details.reservationId`);
     - `403 OWN_LISTING_RESERVATION`;
     - `403 ACCOUNT_SUSPENDED`;
     - `422 IDEMPOTENCY_KEY_REUSED`.
-  - Transition: — → `RESERVED`, with `quantityAvailable −= quantity` in one conditional `UPDATE`
-    inside a transaction (D§6).
+  - Transition: runs lazy-expiry on expired `PENDING_PAYMENT` holds first (D§6), then — →
+    `PENDING_PAYMENT` or `RESERVED`, with `quantityAvailable −= quantity` in one conditional
+    `UPDATE` inside a transaction (D§6).
 - **RES-2 · `GET /me/reservations` [MVP].**
   - Role: USER.
-  - Query: `tab=upcoming|history` (`upcoming` = `RESERVED`), `cursor`, `limit`.
-  - 200: `Reservation[]` (V1/17). The FE polls it every 30 s while the screen is open.
+  - Query: `tab=upcoming|history` (`upcoming` = `PENDING_PAYMENT` and `RESERVED`; `history` =
+    `COMPLETED`, `CANCELLED`, `EXPIRED`), `cursor`, `limit`.
+  - 200: `Reservation[]` (V1/17). Runs lazy-expiry on expired holds. The FE polls it every 30 s
+    while the screen is open.
 - **RES-3 · `GET /reservations/{reservationId}` [MVP].**
   - Role: BUYER, SELLER or ADMIN.
-  - 200: `Reservation` (V1/06, V1/18). `pickupToken` is sent to the BUYER only while `RESERVED`.
-    If the current token has expired, it is `null`, and the FE calls RES-6.
+  - 200: `Reservation` (V1/06, V1/18). Runs lazy-expiry if `PENDING_PAYMENT` and expired.
+    `pickupToken` is sent to the BUYER only while `RESERVED` (`null` while `PENDING_PAYMENT` or if
+    the current token has expired, in which case the FE calls RES-6).
   - Errors: `404 RESERVATION_NOT_FOUND`.
 - **RES-4 · `POST /reservations/{reservationId}/cancel` [MVP].**
   - Role: BUYER.
   - Request: `{ "reason": "BUYER_LATE" | "BUYER_WRONG_QTY" | "BUYER_CHANGED_PLAN" | "BUYER_OTHER", "note": "≤ 200|null" }`.
   - 200: `Reservation` with `status: CANCELLED`.
   - Errors: `409 RESERVATION_NOT_ACTIVE`, `409 CANCEL_WINDOW_CLOSED`.
-  - Transition: `RESERVED` → `CANCELLED`. Stock is released atomically (D§4), and tokens are
-    revoked. There is no money to refund (offline payment).
+  - Transition:
+    - `PENDING_PAYMENT` → `CANCELLED`: releases stock atomically (if listing still `PUBLISHED` and
+      `now < pickupEnd`) and marks `payment.status = EXPIRED` (no money paid).
+    - `RESERVED` → `CANCELLED`: releases stock atomically (D§4) and revokes tokens. If the
+      reservation has a `PAID` payment, marks `payment.status = REFUND_DUE` (refund =
+      `payableAmount`); otherwise offline payment has no refund.
 - **RES-5 · `GET /me/sales` [MVP]: the seller's orders.**
   - Role: USER (the seller side of the same account).
   - Query: `status` (csv, default `RESERVED`), `date` (default today), `listingId`, `cursor`,
@@ -413,8 +456,9 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
   - Role: USER (as seller).
   - Request: `{ "qrPayload": "SM1.<token>" }` **or** `{ "code": "4281" }` (`SM–`, dashes and spaces
     are stripped).
-  - 200: `{ data: { reservation: Reservation, amountToCollect: 15000, canConfirm: true, blockingReason: null } }`.
-    It does **not** change state.
+  - 200: `{ data: { reservation: Reservation, amountToCollect: 0, canConfirm: true, blockingReason: null } }`.
+    `amountToCollect` is `0` when the reservation is paid online (`payment.status === "PAID"`) or
+    free, and `totalPrice` when paid offline (`payment === null`). It does **not** change state.
   - `blockingReason` is one of:
     `TOO_EARLY | WINDOW_CLOSED | NOT_ACTIVE | TOKEN_EXPIRED | TOKEN_USED | LISTING_BLOCKED`.
   - Errors: `422 PICKUP_TOKEN_INVALID` (unknown token, or a token for another seller's order),
@@ -433,9 +477,10 @@ seller, `pickupEnd` in the future, and stock left unless `includeSoldOut`).
     - `409 PICKUP_TOO_EARLY`;
     - `409 PICKUP_WINDOW_CLOSED`;
     - `409 LISTING_BLOCKED`.
-  - Transition: `RESERVED` → `COMPLETED` ("Hoàn tất"). Atomically sets the token's `usedAt` and
-    writes `RESERVATION_COMPLETED`. **Pickup only. It is not a payment receipt or a safety
-    certificate.**
+  - Transition: `RESERVED` → `COMPLETED` ("Hoàn tất"). Atomically sets the token's `usedAt`,
+    writes `RESERVATION_COMPLETED`, and — when the reservation has a `PAID` payment — marks
+    `payment.payoutStatus = PENDING_PAYOUT` (`sellerNet = totalPrice`). **Pickup only. It is not a
+    safety certificate.**
 - **RES-9 · `POST /reservations/{id}/no-show` [LATER].** A manual no-show. In the MVP, JOB-2 expires
   orders automatically.
 
@@ -468,8 +513,9 @@ All of these are ADMIN only and write an event_log.
 - **ADM-3 · `POST /admin/listings/{listingId}/block` [MVP].**
   - Request: `{ "reason": "required" }`.
   - 200: `ListingOwnerView` with `status: BLOCKED`.
-  - Transition: `PUBLISHED|EXPIRED` → `BLOCKED`. `RESERVED` orders → `CANCELLED`
-    (`LISTING_BLOCKED`).
+  - Transition: `PUBLISHED|EXPIRED` → `BLOCKED`. Every `PENDING_PAYMENT` or `RESERVED` order →
+    `CANCELLED` (`LISTING_BLOCKED`), `UNPAID` payments → `EXPIRED`, and `PAID` payments →
+    `REFUND_DUE` (refund = `payableAmount`).
 - **ADM-4 · `POST /admin/accounts/{accountId}/status` [MVP].**
   - Request: `{ "status": "ACTIVE" | "SUSPENDED", "reason": "required" }`.
   - 200: `{ id, status }`.
@@ -511,7 +557,6 @@ All of these are ADMIN only and write an event_log.
 
 | ID | Endpoint | Notes |
 |---|---|---|
-| PAY-1..5 | `GET /reservations/{id}/payment`, `POST …/payment/mark-sent`, `POST …/payment/confirm`, `POST …/payment/refund`, `PUT /me/payout-account` | Behind `PAYMENTS_ENABLED`. Adds the `PENDING_PAYMENT` status, `paymentMode` (`DEPOSIT`/`FULL`) on RES-1, deposits and refunds. **None of this exists in the MVP** (spec §2.3), and it needs legal and payment-partner review first. |
 | CHAT-1..2 | `GET`/`POST /reservations/{id}/messages` | Reservation-scoped chat (V1/24) |
 | NOTI-1..4 | `GET /me/notifications`, `POST /me/notifications/read`, `POST`/`DELETE /me/push-subscriptions` | The in-app list and web push (V1/34) |
 | SAVE-1..3 | `GET /me/saved`, `PUT`/`DELETE /me/saved/{type}/{id}` | Saved listings and sellers (V1/15) |
@@ -522,12 +567,71 @@ All of these are ADMIN only and write an event_log.
 
 ## 11. Scheduled jobs
 
-JOB-1 (listing expiry), JOB-2 (reservation expiry), JOB-3 (cleanup) and JOB-4 (metrics) are
-specified in D§7. They change state in exactly the same way as the endpoints do. In serverless
-deployments where in-process `@Cron` schedules are disabled, they are triggered via SYS-3
-(`GET /internal/cron/daily`).
+JOB-1 (listing expiry), JOB-2 (reservation expiry, including expired `PENDING_PAYMENT` holds),
+JOB-3 (cleanup) and JOB-4 (metrics) are specified in D§7. They change state in exactly the same way
+as the endpoints do. In serverless deployments where in-process `@Cron` schedules are disabled,
+they are triggered via SYS-3 (`GET /internal/cron/daily`), and `PENDING_PAYMENT` holds are also
+swept via lazy-expiry (D§6).
 
-## 12–15. (reserved)
+## 12. Payments and payouts (v1.2)
+
+Controlled by `PAYMENTS_ENABLED` (default `false` in env/tests; `true` when VietQR payments are
+enabled) and `PAYMENT_PROVIDER=sepay|mock`. The `Payment` object is provider-agnostic so PayOS or
+other gateways can plug in later without FE changes.
+
+- **PAY-1 · `GET /reservations/{reservationId}/payment` [MVP].**
+  - Role: BUYER or ADMIN.
+  - Runs lazy-expiry check if the reservation is `PENDING_PAYMENT` and expired.
+  - 200: `{ data: Payment }`.
+  - Errors: `404 RESERVATION_NOT_FOUND`, `404 PAYMENT_NOT_FOUND`.
+- **PAY-2 · `POST /webhooks/sepay` [MVP].**
+  - Role: WEBHOOK (`Authorization: Apikey <SEPAY_WEBHOOK_SECRET>`).
+  - Request: SePay transaction webhook payload (`id` / `referenceCode` as `providerTxId`,
+    `content` / `description`, `transferAmount`, `transferType`, etc.).
+  - 200: `{ data: { received: true } }`.
+  - Behaviour:
+    - Idempotent on `providerTxId` (duplicate webhook deliveries return `200 { received: true }`
+      without side effects).
+    - Matches `transferContent` (`SM<8 alphanumeric chars>`, e.g. `SM4281A9F2`) and checks
+      `transferAmount >= payableAmount`.
+    - If reservation is `PENDING_PAYMENT` and `now < paymentExpiresAt`: transitions
+      `PENDING_PAYMENT` → `RESERVED`, marks `payment.status = PAID` (`paidAt = now`), issues the
+      first `pickupToken`, and writes `PAYMENT_PAID` + `RESERVATION_PAID` to `event_logs`.
+    - If payment arrives after the reservation is already `EXPIRED` (or on amount mismatch /
+      duplicate transfer): records `payment.status = REFUND_DUE` so buyer funds are never lost and
+      appear in the admin refund ledger.
+  - Errors: `401 UNAUTHENTICATED` (missing or invalid `Apikey`).
+- **PAY-3 · `GET /me/payouts` [MVP].**
+  - Role: USER (as seller).
+  - Query: `payoutStatus` (`PENDING_PAYOUT|SETTLED`, optional), `cursor`, `limit`.
+  - 200:
+    `{ data: { summary: { pendingPayoutVnd: number, settledVnd: number, totalFoodRevenueVnd: number }, items: PayoutItem[] }, page }`.
+- **PAY-4 · `PUT /me/payout-account` [MVP].**
+  - Role: USER (as seller).
+  - Request: `{ "bankCode": "MB", "accountNo": "0123456789", "accountName": "NGUYEN VAN A" }`.
+  - 200: `{ data: PayoutAccount }`.
+  - Errors: `400 VALIDATION_FAILED`.
+- **PAY-5 · Admin payment & payout management [MVP].** Role: ADMIN (all write an `event_log`).
+  - **`GET /admin/payments`** — Query: `status` (`PaymentStatus`), `payoutStatus` (`PayoutStatus`),
+    `sellerId`, `cursor`, `limit`. Returns `200 { data: Payment[], page }`.
+  - **`POST /admin/payments/{paymentId}/mark-refunded`** — Request: `{ "note": "string" }`.
+    Transitions `payment.status` `REFUND_DUE` → `REFUNDED`, sets `refundedAt`, writes
+    `PAYMENT_REFUNDED`. Returns `200 { data: Payment }`.
+    Errors: `404 PAYMENT_NOT_FOUND`, `409 PAYMENT_NOT_REFUNDABLE`.
+  - **`POST /admin/payouts/{sellerId}/settle`** — Request: `{ "note": "string" }`. Marks all
+    `PENDING_PAYOUT` payments for `sellerId` as `SETTLED`, sets `settledAt`, writes
+    `PAYOUT_SETTLED`. Returns `200 { data: { sellerId, settledCount, settledAmountVnd, settledAt } }`.
+    Errors: `404 ACCOUNT_NOT_FOUND`.
+- **PAY-DEV · `POST /reservations/{reservationId}/payment/simulate` [MVP].**
+  - Role: BUYER. Only active when `PAYMENT_PROVIDER=mock`; returns `403 FEATURE_DISABLED`
+    otherwise.
+  - Request: an empty body (or `{ "amount"?: number }`).
+  - 200: `{ data: Reservation }` (simulates SePay webhook settlement, transitioning
+    `PENDING_PAYMENT` → `RESERVED`, marking payment `PAID`, and issuing `pickupToken`).
+  - Errors: `403 FEATURE_DISABLED`, `404 RESERVATION_NOT_FOUND`, `404 PAYMENT_NOT_FOUND`,
+    `409 RESERVATION_NOT_ACTIVE`.
+
+## 13–15. (reserved)
 
 ## 16. Error code catalogue
 
@@ -536,10 +640,10 @@ deployments where in-process `@Cron` schedules are disabled, they are triggered 
 | 400 | `VALIDATION_FAILED`, `OTP_INVALID`, `OTP_EXPIRED` |
 | 401 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`, `REFRESH_INVALID` |
 | 403 | `FORBIDDEN`, `ACCOUNT_SUSPENDED`, `FEATURE_DISABLED`, `OWN_LISTING_RESERVATION` |
-| 404 | `NOT_FOUND`, `LISTING_NOT_FOUND`, `RESERVATION_NOT_FOUND`, `SELLER_NOT_FOUND`, `IMAGE_NOT_FOUND`, `REPORT_NOT_FOUND`, `ACCOUNT_NOT_FOUND`. These are also used to hide resources from callers without access. |
-| 409 | `INVALID_STATE_TRANSITION` (`details: { from, action }`), `FIELD_LOCKED`, `QUANTITY_BELOW_RESERVED`, `PRICE_INCREASE_NOT_ALLOWED`, `PICKUP_WINDOW_EXTENSION_NOT_ALLOWED`, `LISTING_SOLD_OUT`, `LISTING_NOT_AVAILABLE`, `LISTING_BLOCKED`, `ACTIVE_RESERVATION_LIMIT`, `ALREADY_RESERVED`, `RESERVATION_NOT_ACTIVE`, `CANCEL_WINDOW_CLOSED`, `PICKUP_TOO_EARLY`, `PICKUP_WINDOW_CLOSED`, `PICKUP_TOKEN_EXPIRED`, `PICKUP_TOKEN_USED`, `IMAGE_IN_USE`, `ACCOUNT_HAS_ACTIVE_ITEMS` |
+| 404 | `NOT_FOUND`, `LISTING_NOT_FOUND`, `RESERVATION_NOT_FOUND`, `PAYMENT_NOT_FOUND`, `SELLER_NOT_FOUND`, `IMAGE_NOT_FOUND`, `REPORT_NOT_FOUND`, `ACCOUNT_NOT_FOUND`. These are also used to hide resources from callers without access. |
+| 409 | `INVALID_STATE_TRANSITION` (`details: { from, action }`), `FIELD_LOCKED`, `QUANTITY_BELOW_RESERVED`, `PRICE_INCREASE_NOT_ALLOWED`, `PICKUP_WINDOW_EXTENSION_NOT_ALLOWED`, `LISTING_SOLD_OUT`, `LISTING_NOT_AVAILABLE`, `LISTING_BLOCKED`, `ACTIVE_RESERVATION_LIMIT`, `ALREADY_RESERVED`, `RESERVATION_NOT_ACTIVE`, `CANCEL_WINDOW_CLOSED`, `PICKUP_TOO_EARLY`, `PICKUP_WINDOW_CLOSED`, `PICKUP_TOKEN_EXPIRED`, `PICKUP_TOKEN_USED`, `PAYMENT_NOT_REFUNDABLE`, `IMAGE_IN_USE`, `ACCOUNT_HAS_ACTIVE_ITEMS` |
 | 413 / 415 | `IMAGE_TOO_LARGE` / `IMAGE_TYPE_UNSUPPORTED` |
-| 422 | `LISTING_INCOMPLETE`, `DECLARATION_INCOMPLETE`, `LISTING_TOO_OLD`, `LISTING_LIMIT`, `PICKUP_WINDOW_INVALID`, `QUANTITY_LIMIT_EXCEEDED`, `PICKUP_TOKEN_INVALID`, `PICKUP_CODE_INVALID`, `REPORT_TARGET_INVALID`, `IDEMPOTENCY_KEY_REUSED` |
+| 422 | `LISTING_INCOMPLETE`, `DECLARATION_INCOMPLETE`, `LISTING_TOO_OLD`, `LISTING_LIMIT`, `PICKUP_WINDOW_INVALID`, `PAYMENT_HOLD_INVALID`, `QUANTITY_LIMIT_EXCEEDED`, `PICKUP_TOKEN_INVALID`, `PICKUP_CODE_INVALID`, `REPORT_TARGET_INVALID`, `IDEMPOTENCY_KEY_REUSED` |
 | 429 | `RATE_LIMITED`, `OTP_TOO_MANY_ATTEMPTS` |
 | 500 | `INTERNAL` (never leaks a stack trace) |
 
@@ -551,7 +655,7 @@ deployments where in-process `@Cron` schedules are disabled, they are triggered 
 | 02 Bottom sheet mở rộng [2:97] | LIST-1 (`view=list`) | |
 | 03 Tìm kiếm [2:188] | SYS-2, LIST-1 (`q`) | |
 | 04 Chi tiết món [2:237] | LIST-2, SELLER-1 (link) | ♡ save is Later; hide it |
-| 05 Xác nhận đặt giữ [2:266] | LIST-2, RES-1 | Copy: "Thanh toán trực tiếp cho người bán khi nhận" |
+| 05 Xác nhận đặt giữ [2:266] | LIST-2, RES-1 | When `config.features.payments=true` and `price > 0`: shows fee breakdown + `holdMinutes` selector → 19–22; otherwise offline copy → 06 |
 | 06 Nhận mã QR [2:293] | RES-3, RES-6 | QR = `pickupToken.qrPayload`. Code `SM–NNNN`. |
 | 07 Đăng pass món [2:324] | IMG-1, LIST-3, ME-1 (default pickup) | |
 | 08 Tài khoản mua & bán [2:350] | ME-1, RES-2, LIST-8 | |
@@ -563,9 +667,9 @@ deployments where in-process `@Cron` schedules are disabled, they are triggered 
 | 14 Free food list [7:122] | LIST-1 (`free=true&pickupDay=today`) | |
 | 15 Saved listings [7:168] | — | **Later** (SAVE) |
 | 16 Seller profile [7:204] | SELLER-1, LIST-1 (`sellerId`) | |
-| 17 Đơn của tôi [8:2] | RES-2 | No "Đang chờ thanh toán" state in the MVP |
+| 17 Đơn của tôi [8:2] | RES-2 | `tab=upcoming` includes `PENDING_PAYMENT` and `RESERVED` |
 | 18 Chi tiết đơn [8:43] | RES-3, RES-4 (Hủy đơn), REP-1 | |
-| 19–22 Checkout / payment / payment QR / thanh toán thành công [8:73, 8:99, 8:124, 8:335] | — | **Later** (PAY). The MVP skips them: 05 → 06. |
+| 19–22 Checkout / payment / payment QR / thanh toán thành công [8:73, 8:99, 8:124, 8:335] | RES-1, PAY-1, RES-3, PAY-DEV (mock) | Active when `config.features.payments=true` and `totalPrice > 0`. Skipped for free items or when `payments=false` (05 → 06). |
 | 23 Báo cáo chất lượng [8:351] | IMG-1 (`REPORT`), REP-1 | |
 | 24 Trò chuyện P2P [8:375] | — | **Later** (CHAT) |
 | 25 Giờ nhận & bảo quản [9:181] | LIST-4, ME-2 (save default pickup) | |
@@ -582,11 +686,37 @@ deployments where in-process `@Cron` schedules are disabled, they are triggered 
 | 36 Cài đặt & PWA [11:135] | ME-2, ME-3, AUTH-4 | The PWA install prompt is client-side. Push is Later. |
 | 37 Không có món gần đây [11:186] | LIST-1 (empty) | |
 | 38 Hết suất / quá hạn [11:201] | LIST-2, LIST-1 (suggestions) | |
-| 39 Hủy đơn [11:220] | RES-3, RES-4 | No deposit note in the MVP |
+| 39 Hủy đơn [11:220] | RES-3, RES-4 | Paid `RESERVED` orders mark payment `REFUND_DUE`; `PENDING_PAYMENT` orders release stock immediately |
 | 40 Xác minh OTP [11:243] | AUTH-2, AUTH-1 (resend) | |
-| (no frame) Admin | ADM-1..9 | Built from the V1 design system (frame `13:48`) |
+| (no frame) Admin | ADM-1..9, PAY-5 | Built from the V1 design system (frame `13:48`) |
+| (no frame) Seller payouts | PAY-3, PAY-4 | Seller payout summary, history and bank account settings |
 
 ## 18. Changelog
+
+### v1.2 (2026-11-24): Option C automated VietQR payments (SePay), buyer-paid platform fee and refund/payout ledger
+
+1. **Provider & feature flag.** Added automated VietQR payment flow via SePay webhook
+   (`PAYMENT_PROVIDER=sepay|mock`) behind `PAYMENTS_ENABLED` (default `false` in env/tests; `true`
+   when enabled). The `Payment` response is provider-agnostic so PayOS or other gateways can plug
+   in later without FE changes.
+2. **Buyer-paid platform fee.** Free items (`totalPrice === 0`) incur `0` fee and skip
+   `PENDING_PAYMENT`. Paid items (`PAYMENTS_ENABLED=true`) charge `5%` when `totalPrice > 20.000đ`
+   or flat `2.000đ` when `≤ 20.000đ`. Buyer transfers `payableAmount = totalPrice + platformFee`;
+   seller receives `sellerNet = totalPrice` upon `COMPLETED` handover.
+3. **Hold duration & lazy-expiry.** `RES-1` accepts optional `holdMinutes` (≥ 5, default 10, must
+   satisfy `now + holdMinutes <= listing.pickupEnd`, else `422 PAYMENT_HOLD_INVALID`). Stock is
+   decremented atomically while `PENDING_PAYMENT`, and expired holds are swept atomically on reads,
+   creates, and `JOB-2`.
+4. **Endpoints promoted to MVP (§12).** Added `PAY-1` (`GET /reservations/{id}/payment`), `PAY-2`
+   (`POST /webhooks/sepay`), `PAY-3` (`GET /me/payouts`), `PAY-4` (`PUT /me/payout-account`),
+   `PAY-5` (`GET /admin/payments`, `POST /admin/payments/{id}/mark-refunded`,
+   `POST /admin/payouts/{sellerId}/settle`), and `PAY-DEV`
+   (`POST /reservations/{id}/payment/simulate`, mock provider only). Total: **46 MVP endpoints** +
+   20 Later.
+5. **Config, enums & errors.** Updated `SYS-2` (`GET /config`) with `limits.minPaymentHoldMin`,
+   `limits.defaultPaymentHoldMin`, and `fees`. Added `PENDING_PAYMENT` to `ReservationStatus`,
+   `PaymentStatus`, `PayoutStatus`, `PaymentProvider`, `Payment`, `PayoutAccount`, `PayoutItem`,
+   and error codes `422 PAYMENT_HOLD_INVALID`, `404 PAYMENT_NOT_FOUND`, `409 PAYMENT_NOT_REFUNDABLE`.
 
 ### v1.1.1 (2026-11-24): add internal daily cron endpoint for serverless deployments
 
