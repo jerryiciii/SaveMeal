@@ -88,9 +88,21 @@ export const envSchema = z
     DATABASE_URL: z.string().min(1, 'is required'),
     LOG_LEVEL: z.enum(['error', 'warn', 'log', 'debug', 'verbose']).default('log'),
 
-    // Feature flags (CLAUDE.md §8): default OFF; both features are Later.
+    // Feature flags (CLAUDE.md §8): default OFF.
     PAYMENTS_ENABLED: boolFlag(false),
     GOOGLE_LOGIN_ENABLED: boolFlag(false),
+
+    // Payments (DOMAIN v1.2 §6, §11).
+    PAYMENT_PROVIDER: z.enum(['mock', 'sepay']).default('mock'),
+    SEPAY_BANK_CODE: optionalTrimmed,
+    SEPAY_ACCOUNT_NO: optionalTrimmed,
+    SEPAY_ACCOUNT_NAME: optionalTrimmed,
+    SEPAY_WEBHOOK_SECRET: optionalTrimmed,
+    MIN_PAYMENT_HOLD_MIN: int(5, 1),
+    DEFAULT_PAYMENT_HOLD_MIN: int(10, 1),
+    PLATFORM_FEE_PERCENT: int(5, 0),
+    PLATFORM_FEE_THRESHOLD_VND: int(20000, 0),
+    PLATFORM_FEE_FLAT_VND: int(2000, 0),
 
     // DOMAIN §11 defaults.
     MAX_ACTIVE_LISTINGS: int(5, 1),
@@ -195,6 +207,45 @@ export const envSchema = z
         path: ['MEDIA_PUBLIC_BASE_URL'],
         message: 'must be a valid URL',
       });
+    }
+
+    if (env.DEFAULT_PAYMENT_HOLD_MIN < env.MIN_PAYMENT_HOLD_MIN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['DEFAULT_PAYMENT_HOLD_MIN'],
+        message: 'must be >= MIN_PAYMENT_HOLD_MIN',
+      });
+    }
+
+    if (env.PAYMENTS_ENABLED && env.PAYMENT_PROVIDER === 'sepay') {
+      if (!env.SEPAY_BANK_CODE) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SEPAY_BANK_CODE'],
+          message: 'is required when PAYMENTS_ENABLED=true and PAYMENT_PROVIDER="sepay"',
+        });
+      }
+      if (!env.SEPAY_ACCOUNT_NO) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SEPAY_ACCOUNT_NO'],
+          message: 'is required when PAYMENTS_ENABLED=true and PAYMENT_PROVIDER="sepay"',
+        });
+      }
+      if (!env.SEPAY_ACCOUNT_NAME) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SEPAY_ACCOUNT_NAME'],
+          message: 'is required when PAYMENTS_ENABLED=true and PAYMENT_PROVIDER="sepay"',
+        });
+      }
+      if (!env.SEPAY_WEBHOOK_SECRET) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SEPAY_WEBHOOK_SECRET'],
+          message: 'is required when PAYMENTS_ENABLED=true and PAYMENT_PROVIDER="sepay"',
+        });
+      }
     }
 
     if (env.CRON_SECRET !== undefined && env.CRON_SECRET.length < 16) {

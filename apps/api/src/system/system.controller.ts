@@ -15,7 +15,7 @@ import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Version of the API contract this server implements. */
-export const API_VERSION = '1.1.0';
+export const API_VERSION = '1.2.0';
 
 /** SYS-2 constants that are product choices, not deployment config. */
 const RADIUS_KM_OPTIONS = [1, 3, 5];
@@ -49,7 +49,7 @@ export class SystemController {
   /** SYS-2 · GET /config (PUBLIC): flags, enums, limits and map settings for the PWA. */
   @Get('config')
   appConfig(): { data: AppConfigResponse } {
-    const { reservations, listings } = this.config;
+    const { reservations, listings, payments } = this.config;
     return {
       data: {
         features: { ...this.config.features },
@@ -70,7 +70,10 @@ export class SystemController {
           maxWindowHours: listings.maxWindowHours,
           pickupTokenTtlMin: reservations.pickupTokenTtlMin,
           earlyPickupMin: reservations.earlyPickupMin,
+          minPaymentHoldMin: payments.minHoldMin,
+          defaultPaymentHoldMin: payments.defaultHoldMin,
         },
+        fees: { ...payments.fees },
         defaultCenter: { ...DEFAULT_CENTER },
         popularSearches: [...POPULAR_SEARCHES],
         map: { ...this.config.map },

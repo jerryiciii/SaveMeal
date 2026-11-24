@@ -20,6 +20,23 @@ describe('parseEnv', () => {
       noShowGraceMin: 15,
       pickupTokenTtlMin: 10,
     });
+    expect(config.payments).toEqual({
+      provider: 'mock',
+      minHoldMin: 5,
+      defaultHoldMin: 10,
+      fees: {
+        percent: 5,
+        thresholdVnd: 20000,
+        flatVnd: 2000,
+        paidBy: 'BUYER',
+      },
+      sepay: {
+        bankCode: null,
+        accountNo: null,
+        accountName: null,
+        webhookSecret: null,
+      },
+    });
     expect(config.auth).toEqual({
       otpTtlSec: 300,
       otpResendSec: 60,
@@ -202,6 +219,44 @@ describe('parseEnv', () => {
     );
     expect(overridden.supabaseStorage.bucket).toBe('custom-bucket');
     expect(overridden.mediaPublicBaseUrl).toBe('https://cdn.savemeal.vn/media');
+  });
+
+  it('validates PAYMENT_PROVIDER=sepay credentials only when PAYMENTS_ENABLED=true', () => {
+    // When PAYMENTS_ENABLED=false, sepay credentials are not required.
+    const disabled = new AppConfig(parseEnv({ ...base, PAYMENTS_ENABLED: 'false', PAYMENT_PROVIDER: 'sepay' }));
+    expect(disabled.payments.provider).toBe('sepay');
+
+    // When PAYMENTS_ENABLED=true and PAYMENT_PROVIDER=mock, sepay credentials are not required.
+    const mockEnabled = new AppConfig(parseEnv({ ...base, PAYMENTS_ENABLED: 'true', PAYMENT_PROVIDER: 'mock' }));
+    expect(mockEnabled.features.payments).toBe(true);
+    expect(mockEnabled.payments.provider).toBe('mock');
+
+    // When PAYMENTS_ENABLED=true and PAYMENT_PROVIDER=sepay, all four SePay vars are required.
+    expect(() => parseEnv({ ...base, PAYMENTS_ENABLED: 'true', PAYMENT_PROVIDER: 'sepay' })).toThrow(
+      /SEPAY_BANK_CODE[\s\S]*SEPAY_ACCOUNT_NO[\s\S]*SEPAY_ACCOUNT_NAME[\s\S]*SEPAY_WEBHOOK_SECRET/,
+    );
+
+    const sepayEnabled = new AppConfig(
+      parseEnv({
+        ...base,
+        PAYMENTS_ENABLED: 'true',
+        PAYMENT_PROVIDER: 'sepay',
+        SEPAY_BANK_CODE: 'MB',
+        SEPAY_ACCOUNT_NO: '0123456789',
+        SEPAY_ACCOUNT_NAME: 'SAVEMEAL',
+        SEPAY_WEBHOOK_SECRET: 'whsec_test',
+      }),
+    );
+    expect(sepayEnabled.payments.sepay).toEqual({
+      bankCode: 'MB',
+      accountNo: '0123456789',
+      accountName: 'SAVEMEAL',
+      webhookSecret: 'whsec_test',
+    });
+
+    expect(() => parseEnv({ ...base, MIN_PAYMENT_HOLD_MIN: '15', DEFAULT_PAYMENT_HOLD_MIN: '10' })).toThrow(
+      /DEFAULT_PAYMENT_HOLD_MIN/,
+    );
   });
 });
 

@@ -38,6 +38,8 @@ export function toReservation(
     quantity: row.quantity,
     unitPrice: row.unitPrice,
     totalPrice: row.totalPrice,
+    platformFee: row.platformFee,
+    payableAmount: row.payableAmount || row.totalPrice,
     listing: {
       id: row.listing.id,
       title: row.listing.title,
@@ -50,6 +52,7 @@ export function toReservation(
     seller: sellerSummary(row.seller),
     buyer: showBuyerName ? { displayName: row.buyer.displayName ?? 'Người mua' } : null,
     pickupToken: isBuyer && row.status === 'RESERVED' ? pickupToken : null,
+    payment: null,
     cancelReason: row.cancelReason,
     createdAt: toApiTime(row.createdAt),
     completedAt: toApiTimeOrNull(row.completedAt),

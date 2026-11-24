@@ -26,6 +26,24 @@ export class AppConfig {
     pickupTokenTtlMin: number;
   };
 
+  readonly payments: {
+    provider: Env['PAYMENT_PROVIDER'];
+    minHoldMin: number;
+    defaultHoldMin: number;
+    fees: {
+      percent: number;
+      thresholdVnd: number;
+      flatVnd: number;
+      paidBy: 'BUYER';
+    };
+    sepay: {
+      bankCode: string | null;
+      accountNo: string | null;
+      accountName: string | null;
+      webhookSecret: string | null;
+    };
+  };
+
   readonly auth: {
     otpTtlSec: number;
     otpResendSec: number;
@@ -98,6 +116,23 @@ export class AppConfig {
       earlyPickupMin: env.EARLY_PICKUP_MIN,
       noShowGraceMin: env.NO_SHOW_GRACE_MIN,
       pickupTokenTtlMin: env.PICKUP_TOKEN_TTL_MIN,
+    };
+    this.payments = {
+      provider: env.PAYMENT_PROVIDER,
+      minHoldMin: env.MIN_PAYMENT_HOLD_MIN,
+      defaultHoldMin: env.DEFAULT_PAYMENT_HOLD_MIN,
+      fees: {
+        percent: env.PLATFORM_FEE_PERCENT,
+        thresholdVnd: env.PLATFORM_FEE_THRESHOLD_VND,
+        flatVnd: env.PLATFORM_FEE_FLAT_VND,
+        paidBy: 'BUYER',
+      },
+      sepay: {
+        bankCode: env.SEPAY_BANK_CODE ?? null,
+        accountNo: env.SEPAY_ACCOUNT_NO ?? null,
+        accountName: env.SEPAY_ACCOUNT_NAME ?? null,
+        webhookSecret: env.SEPAY_WEBHOOK_SECRET ?? null,
+      },
     };
     this.auth = {
       otpTtlSec: env.OTP_TTL_SEC,
