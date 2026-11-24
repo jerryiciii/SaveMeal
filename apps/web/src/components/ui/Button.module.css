@@ -24,7 +24,7 @@
 .primary {
   background: var(--ink);
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 500;
   box-shadow: 0 4px 14px rgba(17, 17, 17, 0.14);
 }
 
@@ -47,7 +47,7 @@
   background: var(--danger-soft);
   border-color: rgba(224, 56, 62, 0.2);
   color: var(--danger);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .danger:hover:not(:disabled) {
@@ -57,7 +57,7 @@
 .lime {
   background: var(--lime);
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 500;
   box-shadow: 0 4px 14px rgba(169, 210, 31, 0.25);
 }
 

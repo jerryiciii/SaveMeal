@@ -36,14 +36,14 @@
 .sectionTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--ink);
 }
 
 .dangerTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--danger);
 }
 
@@ -71,7 +71,7 @@
   background: var(--ink);
   color: var(--lime);
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 500;
   overflow: hidden;
 }
 
@@ -101,7 +101,7 @@
   border: 1px solid var(--line);
   color: var(--ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -132,7 +132,7 @@
   padding: 6px 8px;
   color: var(--danger);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -153,7 +153,7 @@
 
 .readonlyValue {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -170,7 +170,7 @@
   background: var(--limesoft);
   color: var(--success);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .two {
@@ -254,7 +254,7 @@
   background: var(--danger);
   color: var(--surface);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -275,5 +275,5 @@
 .inlineLink {
   color: var(--violet);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }

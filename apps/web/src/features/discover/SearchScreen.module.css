@@ -15,7 +15,7 @@
 
 .headerAction {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -39,7 +39,7 @@
 .sectionTitle {
   margin: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -129,7 +129,7 @@
 .shortcutTitle {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -152,7 +152,7 @@
 
 .mapLink {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
 }
 
