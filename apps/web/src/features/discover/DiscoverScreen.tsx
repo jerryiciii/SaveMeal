@@ -85,6 +85,8 @@ function summarizeAdvancedFilters(filters: DiscoverFilters): string[] {
  * 13 · Pin selected / mini-sheet (7:96) and 37 · Không có món gần đây (11:186).
  * Buyer location stays client-only (CLAUDE.md §7) and is sent per LIST-1 request.
  */
+const DEFAULT_DISCOVER_CENTER: ClientPoint = { lat: 16.0544, lng: 108.2022 };
+
 function DiscoverScreenInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,10 +94,9 @@ function DiscoverScreenInner() {
   const filters = useMemo(() => parseFiltersFromSearchParams(new URLSearchParams(searchKey)), [searchKey]);
 
   const cachedConfig = saveMeal.peekConfig() ?? null;
-  const initialCenter = cachedConfig ? (getClientLocation() ?? cachedConfig.defaultCenter) : null;
-  const initialRequestKey = `${searchKey}|${initialCenter?.lat ?? ""}|${initialCenter?.lng ?? ""}|0`;
+  const initialCenter = getClientLocation() ?? cachedConfig?.defaultCenter ?? DEFAULT_DISCOVER_CENTER;
+  const initialRequestKey = `${searchKey}|${initialCenter.lat}|${initialCenter.lng}|0`;
   const initialCachedEntry = (() => {
-    if (!initialCenter) return { key: "", state: { kind: "loading" as const } };
     const params = { ...filtersToListingParams(filters), lat: initialCenter.lat, lng: initialCenter.lng };
     const cachedList = saveMeal.peekSearchListings({ ...params, limit: 20 });
     const cachedPins = saveMeal.peekMapPins(params);

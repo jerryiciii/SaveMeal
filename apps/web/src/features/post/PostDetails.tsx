@@ -207,7 +207,11 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
     try {
       const pickup = { address: address.trim(), lat: coords.lat, lng: coords.lng };
       const isPaid = listing.price > 0;
-      await saveMeal.updateListing(listing.id, {
+      const needsProfilePatch = Boolean(
+        me && (!me.seller.defaultPickup || (sellerName.trim() && sellerName.trim() !== me.seller.name)),
+      );
+      const bankQrChanged = Boolean(me && isPaid && bankQr?.id && bankQr.id !== me.seller.bankQrImage?.id);
+      const updateListingPromise = saveMeal.updateListing(listing.id, {
         pickupStart: startIso,
         pickupEnd: endIso,
         preparedAt: preparedIso,
@@ -217,19 +221,18 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
         pickup,
         ...(isPaid ? { bankQrImageId: bankQr?.id ?? null } : {}),
       });
-      const needsProfilePatch = Boolean(
-        me && (!me.seller.defaultPickup || (sellerName.trim() && sellerName.trim() !== me.seller.name)),
-      );
-      const bankQrChanged = Boolean(me && isPaid && bankQr?.id && bankQr.id !== me.seller.bankQrImage?.id);
-      if (me && (needsProfilePatch || bankQrChanged)) {
-        session.setMe(
-          await saveMeal.updateMe({
-            seller: {
-              ...(needsProfilePatch ? { name: sellerName.trim() || null, defaultPickup: pickup } : {}),
-              ...(bankQrChanged && bankQr ? { bankQrImageId: bankQr.id } : {}),
-            },
-          }),
-        );
+      const updateMePromise =
+        me && (needsProfilePatch || bankQrChanged)
+          ? saveMeal.updateMe({
+              seller: {
+                ...(needsProfilePatch ? { name: sellerName.trim() || null, defaultPickup: pickup } : {}),
+                ...(bankQrChanged && bankQr ? { bankQrImageId: bankQr.id } : {}),
+              },
+            })
+          : null;
+      const [, updatedMe] = await Promise.all([updateListingPromise, updateMePromise]);
+      if (updatedMe) {
+        session.setMe(updatedMe);
       }
       router.push(`/post/${listing.id}/checklist`);
     } catch (err) {
