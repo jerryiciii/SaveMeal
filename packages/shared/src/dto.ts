@@ -1,4 +1,4 @@
-// Request and response shapes from docs/API_CONTRACT.md v1.1 (MVP endpoints only). Times are
+// Request and response shapes from docs/API_CONTRACT.md v1.2 (MVP endpoints only). Times are
 // ISO 8601 strings with +07:00, money is integer VND, IDs are UUID strings, absent optionals are
 // `null`.
 import type {
@@ -15,6 +15,9 @@ import type {
   ListingTab,
   ListingView,
   OtpChannel,
+  PaymentProvider,
+  PaymentStatus,
+  PayoutStatus,
   PickupBlockingReason,
   PickupDay,
   ReportAction,
@@ -142,15 +145,58 @@ export type PickupToken = {
   expiresAt: string;
 };
 
+export type Payment = {
+  id: string;
+  reservationId: string;
+  provider: PaymentProvider;
+  status: PaymentStatus;
+  payoutStatus: PayoutStatus;
+  foodAmount: number;
+  platformFee: number;
+  payableAmount: number;
+  sellerNet: number;
+  bankCode: string;
+  accountNo: string;
+  accountName: string;
+  /** Unique code e.g. "SM4281A9F2". */
+  transferContent: string;
+  qrImageUrl: string;
+  checkoutUrl: string | null;
+  expiresAt: string;
+  paidAt: string | null;
+  refundedAt: string | null;
+  settledAt: string | null;
+};
+
+export type PayoutAccount = {
+  bankCode: string;
+  accountNo: string;
+  accountName: string;
+  updatedAt: string;
+};
+
+export type PayoutItem = {
+  paymentId: string;
+  reservationId: string;
+  reservationCode: string;
+  listingTitle: string;
+  foodAmount: number;
+  sellerNet: number;
+  payoutStatus: PayoutStatus;
+  completedAt: string | null;
+  settledAt: string | null;
+};
+
 export type Reservation = {
   id: string;
   /** Display order code, e.g. "SM–4281". */
   code: string;
   status: ReservationStatus;
   quantity: number;
-  /** Paid offline at pickup. */
   unitPrice: number;
   totalPrice: number;
+  platformFee: number;
+  payableAmount: number;
   listing: {
     id: string;
     title: string;
@@ -163,8 +209,10 @@ export type Reservation = {
   seller: SellerSummary;
   /** SELLER / ADMIN only; never phone or email. */
   buyer: { displayName: string } | null;
-  /** BUYER only, while RESERVED (current token, if unexpired). */
+  /** BUYER only, while RESERVED (null while PENDING_PAYMENT). */
   pickupToken: PickupToken | null;
+  /** Non-null for paid orders when PAYMENTS_ENABLED=true. */
+  payment: Payment | null;
   cancelReason: CancelReason | null;
   createdAt: string;
   completedAt: string | null;
@@ -245,6 +293,14 @@ export type AppConfigResponse = {
     maxWindowHours: number;
     pickupTokenTtlMin: number;
     earlyPickupMin: number;
+    minPaymentHoldMin: number;
+    defaultPaymentHoldMin: number;
+  };
+  fees: {
+    percent: number;
+    thresholdVnd: number;
+    flatVnd: number;
+    paidBy: 'BUYER';
   };
   defaultCenter: { lat: number; lng: number; label: string };
   popularSearches: string[];
@@ -348,7 +404,7 @@ export type MyListingsQuery = PageQuery & { tab?: ListingTab };
 // ---------------------------------------------------------------------------------------------
 
 /** RES-1 (header `Idempotency-Key` required) */
-export type CreateReservationBody = { listingId: string; quantity: number };
+export type CreateReservationBody = { listingId: string; quantity: number; holdMinutes?: number };
 
 /** RES-2 */
 export type MyReservationsQuery = PageQuery & { tab?: ReservationTab };
@@ -443,4 +499,39 @@ export type AdminMetrics = {
     medianHandlingHours: number;
     byAction: Partial<Record<ReportAction, number>>;
   };
+};
+
+// ---------------------------------------------------------------------------------------------
+// Payments and payouts (§12)
+// ---------------------------------------------------------------------------------------------
+
+/** PAY-3 */
+export type MyPayoutsResponse = {
+  summary: {
+    pendingPayoutVnd: number;
+    settledVnd: number;
+    totalFoodRevenueVnd: number;
+  };
+  items: PayoutItem[];
+};
+
+/** PAY-4 */
+export type UpdatePayoutAccountBody = {
+  bankCode: string;
+  accountNo: string;
+  accountName: string;
+};
+
+/** PAY-5 */
+export type AdminMarkRefundedBody = { note: string };
+
+/** PAY-5 */
+export type AdminSettlePayoutBody = { note: string };
+
+/** PAY-5 */
+export type AdminSettlePayoutResponse = {
+  sellerId: string;
+  settledCount: number;
+  settledAmountVnd: number;
+  settledAt: string;
 };
