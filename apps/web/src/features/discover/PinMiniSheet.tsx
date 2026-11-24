@@ -7,6 +7,7 @@ import { CATEGORY_LABEL } from "@/features/post/labels";
 import { saveMeal } from "@/lib/api";
 import type { ListingCard, ListingDetail, MapPin } from "@/lib/contract/types";
 import { formatCardPrice, formatDistance, formatPickupDay, formatPickupWindow, formatVnd } from "@/lib/format";
+import { googleMapsDirectionsUrl } from "@/lib/maps";
 import styles from "./PinMiniSheet.module.css";
 
 type PinMiniSheetProps = {
@@ -85,6 +86,14 @@ export function PinMiniSheet({ pin, card, onClose }: PinMiniSheetProps) {
       </div>
 
       <div className={styles.actions}>
+        <a
+          href={googleMapsDirectionsUrl(info?.pickup.lat ?? pin.lat, info?.pickup.lng ?? pin.lng)}
+          target="_blank"
+          rel="noreferrer"
+          className={styles.dirBtn}
+        >
+          Chỉ đường
+        </a>
         <Link href={`/listings/${pin.id}`} className={styles.cta}>
           Xem chi tiết
         </Link>

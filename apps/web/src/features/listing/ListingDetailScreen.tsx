@@ -11,6 +11,7 @@ import { STORAGE_LABEL } from "@/features/orders/labels";
 import { saveMeal } from "@/lib/api";
 import type { ListingCard, ListingDetail, ListingOwnerView } from "@/lib/contract/types";
 import { formatCardPrice, formatDistance, formatPickupDay, formatPickupWindow, formatVnd } from "@/lib/format";
+import { appleMapsDirectionsUrl, googleMapsDirectionsUrl } from "@/lib/maps";
 import { useLoad } from "@/lib/useLoad";
 import styles from "./listing.module.css";
 
@@ -282,6 +283,24 @@ export function ListingDetailScreen({ id }: { id: string }) {
               </div>
             ) : null}
           </dl>
+          <div className={styles.dirRow}>
+            <a
+              className={styles.dirPrimary}
+              href={googleMapsDirectionsUrl(l.pickup.lat, l.pickup.lng)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chỉ đường (Google Maps)
+            </a>
+            <a
+              className={styles.dirSecondary}
+              href={appleMapsDirectionsUrl(l.pickup.lat, l.pickup.lng, l.pickup.address)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Apple Maps
+            </a>
+          </div>
         </section>
 
         {l.description ? (

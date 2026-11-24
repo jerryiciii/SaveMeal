@@ -114,9 +114,31 @@ function DiscoverScreenInner() {
   const [me, setMe] = useState<ClientPoint | null>(() => getClientLocation());
   const [reload, setReload] = useState(0);
   const [locError, setLocError] = useState<string | null>(null);
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [sheetMode, setSheetMode] = useState<"peek" | "half" | "expanded">("half");
+  const dragStartYRef = useRef<number | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const locationPromptChecked = useRef(false);
+
+  const sheetExpanded = sheetMode === "expanded";
+  const sheetPeek = sheetMode === "peek";
+
+  function handleSheetPointerDown(e: React.PointerEvent<HTMLElement>) {
+    dragStartYRef.current = e.clientY;
+  }
+
+  function handleSheetPointerUp(e: React.PointerEvent<HTMLElement>) {
+    const startY = dragStartYRef.current;
+    dragStartYRef.current = null;
+    if (startY === null) return;
+    const deltaY = e.clientY - startY;
+    if (deltaY > 36) {
+      setPinEntry(null);
+      setSheetMode((prev) => (prev === "expanded" ? "half" : "peek"));
+    } else if (deltaY < -36) {
+      setPinEntry(null);
+      setSheetMode((prev) => (prev === "peek" ? "half" : "expanded"));
+    }
+  }
 
   const requestKey = `${searchKey}|${center?.lat ?? ""}|${center?.lng ?? ""}|${reload}`;
   const [entry, setEntry] = useState<{ key: string; state: State }>(initialCachedEntry);
@@ -291,7 +313,7 @@ function DiscoverScreenInner() {
       {sheetExpanded ? (
         topBar
       ) : (
-        <div className={styles.map}>
+        <div className={[styles.map, sheetPeek ? styles.mapPeek : ""].filter(Boolean).join(" ")}>
           {config && center ? (
             <ListingMap
               styleUrl={config.map.styleUrl}
@@ -301,7 +323,6 @@ function DiscoverScreenInner() {
               selectedId={selectedPin?.id ?? null}
               onSelect={(pin) => {
                 setPinEntry({ key: requestKey, pin });
-                setSheetExpanded(false);
               }}
               onClearSelection={() => setPinEntry(null)}
             />
@@ -319,49 +340,105 @@ function DiscoverScreenInner() {
       )}
 
       <section
-        className={[styles.sheet, sheetExpanded ? styles.sheetExpanded : ""].filter(Boolean).join(" ")}
+        className={[
+          styles.sheet,
+          sheetExpanded ? styles.sheetExpanded : "",
+          sheetPeek ? styles.sheetPeek : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         aria-label="Gần bạn hôm nay"
       >
-        <button
-          type="button"
-          className={styles.handleBtn}
-          aria-expanded={sheetExpanded}
-          aria-label={sheetExpanded ? "Thu gọn danh sách, xem bản đồ" : "Mở rộng danh sách món"}
-          onClick={() => {
-            setPinEntry(null);
-            setSheetExpanded((prev) => !prev);
+        <div
+          className={styles.dragZone}
+          onPointerDown={handleSheetPointerDown}
+          onPointerUp={handleSheetPointerUp}
+          onPointerCancel={() => {
+            dragStartYRef.current = null;
           }}
         >
-          <span className={styles.handleBar} aria-hidden="true" />
-        </button>
-
-        <div className={styles.sheetHeader}>
-          <div className={styles.sheetHeading}>
-            <div className={styles.titleRow}>
-              <h2 className={styles.sheetTitle}>{hasAnyFilter(filters) ? "Món phù hợp" : "Gần bạn"}</h2>
-              {state.kind === "ready" ? (
-                <span className={styles.countBadge} aria-label={`${state.cards.length} món`}>
-                  {state.cards.length}
-                </span>
-              ) : null}
-            </div>
-            {state.kind === "ready" ? (
-              <p className={styles.sheetSubtitle}>
-                Đang mở nhận · trong {filters.radiusKm ?? DEFAULT_RADIUS_KM} km
-              </p>
-            ) : null}
-          </div>
           <button
             type="button"
-            className={styles.expandToggle}
+            className={styles.handleBtn}
+            aria-expanded={!sheetPeek}
+            aria-label={sheetPeek ? "Kéo lên xem danh sách món" : "Kéo xuống thu gọn danh sách, mở rộng bản đồ"}
             onClick={() => {
               setPinEntry(null);
-              setSheetExpanded((prev) => !prev);
+              setSheetMode((prev) => (prev === "peek" ? "half" : prev === "half" ? "peek" : "half"));
             }}
           >
-            {sheetExpanded ? "Xem bản đồ" : "Mở rộng"}
+            <span className={styles.handleBar} aria-hidden="true" />
           </button>
+
+          <div className={styles.sheetHeader}>
+            <div className={styles.sheetHeading}>
+              <div className={styles.titleRow}>
+                <h2 className={styles.sheetTitle}>{hasAnyFilter(filters) ? "Món phù hợp" : "Gần bạn"}</h2>
+                {state.kind === "ready" ? (
+                  <span className={styles.countBadge} aria-label={`${state.cards.length} món`}>
+                    {state.cards.length}
+                  </span>
+                ) : null}
+              </div>
+              {state.kind === "ready" ? (
+                <p className={styles.sheetSubtitle}>
+                  Đang mở nhận · trong {filters.radiusKm ?? DEFAULT_RADIUS_KM} km
+                </p>
+              ) : null}
+            </div>
+            <div className={styles.sheetActions}>
+              {sheetPeek ? (
+                <button
+                  type="button"
+                  className={styles.expandToggle}
+                  onClick={() => {
+                    setPinEntry(null);
+                    setSheetMode("half");
+                  }}
+                >
+                  Xem danh sách
+                </button>
+              ) : sheetExpanded ? (
+                <button
+                  type="button"
+                  className={styles.expandToggle}
+                  onClick={() => {
+                    setPinEntry(null);
+                    setSheetMode("half");
+                  }}
+                >
+                  Xem bản đồ
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={styles.expandToggle}
+                    onClick={() => {
+                      setPinEntry(null);
+                      setSheetMode("peek");
+                    }}
+                  >
+                    Bản đồ lớn
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.expandToggle}
+                    onClick={() => {
+                      setPinEntry(null);
+                      setSheetMode("expanded");
+                    }}
+                  >
+                    Mở rộng
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+
+        {!sheetPeek ? (
+          <>
 
         {advancedSummary.length > 0 ? (
           <div className={styles.activeSummary}>
@@ -431,6 +508,8 @@ function DiscoverScreenInner() {
             ))}
           </ul>
         )}
+          </>
+        ) : null}
       </section>
 
       <LocationPromptModal
