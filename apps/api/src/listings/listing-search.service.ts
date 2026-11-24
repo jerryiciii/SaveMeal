@@ -4,6 +4,7 @@ import { CATEGORIES, type Category, type ListingCard, type MapPin, type PageInfo
 import { AppException } from '../common/errors/app-exception';
 import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
 import { localWallTime } from '../common/time';
+import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { SearchListingsQuery } from './listing.dto';
 import { LISTING_INCLUDE, toCard, toMapPin } from './listing.mapper';
@@ -23,13 +24,18 @@ export const VISIBLE_SQL = Prisma.sql`
 
 @Injectable()
 export class ListingSearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   /**
    * LIST-1. Radius = bounding box (index-friendly) + haversine in SQL. The buyer's coordinates
    * live only in this request: never stored, and logged rounded (CLAUDE.md §7).
    */
   async search(query: SearchListingsQuery): Promise<{ data: ListingCard[] | MapPin[]; page?: PageInfo }> {
+    await this.payments.expirePendingPayments();
+
     const lat = query.lat ?? DEFAULT_CENTER.lat;
     const lng = query.lng ?? DEFAULT_CENTER.lng;
     if ((query.lat === undefined) !== (query.lng === undefined)) {

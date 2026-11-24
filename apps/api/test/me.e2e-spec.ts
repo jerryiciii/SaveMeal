@@ -68,6 +68,7 @@ describe('Me (ME-1..3)', () => {
         quantity,
         unitPrice: 15000,
         totalPrice: 15000 * quantity,
+        payableAmount: 15000 * quantity,
         code: String(1000 + Math.floor(Math.random() * 9000)),
         status,
         idempotencyKey: randomUUID(),

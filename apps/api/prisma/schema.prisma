@@ -1,4 +1,4 @@
-// SaveMeal data model: docs/DOMAIN.md v1.1 §2 (spec §3.1–3.2 table names).
+// SaveMeal data model: docs/DOMAIN.md v1.2 §2 (spec §3.1–3.2 table names).
 // Models are PascalCase, tables snake_case. Instants are timestamptz (UTC), money is integer VND,
 // IDs are UUID v4. Invariants Prisma cannot express (CHECKs, partial unique indexes, the
 // append-only trigger on event_logs) are in the migration SQL.
@@ -76,10 +76,30 @@ enum ListingStatus {
 }
 
 enum ReservationStatus {
+  PENDING_PAYMENT
   RESERVED
   COMPLETED
   CANCELLED
   EXPIRED
+}
+
+enum PaymentProvider {
+  SEPAY
+  MOCK
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  EXPIRED
+  REFUND_DUE
+  REFUNDED
+}
+
+enum PayoutStatus {
+  NONE
+  PENDING_PAYOUT
+  SETTLED
 }
 
 enum CancelReason {
@@ -159,9 +179,12 @@ model Account {
   refreshTokens    RefreshToken[]
   listings         FoodListing[]
   uploadedImages   ListingImage[] @relation("ImageUploader")
-  purchases        Reservation[]  @relation("ReservationBuyer")
-  sales            Reservation[]  @relation("ReservationSeller")
-  reportsFiled     Report[]       @relation("ReportReporter")
+  purchases        Reservation[]        @relation("ReservationBuyer")
+  sales            Reservation[]        @relation("ReservationSeller")
+  paymentsAsBuyer  Payment[]            @relation("PaymentBuyer")
+  paymentsAsSeller Payment[]            @relation("PaymentSeller")
+  payoutAccount    SellerPayoutAccount?
+  reportsFiled     Report[]             @relation("ReportReporter")
   reportsAgainst   Report[]       @relation("ReportReported")
   reportsHandled   Report[]       @relation("ReportHandler")
   feedbackGiven    Feedback[]     @relation("FeedbackAuthor")
@@ -299,26 +322,30 @@ model Reservation {
   listingId      String            @map("listing_id") @db.Uuid
   buyerId        String            @map("buyer_id") @db.Uuid
   sellerId       String            @map("seller_id") @db.Uuid
-  quantity       Int
-  unitPrice      Int               @map("unit_price")
-  totalPrice     Int               @map("total_price")
-  /// 4 digits, shown as "SM–4281"; unique among the seller's RESERVED orders (partial index).
+  quantity         Int
+  unitPrice        Int               @map("unit_price")
+  totalPrice       Int               @map("total_price")
+  platformFee      Int               @default(0) @map("platform_fee")
+  payableAmount    Int               @default(0) @map("payable_amount")
+  /// 4 digits, shown as "SM–4281"; unique among the seller's active orders (partial index).
   /// It is also the manual handover fallback (D§6).
-  code           String            @db.VarChar(4)
-  status         ReservationStatus @default(RESERVED)
-  cancelReason   CancelReason?     @map("cancel_reason")
-  cancelNote     String?           @map("cancel_note") @db.VarChar(200)
+  code             String            @db.VarChar(4)
+  status           ReservationStatus @default(RESERVED)
+  paymentExpiresAt DateTime?         @map("payment_expires_at") @db.Timestamptz(3)
+  cancelReason     CancelReason?     @map("cancel_reason")
+  cancelNote       String?           @map("cancel_note") @db.VarChar(200)
   /// RES-1 Idempotency-Key; unique per buyer. A replay with a different body is detected by
   /// comparing listingId and quantity.
-  idempotencyKey String            @map("idempotency_key") @db.VarChar(64)
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
-  completedAt    DateTime?         @map("completed_at") @db.Timestamptz(3)
-  closedAt       DateTime?         @map("closed_at") @db.Timestamptz(3)
+  idempotencyKey   String            @map("idempotency_key") @db.VarChar(64)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  completedAt      DateTime?         @map("completed_at") @db.Timestamptz(3)
+  closedAt         DateTime?         @map("closed_at") @db.Timestamptz(3)
 
   listing      FoodListing   @relation(fields: [listingId], references: [id], onDelete: Restrict)
   buyer        Account       @relation("ReservationBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
   seller       Account       @relation("ReservationSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+  payment      Payment?
   pickupTokens PickupToken[]
   reports      Report[]
   feedback     Feedback?
@@ -347,6 +374,61 @@ model PickupToken {
   @@index([reservationId, createdAt])
   @@index([expiresAt])
   @@map("pickup_tokens")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Payments and payouts (v1.2)
+// ---------------------------------------------------------------------------------------------
+
+model Payment {
+  id              String          @id @default(uuid()) @db.Uuid
+  reservationId   String          @unique @map("reservation_id") @db.Uuid
+  buyerId         String          @map("buyer_id") @db.Uuid
+  sellerId        String          @map("seller_id") @db.Uuid
+  provider        PaymentProvider
+  status          PaymentStatus   @default(UNPAID)
+  payoutStatus    PayoutStatus    @default(NONE) @map("payout_status")
+  foodAmount      Int             @map("food_amount")
+  platformFee     Int             @map("platform_fee")
+  payableAmount   Int             @map("payable_amount")
+  sellerNet       Int             @map("seller_net")
+  bankCode        String          @map("bank_code") @db.VarChar(20)
+  accountNo       String          @map("account_no") @db.VarChar(40)
+  accountName     String          @map("account_name") @db.VarChar(120)
+  transferContent String          @unique @map("transfer_content") @db.VarChar(40)
+  qrImageUrl      String          @map("qr_image_url") @db.VarChar(500)
+  checkoutUrl     String?         @map("checkout_url") @db.VarChar(500)
+  providerTxId    String?         @unique @map("provider_tx_id") @db.VarChar(120)
+  expiresAt       DateTime        @map("expires_at") @db.Timestamptz(3)
+  paidAt          DateTime?       @map("paid_at") @db.Timestamptz(3)
+  refundedAt      DateTime?       @map("refunded_at") @db.Timestamptz(3)
+  refundNote      String?         @map("refund_note") @db.VarChar(500)
+  settledAt       DateTime?       @map("settled_at") @db.Timestamptz(3)
+  settleNote      String?         @map("settle_note") @db.VarChar(500)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  buyer       Account     @relation("PaymentBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  seller      Account     @relation("PaymentSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([sellerId, payoutStatus])
+  @@index([expiresAt])
+  @@map("payments")
+}
+
+model SellerPayoutAccount {
+  accountId   String   @id @map("account_id") @db.Uuid
+  bankCode    String   @map("bank_code") @db.VarChar(20)
+  accountNo   String   @map("account_no") @db.VarChar(40)
+  accountName String   @map("account_name") @db.VarChar(120)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("seller_payout_accounts")
 }
 
 // ---------------------------------------------------------------------------------------------

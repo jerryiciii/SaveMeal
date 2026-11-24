@@ -17,6 +17,9 @@ import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
 import { RateLimiter } from '../common/rate-limiter';
 import { localDate, toApiTime } from '../common/time';
 import { AppConfig } from '../config/app-config';
+import { calculatePlatformFee } from '../payments/fee';
+import { buildSePayQrUrl, generateTransferContent } from '../payments/payment.gateway';
+import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   computePickupTokenExpiry,
@@ -50,6 +53,7 @@ export class ReservationsService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly rateLimiter: RateLimiter,
+    private readonly payments: PaymentsService,
   ) {}
 
   // ------------------------------------------------------------------------------------------
@@ -101,8 +105,16 @@ export class ReservationsService {
       throw new AppException('QUANTITY_LIMIT_EXCEEDED', { max: this.config.reservations.maxQtyPerReservation });
     }
 
+    // D§6 lazy-expiry: sweep expired PENDING_PAYMENT holds on this listing and buyer first.
+    await this.payments.expirePendingPayments(tx, { listingId: dto.listingId }, now);
+    await this.payments.expirePendingPayments(tx, { buyerId: account.id }, now);
+
     const existingActive = await tx.reservation.findFirst({
-      where: { buyerId: account.id, listingId: dto.listingId, status: 'RESERVED' },
+      where: {
+        buyerId: account.id,
+        listingId: dto.listingId,
+        status: { in: ['PENDING_PAYMENT', 'RESERVED'] },
+      },
       select: { id: true },
     });
     if (existingActive) {
@@ -113,8 +125,10 @@ export class ReservationsService {
     const activeCount = await tx.reservation.count({
       where: {
         buyerId: account.id,
-        status: 'RESERVED',
-        listing: { pickupEnd: { gt: activeCutoff } },
+        OR: [
+          { status: 'PENDING_PAYMENT', paymentExpiresAt: { gt: now } },
+          { status: 'RESERVED', listing: { pickupEnd: { gt: activeCutoff } } },
+        ],
       },
     });
     if (activeCount >= this.config.reservations.maxActivePerAccount) {
@@ -145,6 +159,93 @@ export class ReservationsService {
     const code = await this.pickUniqueOrderCode(tx, listing.seller_id);
     const unitPrice = listing.price;
     const totalPrice = unitPrice * dto.quantity;
+    const requiresPayment = this.config.features.payments && totalPrice > 0;
+
+    if (requiresPayment) {
+      const holdMinutes = dto.holdMinutes ?? this.config.payments.defaultHoldMin;
+      if (holdMinutes < this.config.payments.minHoldMin) {
+        throw new AppException('PAYMENT_HOLD_INVALID', { minHoldMin: this.config.payments.minHoldMin });
+      }
+      const paymentExpiresAt = new Date(now.getTime() + holdMinutes * ONE_MINUTE_MS);
+      if (paymentExpiresAt.getTime() > listing.pickup_end.getTime()) {
+        throw new AppException('PAYMENT_HOLD_INVALID', { reason: 'exceeds_pickup_end' });
+      }
+
+      const platformFee = calculatePlatformFee(totalPrice, this.config.payments.fees);
+      const payableAmount = totalPrice + platformFee;
+
+      const created = await tx.reservation.create({
+        data: {
+          listingId: dto.listingId,
+          buyerId: account.id,
+          sellerId: listing.seller_id,
+          quantity: dto.quantity,
+          unitPrice,
+          totalPrice,
+          platformFee,
+          payableAmount,
+          code,
+          status: 'PENDING_PAYMENT',
+          paymentExpiresAt,
+          idempotencyKey,
+        },
+        include: RESERVATION_INCLUDE,
+      });
+
+      const provider = this.config.payments.provider === 'sepay' ? 'SEPAY' : 'MOCK';
+      const bankCode = this.config.payments.sepay.bankCode ?? 'MOCK';
+      const accountNo = this.config.payments.sepay.accountNo ?? '0000000000';
+      const accountName = this.config.payments.sepay.accountName ?? 'SAVEMEAL DEMO';
+      const transferContent = generateTransferContent();
+      const qrImageUrl =
+        provider === 'SEPAY'
+          ? buildSePayQrUrl({ bankCode, accountNo, amount: payableAmount, transferContent })
+          : `https://mock.savemeal.local/qr?code=${encodeURIComponent(transferContent)}&amount=${payableAmount}`;
+
+      const payment = await tx.payment.create({
+        data: {
+          reservationId: created.id,
+          buyerId: account.id,
+          sellerId: listing.seller_id,
+          provider,
+          status: 'UNPAID',
+          payoutStatus: 'NONE',
+          foodAmount: totalPrice,
+          platformFee,
+          payableAmount,
+          sellerNet: totalPrice,
+          bankCode,
+          accountNo,
+          accountName,
+          transferContent,
+          qrImageUrl,
+          expiresAt: paymentExpiresAt,
+        },
+      });
+
+      await logEvent(tx, {
+        actorId: account.id,
+        actorType: 'USER',
+        event: 'RESERVATION_CREATED',
+        entityType: 'reservation',
+        entityId: created.id,
+        data: {
+          listingId: dto.listingId,
+          sellerId: listing.seller_id,
+          quantity: dto.quantity,
+          unitPrice,
+          totalPrice,
+          platformFee,
+          payableAmount,
+          status: 'PENDING_PAYMENT',
+        },
+      });
+
+      return {
+        row: { ...created, payment },
+        pickupToken: null,
+      };
+    }
 
     const created = await tx.reservation.create({
       data: {
@@ -154,6 +255,8 @@ export class ReservationsService {
         quantity: dto.quantity,
         unitPrice,
         totalPrice,
+        platformFee: 0,
+        payableAmount: totalPrice,
         code,
         status: 'RESERVED',
         idempotencyKey,
@@ -225,7 +328,7 @@ export class ReservationsService {
 
   private async pickUniqueOrderCode(tx: Tx, sellerId: string): Promise<string> {
     const activeCodes = await tx.reservation.findMany({
-      where: { sellerId, status: 'RESERVED' },
+      where: { sellerId, status: { in: ['PENDING_PAYMENT', 'RESERVED'] } },
       select: { code: true },
     });
     const used = new Set(activeCodes.map((r) => r.code));
@@ -247,10 +350,14 @@ export class ReservationsService {
   // ------------------------------------------------------------------------------------------
 
   async myReservations(account: AuthAccount, query: MyReservationsQueryDto): Promise<{ data: Reservation[]; page: PageInfo }> {
+    await this.payments.expirePendingPayments(undefined, { buyerId: account.id });
+
     const limit = query.limit ?? DEFAULT_LIMIT;
     const offset = decodeCursor(query.cursor);
     const isHistory = query.tab === 'history';
-    const statuses: ReservationStatus[] = isHistory ? ['COMPLETED', 'CANCELLED', 'EXPIRED'] : ['RESERVED'];
+    const statuses: ReservationStatus[] = isHistory
+      ? ['COMPLETED', 'CANCELLED', 'EXPIRED']
+      : ['PENDING_PAYMENT', 'RESERVED'];
 
     const rows = await this.prisma.reservation.findMany({
       where: { buyerId: account.id, status: { in: statuses } },
@@ -274,6 +381,8 @@ export class ReservationsService {
   // ------------------------------------------------------------------------------------------
 
   async getById(account: AuthAccount, id: string): Promise<Reservation> {
+    await this.payments.expirePendingPayments(undefined, { reservationId: id });
+
     const row = await this.prisma.reservation.findUnique({ where: { id }, include: RESERVATION_INCLUDE });
     if (!row) throw new AppException('RESERVATION_NOT_FOUND');
 
@@ -294,14 +403,49 @@ export class ReservationsService {
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT 1 FROM reservations WHERE id = ${id}::uuid FOR UPDATE`;
+      await this.payments.expirePendingPayments(tx, { reservationId: id }, now);
+
       const row = await tx.reservation.findUnique({
         where: { id },
-        include: { listing: { select: { id: true, status: true, pickupEnd: true } } },
+        include: {
+          listing: { select: { id: true, status: true, pickupEnd: true } },
+          payment: true,
+        },
       });
       if (!row || row.buyerId !== account.id) throw new AppException('RESERVATION_NOT_FOUND');
-      if (row.status !== 'RESERVED') throw new AppException('RESERVATION_NOT_ACTIVE');
+      if (row.status !== 'PENDING_PAYMENT' && row.status !== 'RESERVED') {
+        throw new AppException('RESERVATION_NOT_ACTIVE');
+      }
       if (!row.listing.pickupEnd || now.getTime() >= row.listing.pickupEnd.getTime()) {
         throw new AppException('CANCEL_WINDOW_CLOSED');
+      }
+
+      if (row.status === 'PENDING_PAYMENT' && row.payment && row.payment.status === 'UNPAID') {
+        await tx.payment.update({
+          where: { id: row.payment.id },
+          data: { status: 'EXPIRED' },
+        });
+        await logEvent(tx, {
+          actorId: account.id,
+          actorType: 'USER',
+          event: 'PAYMENT_EXPIRED',
+          entityType: 'payment',
+          entityId: row.payment.id,
+          data: { reservationId: id, reason: 'BUYER_CANCELLED' },
+        });
+      } else if (row.status === 'RESERVED' && row.payment && row.payment.status === 'PAID') {
+        await tx.payment.update({
+          where: { id: row.payment.id },
+          data: { status: 'REFUND_DUE', refundNote: 'Buyer cancelled reservation' },
+        });
+        await logEvent(tx, {
+          actorId: account.id,
+          actorType: 'USER',
+          event: 'PAYMENT_REFUND_DUE',
+          entityType: 'payment',
+          entityId: row.payment.id,
+          data: { reservationId: id, reason: dto.reason },
+        });
       }
 
       const cancelled = await tx.reservation.update({
@@ -475,7 +619,7 @@ export class ReservationsService {
       const blockingReason = this.evaluateBlockingReason(token.reservation, token, now);
       return {
         reservation: toReservation(token.reservation, 'SELLER', null, now),
-        amountToCollect: token.reservation.totalPrice,
+        amountToCollect: token.reservation.payment?.status === 'PAID' ? 0 : token.reservation.totalPrice,
         canConfirm: blockingReason === null,
         blockingReason,
       };
@@ -493,7 +637,7 @@ export class ReservationsService {
     const blockingReason = this.evaluateBlockingReason(reservation, null, now);
     return {
       reservation: toReservation(reservation, 'SELLER', null, now),
-      amountToCollect: reservation.totalPrice,
+      amountToCollect: reservation.payment?.status === 'PAID' ? 0 : reservation.totalPrice,
       canConfirm: blockingReason === null,
       blockingReason,
     };
@@ -564,6 +708,13 @@ export class ReservationsService {
         where: { reservationId: row.id, usedAt: null, revokedAt: null },
         data: { revokedAt: now },
       });
+
+      if (row.payment?.status === 'PAID') {
+        await tx.payment.update({
+          where: { id: row.payment.id },
+          data: { payoutStatus: 'PENDING_PAYOUT' },
+        });
+      }
 
       const completed = await tx.reservation.update({
         where: { id: row.id },

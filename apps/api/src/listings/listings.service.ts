@@ -6,6 +6,7 @@ import { AppException } from '../common/errors/app-exception';
 import { logEvent } from '../common/event-log';
 import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
 import { AppConfig } from '../config/app-config';
+import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateListingDto, DeclarationDto, MyListingsQuery, UpdateListingDto, WithdrawListingDto } from './listing.dto';
 import { LISTING_INCLUDE, toDetail, toOwnerView, type ListingRow, type PortionCounts } from './listing.mapper';
@@ -21,6 +22,7 @@ export class ListingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
+    private readonly payments: PaymentsService,
   ) {}
 
   // ------------------------------------------------------------------------------------------
@@ -34,13 +36,13 @@ export class ListingsService {
   async portionCounts(ids: string[]): Promise<Map<string, PortionCounts>> {
     const groups = await this.prisma.reservation.groupBy({
       by: ['listingId', 'status'],
-      where: { listingId: { in: ids }, status: { in: ['RESERVED', 'COMPLETED'] } },
+      where: { listingId: { in: ids }, status: { in: ['PENDING_PAYMENT', 'RESERVED', 'COMPLETED'] } },
       _sum: { quantity: true },
     });
     const map = new Map<string, PortionCounts>(ids.map((id) => [id, { reserved: 0, completed: 0 }]));
     for (const g of groups) {
       const counts = map.get(g.listingId)!;
-      if (g.status === 'RESERVED') counts.reserved = g._sum.quantity ?? 0;
+      if (g.status === 'PENDING_PAYMENT' || g.status === 'RESERVED') counts.reserved += g._sum.quantity ?? 0;
       else counts.completed = g._sum.quantity ?? 0;
     }
     return map;
@@ -73,6 +75,7 @@ export class ListingsService {
    * a closed listing still gets the detail.
    */
   async get(viewer: AuthAccount | undefined, id: string) {
+    await this.payments.expirePendingPayments(undefined, { listingId: id });
     const row = await this.loadRow(id);
     if (!row) throw new AppException('LISTING_NOT_FOUND');
     if (viewer && (viewer.id === row.sellerId || viewer.role === 'ADMIN')) return this.ownerView(id);
@@ -86,7 +89,7 @@ export class ListingsService {
       : [];
     const publicVisible = row.status === 'PUBLISHED' && row.seller.status === 'ACTIVE';
     if (!publicVisible && mine.length === 0) throw new AppException('LISTING_NOT_FOUND');
-    return toDetail(row, mine.find((r) => r.status === 'RESERVED')?.id ?? null);
+    return toDetail(row, mine.find((r) => r.status === 'RESERVED' || r.status === 'PENDING_PAYMENT')?.id ?? null);
   }
 
   // ------------------------------------------------------------------------------------------
@@ -272,8 +275,9 @@ export class ListingsService {
   }
 
   /**
-   * Cancels every RESERVED order of a closed listing and revokes their pickup tokens. Stock is not
-   * released: the listing is closed (D§4). Shared with admin block (M5).
+   * Cancels every PENDING_PAYMENT and RESERVED order of a closed listing, revokes their pickup
+   * tokens, expires UNPAID payments, and marks PAID payments as REFUND_DUE. Stock is not released:
+   * the listing is closed (D§4). Shared with admin block (M5).
    */
   async cancelActiveReservations(
     tx: Tx,
@@ -282,17 +286,54 @@ export class ListingsService {
     actorId: string | null,
     actorType: 'USER' | 'ADMIN' | 'SYSTEM',
   ): Promise<number> {
+    const now = new Date();
     const cancelled = await tx.$queryRaw<{ id: string }[]>`
       UPDATE reservations
-         SET status = 'CANCELLED', cancel_reason = ${reason}::"CancelReason", closed_at = now(), updated_at = now()
-       WHERE listing_id = ${listingId}::uuid AND status = 'RESERVED'
+         SET status = 'CANCELLED', cancel_reason = ${reason}::"CancelReason", closed_at = ${now}, updated_at = ${now}
+       WHERE listing_id = ${listingId}::uuid AND status IN ('PENDING_PAYMENT', 'RESERVED')
       RETURNING id`;
     if (cancelled.length === 0) return 0;
     const ids = cancelled.map((r) => r.id);
     await tx.pickupToken.updateMany({
       where: { reservationId: { in: ids }, usedAt: null, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: now },
     });
+
+    const idParams = ids.map((id) => Prisma.sql`${id}::uuid`);
+    const expiredPayments = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
+      UPDATE payments
+         SET status = 'EXPIRED', updated_at = ${now}
+       WHERE reservation_id IN (${Prisma.join(idParams)})
+         AND status = 'UNPAID'
+      RETURNING id, reservation_id`;
+
+    const refundDuePayments = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
+      UPDATE payments
+         SET status = 'REFUND_DUE', refund_note = ${reason}, updated_at = ${now}
+       WHERE reservation_id IN (${Prisma.join(idParams)})
+         AND status = 'PAID'
+      RETURNING id, reservation_id`;
+
+    for (const payment of expiredPayments) {
+      await logEvent(tx, {
+        actorId,
+        actorType,
+        event: 'PAYMENT_EXPIRED',
+        entityType: 'payment',
+        entityId: payment.id,
+        data: { reservationId: payment.reservation_id, reason },
+      });
+    }
+    for (const payment of refundDuePayments) {
+      await logEvent(tx, {
+        actorId,
+        actorType,
+        event: 'PAYMENT_REFUND_DUE',
+        entityType: 'payment',
+        entityId: payment.id,
+        data: { reservationId: payment.reservation_id, reason },
+      });
+    }
     for (const reservationId of ids) {
       await logEvent(tx, {
         actorId,

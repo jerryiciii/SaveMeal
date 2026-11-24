@@ -428,6 +428,8 @@ export class AdminService {
           quantity: r.quantity,
           unitPrice: r.unitPrice,
           totalPrice: r.totalPrice,
+          platformFee: r.platformFee,
+          payableAmount: r.payableAmount || r.totalPrice,
           listing: {
             id: r.listing.id,
             title: r.listing.title,
@@ -441,6 +443,7 @@ export class AdminService {
           buyer: { displayName: r.buyer.displayName ?? 'Người mua' },
           // ADMIN never receives pickupToken (API_CONTRACT §9 ADM-8).
           pickupToken: null,
+          payment: null,
           cancelReason: r.cancelReason,
           createdAt: toApiTime(r.createdAt),
           completedAt: toApiTimeOrNull(r.completedAt),

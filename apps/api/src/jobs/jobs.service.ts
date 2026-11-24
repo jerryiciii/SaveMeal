@@ -4,6 +4,7 @@ import { logEvent } from '../common/event-log';
 import { localDate } from '../common/time';
 import { AppConfig } from '../config/app-config';
 import { MediaStorage } from '../media/media-storage';
+import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type CleanupResult = {
@@ -48,6 +49,7 @@ export class JobsService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly media: MediaStorage,
+    private readonly payments: PaymentsService,
   ) {}
 
   private shouldSkipInProcessCron(): boolean {
@@ -115,12 +117,15 @@ export class JobsService {
   }
 
   /**
-   * JOB-2: idempotently marks RESERVED reservations whose listing pickupEnd + noShowGraceMin <= now
-   * as EXPIRED, revokes their unused pickup tokens, and logs RESERVATION_EXPIRED events.
+   * JOB-2: idempotently expires PENDING_PAYMENT holds past payment_expires_at (releasing stock)
+   * and marks RESERVED reservations whose listing pickupEnd + noShowGraceMin <= now as EXPIRED,
+   * revoking their unused pickup tokens and logging RESERVATION_EXPIRED events.
    */
   async expireReservations(now = new Date()): Promise<number> {
+    const pendingExpired = await this.payments.expirePendingPayments(undefined, undefined, now);
+
     const cutoff = new Date(now.getTime() - this.config.reservations.noShowGraceMin * 60_000);
-    return this.prisma.$transaction(async (tx) => {
+    const reservedExpired = await this.prisma.$transaction(async (tx) => {
       const expired = await tx.$queryRaw<
         { id: string; listing_id: string; seller_id: string; quantity: number }[]
       >`
@@ -156,6 +161,8 @@ export class JobsService {
       }
       return expired.length;
     });
+
+    return pendingExpired + reservedExpired;
   }
 
   /**

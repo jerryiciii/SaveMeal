@@ -1,4 +1,4 @@
-// Enum values mirror docs/API_CONTRACT.md v1.1 §1 and docs/DOMAIN.md §2. Each enum is a readonly
+// Enum values mirror docs/API_CONTRACT.md v1.2 §1 and docs/DOMAIN.md §2. Each enum is a readonly
 // tuple (usable at runtime, e.g. for validation and GET /config) plus a string-literal union type.
 
 export const USER_ROLES = ['USER', 'ADMIN'] as const;
@@ -39,8 +39,23 @@ export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
 export const TERMINAL_LISTING_STATUSES = ['EXPIRED', 'WITHDRAWN', 'BLOCKED'] as const satisfies readonly ListingStatus[];
 
-export const RESERVATION_STATUSES = ['RESERVED', 'COMPLETED', 'CANCELLED', 'EXPIRED'] as const;
+export const RESERVATION_STATUSES = [
+  'PENDING_PAYMENT',
+  'RESERVED',
+  'COMPLETED',
+  'CANCELLED',
+  'EXPIRED',
+] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+
+export const PAYMENT_PROVIDERS = ['SEPAY', 'MOCK'] as const;
+export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
+
+export const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'EXPIRED', 'REFUND_DUE', 'REFUNDED'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYOUT_STATUSES = ['NONE', 'PENDING_PAYOUT', 'SETTLED'] as const;
+export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 
 export const CANCEL_REASONS = [
   'BUYER_LATE',
@@ -129,6 +144,6 @@ export type PickupDay = (typeof PICKUP_DAYS)[number];
 export const LISTING_TABS = ['active', 'done'] as const;
 export type ListingTab = (typeof LISTING_TABS)[number];
 
-/** RES-2 `tab` (`upcoming` = RESERVED). */
+/** RES-2 `tab` (`upcoming` = PENDING_PAYMENT and RESERVED). */
 export const RESERVATION_TABS = ['upcoming', 'history'] as const;
 export type ReservationTab = (typeof RESERVATION_TABS)[number];
