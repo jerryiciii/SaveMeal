@@ -74,11 +74,24 @@ describe("UI kit", () => {
     expect(screen.getByRole("button", { name: "Bánh ngọt, 15k" }).textContent).toBe("15k");
   });
 
-  it("BottomNav marks the current tab", async () => {
+  it("BottomNav starts collapsed and expands to mark the current tab", async () => {
     pathname = "/saved";
     const { BottomNav } = await import("./BottomNav");
     render(<BottomNav />);
+
+    const toggle = screen.getByRole("button", { name: "Mở thanh điều hướng" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("link", { name: "Đã lưu" })).toBeNull();
+
+    fireEvent.click(toggle);
     expect(screen.getByRole("link", { name: "Đã lưu" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Khám phá" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Đăng món" })).toBeTruthy();
+
+    // Scrolling down > 36px auto-collapses the bar back to the circular button.
+    Object.defineProperty(window, "scrollY", { value: 80, configurable: true });
+    fireEvent.scroll(document);
+    expect(screen.getByRole("button", { name: "Mở thanh điều hướng" })).toBeTruthy();
+    Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
   });
 });

@@ -22,19 +22,37 @@ type FreeSort = "distance" | "pickupSoon";
  * Queries LIST-1 with `free=true&pickupDay=today`.
  */
 export function FreeFoodScreen() {
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [point, setPoint] = useState<ClientPoint | null>(null);
+  const cachedConfig = saveMeal.peekConfig() ?? null;
+  const initialPoint = cachedConfig ? (getClientLocation() ?? cachedConfig.defaultCenter) : null;
+
+  const [config, setConfig] = useState<AppConfig | null>(cachedConfig);
+  const [point, setPoint] = useState<ClientPoint | null>(initialPoint);
   const [radiusKm, setRadiusKm] = useState<number>(3);
   const [sort, setSort] = useState<FreeSort>("distance");
   const [reload, setReload] = useState(0);
 
   const requestKey = point ? `${point.lat}|${point.lng}|${radiusKm}|${sort}|${reload}` : "";
-  const [entry, setEntry] = useState<{ key: string; state: LoadState }>({ key: "", state: { kind: "loading" } });
+  const [entry, setEntry] = useState<{ key: string; state: LoadState }>(() => {
+    if (!initialPoint) return { key: "", state: { kind: "loading" } };
+    const cached = saveMeal.peekSearchListings({
+      free: true,
+      pickupDay: "today",
+      lat: initialPoint.lat,
+      lng: initialPoint.lng,
+      radiusKm: 3,
+      sort: "distance",
+      limit: 20,
+    });
+    if (cached) {
+      return { key: `${initialPoint.lat}|${initialPoint.lng}|3|distance|0`, state: { kind: "ready", cards: cached.data } };
+    }
+    return { key: "", state: { kind: "loading" } };
+  });
 
   useEffect(() => {
     let cancelled = false;
     saveMeal
-      .getConfig()
+      .getConfig({ cache: true, force: reload > 0 })
       .then((c) => {
         if (cancelled) return;
         setConfig(c);
@@ -55,15 +73,18 @@ export function FreeFoodScreen() {
     let cancelled = false;
     const forKey = requestKey;
     saveMeal
-      .searchListings({
-        free: true,
-        pickupDay: "today",
-        lat: point.lat,
-        lng: point.lng,
-        radiusKm,
-        sort,
-        limit: 20,
-      })
+      .searchListings(
+        {
+          free: true,
+          pickupDay: "today",
+          lat: point.lat,
+          lng: point.lng,
+          radiusKm,
+          sort,
+          limit: 20,
+        },
+        { cache: true, force: reload > 0 },
+      )
       .then((res) => {
         if (!cancelled) setEntry({ key: forKey, state: { kind: "ready", cards: res.data } });
       })
@@ -78,7 +99,7 @@ export function FreeFoodScreen() {
     return () => {
       cancelled = true;
     };
-  }, [point, radiusKm, sort, requestKey]);
+  }, [point, radiusKm, sort, requestKey, reload]);
 
   const state: LoadState =
     entry.key === "cfg-err" ? entry.state : requestKey && entry.key === requestKey ? entry.state : { kind: "loading" };

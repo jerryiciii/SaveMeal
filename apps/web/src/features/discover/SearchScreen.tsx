@@ -32,21 +32,43 @@ function SearchScreenInner() {
   const searchParams = useSearchParams();
   const initialQ = searchParams.get("q")?.trim() ?? "";
 
+  const cachedConfig = saveMeal.peekConfig() ?? null;
+  const initialPoint = cachedConfig ? (getClientLocation() ?? cachedConfig.defaultCenter) : null;
+
   const [input, setInput] = useState(initialQ);
   const [debouncedQ, setDebouncedQ] = useState(initialQ);
   const [recent, setRecent] = useState<string[]>([]);
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [point, setPoint] = useState<ClientPoint | null>(null);
+  const [config, setConfig] = useState<AppConfig | null>(cachedConfig);
+  const [point, setPoint] = useState<ClientPoint | null>(initialPoint);
   const [reload, setReload] = useState(0);
 
   const trimmed = debouncedQ.trim();
   const queryKey = trimmed && point ? `${trimmed}|${point.lat}|${point.lng}|${reload}` : "";
-  const [entry, setEntry] = useState<{ key: string; state: SearchState }>({ key: "", state: { kind: "idle" } });
+  const [entry, setEntry] = useState<{ key: string; state: SearchState }>(() => {
+    if (!initialQ || !initialPoint) return { key: "", state: { kind: "idle" } };
+    const freeOnly = isFreeShortcut(initialQ);
+    const cached = saveMeal.peekSearchListings({
+      lat: initialPoint.lat,
+      lng: initialPoint.lng,
+      radiusKm: 5,
+      q: freeOnly ? undefined : initialQ,
+      free: freeOnly ? true : undefined,
+      sort: "distance",
+      limit: 20,
+    });
+    if (cached) {
+      return {
+        key: `${initialQ}|${initialPoint.lat}|${initialPoint.lng}|0`,
+        state: { kind: "ready", cards: cached.data },
+      };
+    }
+    return { key: "", state: { kind: "idle" } };
+  });
 
   useEffect(() => {
     let cancelled = false;
     saveMeal
-      .getConfig()
+      .getConfig({ cache: true })
       .then((c) => {
         if (cancelled) return;
         setConfig(c);
@@ -74,15 +96,18 @@ function SearchScreenInner() {
     const forKey = queryKey;
     const freeOnly = isFreeShortcut(trimmed);
     saveMeal
-      .searchListings({
-        lat: point.lat,
-        lng: point.lng,
-        radiusKm: 5,
-        q: freeOnly ? undefined : trimmed,
-        free: freeOnly ? true : undefined,
-        sort: "distance",
-        limit: 20,
-      })
+      .searchListings(
+        {
+          lat: point.lat,
+          lng: point.lng,
+          radiusKm: 5,
+          q: freeOnly ? undefined : trimmed,
+          free: freeOnly ? true : undefined,
+          sort: "distance",
+          limit: 20,
+        },
+        { cache: true, force: reload > 0 },
+      )
       .then((res) => {
         if (!cancelled) setEntry({ key: forKey, state: { kind: "ready", cards: res.data } });
       })
@@ -97,7 +122,7 @@ function SearchScreenInner() {
     return () => {
       cancelled = true;
     };
-  }, [trimmed, point, queryKey]);
+  }, [trimmed, point, queryKey, reload]);
 
   const state: SearchState = !trimmed
     ? { kind: "idle" }
