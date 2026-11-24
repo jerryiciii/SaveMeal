@@ -1,12 +1,26 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import loadingStyles from "@/app/loading.module.css";
 import { saveMeal, tokens } from "@/lib/api";
 import type { Me } from "@/lib/contract/types";
 
 type SessionState =
   | { status: "loading"; me: null }
+  | { status: "anonymous"; me: null }
+  | { status: "authenticated"; me: Me };
+
+type BootResult =
   | { status: "anonymous"; me: null }
   | { status: "authenticated"; me: Me };
 
@@ -20,38 +34,61 @@ type SessionValue = SessionState & {
 const SessionContext = createContext<SessionValue | null>(null);
 
 /**
+ * Module-level boot promise so React StrictMode double-mounts or Provider
+ * remounts never fire two concurrent POST /auth/refresh calls with the same
+ * rotating refresh token (which would revoke the token family).
+ */
+let bootPromise: Promise<BootResult> | null = null;
+
+function bootSession(): Promise<BootResult> {
+  if (!bootPromise) {
+    bootPromise = saveMeal
+      .refresh()
+      .then(async ({ accessToken }) => {
+        tokens.set(accessToken);
+        const me = await saveMeal.getMe();
+        return { status: "authenticated" as const, me };
+      })
+      .catch(() => {
+        tokens.set(null);
+        return { status: "anonymous" as const, me: null };
+      });
+  }
+  return bootPromise;
+}
+
+/**
  * Restores the session from the refresh cookie (AUTH-3) on load, keeps the
  * access token in memory only, and exposes ME-1.
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>({ status: "loading", me: null });
+  const settledByActionRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    saveMeal
-      .refresh()
-      .then(async ({ accessToken }) => {
-        tokens.set(accessToken);
-        const me = await saveMeal.getMe();
-        if (!cancelled) setState({ status: "authenticated", me });
-      })
-      .catch(() => {
-        tokens.set(null);
-        if (!cancelled) setState({ status: "anonymous", me: null });
-      });
+    bootSession().then((result) => {
+      if (!cancelled && !settledByActionRef.current) {
+        setState(result);
+      }
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
   const signIn = useCallback(async (requestId: string, code: string) => {
+    bootPromise = null;
     const res = await saveMeal.verifyOtp(requestId, code);
+    settledByActionRef.current = true;
     tokens.set(res.accessToken);
     setState({ status: "authenticated", me: res.user });
     return { isNewUser: res.isNewUser };
   }, []);
 
   const signOut = useCallback(async () => {
+    bootPromise = null;
+    settledByActionRef.current = true;
     try {
       await saveMeal.logout();
     } finally {
@@ -89,7 +126,14 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     if (session.status === "anonymous") router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [session.status, router, pathname]);
   if (session.status !== "authenticated") {
-    return <p style={{ padding: "80px 20px", color: "var(--text-secondary)" }}>Đang tải…</p>;
+    return (
+      <div className={loadingStyles.screen} role="status" aria-live="polite" aria-busy="true">
+        <div className={loadingStyles.card}>
+          <span className={loadingStyles.spinner} aria-hidden="true" />
+          <p className={loadingStyles.label}>Chờ mình kiểm tra chút nha…</p>
+        </div>
+      </div>
+    );
   }
   return <>{children}</>;
 }

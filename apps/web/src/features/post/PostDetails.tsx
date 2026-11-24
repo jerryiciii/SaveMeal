@@ -1,8 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Chip, Notice, ScreenHeader, TextArea, TextField } from "@/components/ui";
+import { getClientLocation } from "@/features/discover/clientLocation";
 import { STORAGE_LABEL } from "@/features/orders/labels";
 import { useSession } from "@/features/auth/SessionProvider";
 import { saveMeal } from "@/lib/api";
@@ -12,7 +14,45 @@ import { addMinutes, nextHalfHour, vnDate, vnDayOffset, vnIso, vnTime } from "@/
 import { useLoad } from "@/lib/useLoad";
 import styles from "./post.module.css";
 
+const LocationPickerMap = dynamic(() => import("./LocationPickerMap"), {
+  ssr: false,
+  loading: () => <div className={styles.mapSkeleton} aria-label="Đang tải bản đồ chọn điểm nhận…" />,
+});
+
 const STORAGES: Storage[] = ["ROOM_TEMP", "CHILLED", "FROZEN"];
+const DEFAULT_PICKUP_COORDS = { lat: 16.0544, lng: 108.2022 };
+
+type NominatimSearchHit = {
+  lat?: string;
+  lon?: string;
+  display_name?: string;
+};
+
+type NominatimReverseHit = {
+  display_name?: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    suburb?: string;
+    quarter?: string;
+    city_district?: string;
+    city?: string;
+    town?: string;
+    state?: string;
+  };
+};
+
+function formatReverseAddress(data: NominatimReverseHit): string {
+  const a = data.address;
+  if (a) {
+    const street = [a.house_number, a.road].filter(Boolean).join(" ");
+    const locality = a.suburb ?? a.quarter ?? a.city_district;
+    const city = a.city ?? a.town ?? a.state;
+    const compact = [street, locality, city].filter(Boolean).join(", ");
+    if (compact) return compact;
+  }
+  return data.display_name?.trim() ?? "";
+}
 
 /** Figma V1 25 · Đăng món · giờ nhận & bảo quản (9:181) → LIST-4 (+ ME-2 to remember the pickup point). */
 export function PostDetails({ id }: { id: string }) {
@@ -46,24 +86,85 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
   const initialPickup: PickupLocation | null =
     listing.pickup?.address ? listing.pickup : (me?.seller.defaultPickup ?? null);
   const [address, setAddress] = useState(initialPickup?.address ?? "");
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    initialPickup ? { lat: initialPickup.lat, lng: initialPickup.lng } : null,
-  );
+  const [coords, setCoords] = useState<{ lat: number; lng: number }>(() => {
+    if (listing.pickup) return { lat: listing.pickup.lat, lng: listing.pickup.lng };
+    if (me?.seller.defaultPickup) return { lat: me.seller.defaultPickup.lat, lng: me.seller.defaultPickup.lng };
+    return getClientLocation() ?? DEFAULT_PICKUP_COORDS;
+  });
+  const [pinned, setPinned] = useState<boolean>(() => Boolean(listing.pickup || me?.seller.defaultPickup || getClientLocation()));
   const [sellerName, setSellerName] = useState(me?.seller.name ?? me?.displayName ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [geoMessage, setGeoMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
+
+  async function findOnMap() {
+    const q = address.trim();
+    if (!q) {
+      setGeoMessage("Nhập địa chỉ nhận trước khi tìm trên bản đồ.");
+      return;
+    }
+    setSearchingAddress(true);
+    setGeoMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=vn&q=${encodeURIComponent(q)}`,
+        { headers: { "Accept-Language": "vi,en" } },
+      );
+      if (!res.ok) throw new Error("Nominatim search failed");
+      const results = (await res.json()) as NominatimSearchHit[];
+      const hit = results[0];
+      const lat = hit?.lat ? Number(hit.lat) : Number.NaN;
+      const lng = hit?.lon ? Number(hit.lon) : Number.NaN;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setCoords({ lat, lng });
+        setPinned(true);
+      } else {
+        setGeoMessage("Không tìm thấy địa chỉ này. Bạn có thể chạm trực tiếp vào bản đồ hoặc kéo ghim để chọn điểm nhận.");
+      }
+    } catch {
+      setGeoMessage("Chưa tìm được địa chỉ lúc này. Bạn có thể chạm trực tiếp vào bản đồ hoặc kéo ghim để chọn điểm nhận.");
+    } finally {
+      setSearchingAddress(false);
+    }
+  }
 
   function useMyLocation() {
-    if (!("geolocation" in navigator)) return setError("Thiết bị không hỗ trợ định vị.");
+    if (!("geolocation" in navigator)) {
+      setGeoMessage("Thiết bị không hỗ trợ định vị. Bạn có thể chạm trực tiếp vào bản đồ để ghim điểm nhận.");
+      return;
+    }
     setLocating(true);
+    setGeoMessage(null);
+    setError(null);
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        setCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+        const point = { lat: p.coords.latitude, lng: p.coords.longitude };
+        setCoords(point);
+        setPinned(true);
         setLocating(false);
+        if (!address.trim()) {
+          void fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(String(point.lat))}&lon=${encodeURIComponent(String(point.lng))}`,
+            { headers: { "Accept-Language": "vi,en" } },
+          )
+            .then((res) => (res.ok ? (res.json() as Promise<NominatimReverseHit>) : null))
+            .then((data) => {
+              if (!data) return;
+              const formatted = formatReverseAddress(data);
+              if (formatted) {
+                setAddress((prev) => (prev.trim() ? prev : formatted));
+              }
+            })
+            .catch(() => {
+              // Reverse geocoding is optional; ignore network errors.
+            });
+        }
       },
       () => {
-        setError("Chưa lấy được vị trí. Cho phép quyền vị trí để ghim điểm nhận.");
+        setGeoMessage("Chưa lấy được vị trí. Bạn có thể cấp quyền vị trí hoặc chạm/kéo ghim trực tiếp trên bản đồ.");
         setLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10_000 },
@@ -80,7 +181,7 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
     if (Date.parse(endIso) - Date.parse(startIso) > 4 * 3_600_000) return setError("Khung giờ nhận tối đa 4 giờ.");
     if (Date.parse(endIso) <= Date.now()) return setError("Giờ kết thúc nhận đã qua.");
     if (Date.parse(preparedIso) > Date.now()) return setError("Thời điểm chế biến phải ở trong quá khứ.");
-    if (!address.trim() || !coords) return setError("Nhập địa chỉ và ghim vị trí điểm nhận.");
+    if (!address.trim()) return setError("Nhập địa chỉ điểm nhận.");
     setBusy(true);
     setError(null);
     try {
@@ -141,9 +242,36 @@ function DetailsForm({ listing }: { listing: ListingOwnerView }) {
         />
         <TextField label="Tên người bán / cửa hàng" value={sellerName} onChange={(e) => setSellerName(e.target.value)} maxLength={60} />
         <TextField label="Địa điểm nhận" placeholder="Số nhà, đường, phường" value={address} onChange={(e) => setAddress(e.target.value)} />
-        <Button type="button" variant="secondary" onClick={useMyLocation} disabled={locating}>
-          {coords ? "Đã ghim vị trí · Ghim lại theo vị trí hiện tại" : locating ? "Đang lấy vị trí…" : "Ghim vị trí điểm nhận"}
-        </Button>
+        <div className={styles.locationActions}>
+          <Button
+            type="button"
+            variant="secondary"
+            className={styles.locationBtn}
+            onClick={findOnMap}
+            disabled={searchingAddress || locating}
+          >
+            {searchingAddress ? "Đang tìm…" : "Tìm trên bản đồ"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className={styles.locationBtn}
+            onClick={useMyLocation}
+            disabled={locating || searchingAddress}
+          >
+            {locating ? "Đang lấy vị trí…" : "Dùng vị trí hiện tại"}
+          </Button>
+        </div>
+        {geoMessage ? <p className={styles.geoHint}>{geoMessage}</p> : null}
+        <LocationPickerMap
+          coords={coords}
+          pinned={pinned}
+          onChange={(nextCoords) => {
+            setCoords(nextCoords);
+            setPinned(true);
+            setGeoMessage(null);
+          }}
+        />
         {error ? <Notice tone="error">{error}</Notice> : null}
         <Button type="submit" disabled={busy}>
           {busy ? "Đang lưu…" : "Tiếp tục · Kiểm tra an toàn"}

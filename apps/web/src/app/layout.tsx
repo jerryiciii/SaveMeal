@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { NavigationFeedback } from "@/components/ui/NavigationFeedback";
 import { SessionProvider } from "@/features/auth/SessionProvider";
 import { ServiceWorkerRegistration } from "@/pwa/ServiceWorkerRegistration";
 import "./globals.css";
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi" className={inter.variable}>
       <body>
+        <NavigationFeedback />
         <SessionProvider>
           <div className={styles.frame}>{children}</div>
         </SessionProvider>

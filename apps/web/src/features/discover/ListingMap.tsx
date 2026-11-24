@@ -6,10 +6,13 @@ import { useEffect, useRef } from "react";
 import pinStyles from "@/components/ui/MapPin.module.css";
 import type { MapPin } from "@/lib/contract/types";
 import { formatPinPrice } from "@/lib/format";
+import { buildMapStyleChain } from "./mapStyles";
 import styles from "./ListingMap.module.css";
 
+const STYLE_LOAD_TIMEOUT_MS = 6000;
+
 type Props = {
-  styleUrl: string;
+  styleUrl?: string;
   center: { lat: number; lng: number };
   pins: MapPin[];
   selectedId?: string | null;
@@ -39,28 +42,101 @@ export default function ListingMap({ styleUrl, center, pins, selectedId = null, 
   });
 
   useEffect(() => {
-    if (!box.current) return;
+    const container = box.current;
+    if (!container) return;
+
+    const styleChain = buildMapStyleChain(styleUrl);
+    let fallbackIndex = 0;
+    let styleLoaded = false;
+    let disposed = false;
+    let lastSwitchAt = 0;
+    let watchdog: ReturnType<typeof setTimeout> | null = null;
+
+    const clearWatchdog = () => {
+      if (watchdog !== null) {
+        clearTimeout(watchdog);
+        watchdog = null;
+      }
+    };
+
     const m = new maplibregl.Map({
-      container: box.current,
-      style: styleUrl,
+      container,
+      style: styleChain[0]!,
       center: [center.lng, center.lat],
       zoom: 14,
       attributionControl: false,
     });
     m.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+
     const collapseAttribution = () => {
-      const attrib = box.current?.querySelector(".maplibregl-ctrl-attrib");
+      const attrib = container.querySelector(".maplibregl-ctrl-attrib");
       if (!attrib) return;
       attrib.classList.remove("maplibregl-compact-show");
       attrib.removeAttribute("open");
     };
+
+    const scheduleWatchdog = () => {
+      clearWatchdog();
+      if (disposed || styleLoaded || fallbackIndex >= styleChain.length - 1) return;
+      watchdog = setTimeout(() => {
+        if (!disposed && !styleLoaded && !m.isStyleLoaded()) {
+          advanceFallback();
+        }
+      }, STYLE_LOAD_TIMEOUT_MS);
+    };
+
+    const advanceFallback = () => {
+      if (disposed || styleLoaded || fallbackIndex >= styleChain.length - 1) return;
+      fallbackIndex += 1;
+      const nextStyle = styleChain[fallbackIndex];
+      if (!nextStyle) return;
+      lastSwitchAt = Date.now();
+      clearWatchdog();
+      m.setStyle(nextStyle);
+      scheduleWatchdog();
+    };
+
+    const handleStyleReady = () => {
+      styleLoaded = true;
+      clearWatchdog();
+      collapseAttribution();
+      m.resize();
+    };
+
     collapseAttribution();
-    m.once("load", collapseAttribution);
+    m.on("load", handleStyleReady);
+    m.on("style.load", handleStyleReady);
+    m.on("error", (ev) => {
+      if (disposed || styleLoaded || m.isStyleLoaded()) return;
+      const errName = ev?.error && typeof ev.error === "object" && "name" in ev.error ? String(ev.error.name) : "";
+      if (errName === "AbortError") return;
+      if (Date.now() - lastSwitchAt < 300) return;
+      advanceFallback();
+    });
+
+    scheduleWatchdog();
+
+    const rafId = window.requestAnimationFrame(() => {
+      if (!disposed) m.resize();
+    });
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => {
+        if (!disposed) m.resize();
+      });
+      ro.observe(container);
+    }
+
     m.on("click", () => {
       onClearRef.current?.();
     });
     map.current = m;
     return () => {
+      disposed = true;
+      clearWatchdog();
+      window.cancelAnimationFrame(rafId);
+      ro?.disconnect();
       m.remove();
       map.current = null;
     };
