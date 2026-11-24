@@ -1,0 +1,85 @@
+// Error codes and their HTTP status, mirroring docs/API_CONTRACT.md v1.1 §16.
+
+export const ERROR_HTTP_STATUS = {
+  VALIDATION_FAILED: 400,
+  OTP_INVALID: 400,
+  OTP_EXPIRED: 400,
+
+  UNAUTHENTICATED: 401,
+  TOKEN_EXPIRED: 401,
+  REFRESH_INVALID: 401,
+
+  FORBIDDEN: 403,
+  ACCOUNT_SUSPENDED: 403,
+  FEATURE_DISABLED: 403,
+  OWN_LISTING_RESERVATION: 403,
+
+  NOT_FOUND: 404,
+  LISTING_NOT_FOUND: 404,
+  RESERVATION_NOT_FOUND: 404,
+  SELLER_NOT_FOUND: 404,
+  IMAGE_NOT_FOUND: 404,
+  REPORT_NOT_FOUND: 404,
+  ACCOUNT_NOT_FOUND: 404,
+
+  INVALID_STATE_TRANSITION: 409,
+  FIELD_LOCKED: 409,
+  QUANTITY_BELOW_RESERVED: 409,
+  PRICE_INCREASE_NOT_ALLOWED: 409,
+  PICKUP_WINDOW_EXTENSION_NOT_ALLOWED: 409,
+  LISTING_SOLD_OUT: 409,
+  LISTING_NOT_AVAILABLE: 409,
+  LISTING_BLOCKED: 409,
+  ACTIVE_RESERVATION_LIMIT: 409,
+  ALREADY_RESERVED: 409,
+  RESERVATION_NOT_ACTIVE: 409,
+  CANCEL_WINDOW_CLOSED: 409,
+  PICKUP_TOO_EARLY: 409,
+  PICKUP_WINDOW_CLOSED: 409,
+  PICKUP_TOKEN_EXPIRED: 409,
+  PICKUP_TOKEN_USED: 409,
+  IMAGE_IN_USE: 409,
+  ACCOUNT_HAS_ACTIVE_ITEMS: 409,
+
+  IMAGE_TOO_LARGE: 413,
+  IMAGE_TYPE_UNSUPPORTED: 415,
+
+  LISTING_INCOMPLETE: 422,
+  DECLARATION_INCOMPLETE: 422,
+  LISTING_TOO_OLD: 422,
+  LISTING_LIMIT: 422,
+  PICKUP_WINDOW_INVALID: 422,
+  QUANTITY_LIMIT_EXCEEDED: 422,
+  PICKUP_TOKEN_INVALID: 422,
+  PICKUP_CODE_INVALID: 422,
+  REPORT_TARGET_INVALID: 422,
+  IDEMPOTENCY_KEY_REUSED: 422,
+
+  RATE_LIMITED: 429,
+  OTP_TOO_MANY_ATTEMPTS: 429,
+
+  INTERNAL: 500,
+} as const;
+
+export type ErrorCode = keyof typeof ERROR_HTTP_STATUS;
+
+export const ERROR_CODES = Object.keys(ERROR_HTTP_STATUS) as ErrorCode[];
+
+export type ApiErrorBody = {
+  error: {
+    code: ErrorCode;
+    message: string;
+    details?: Record<string, unknown>;
+    requestId: string;
+  };
+};
+
+/** `details` of `VALIDATION_FAILED`: a map of field path → reason. */
+export type ValidationErrorDetails = { fields: Record<string, string> };
+
+/** `details` of `INVALID_STATE_TRANSITION`. */
+export type InvalidStateTransitionDetails = { from: string; action: string };
+
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(ERROR_HTTP_STATUS, value);
+}
