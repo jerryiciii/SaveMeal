@@ -1,0 +1,10 @@
+/* Phone-sized app frame; centred on wider screens. */
+.frame {
+  position: relative;
+  min-height: 100dvh;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
+  background: var(--surface-app);
+  /* clip (not hidden) so the frame does not become a scroll container and sticky nav keeps working */
+  overflow-x: clip;
+}

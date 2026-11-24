@@ -1,0 +1,25 @@
+.wrap {
+  padding: 61px var(--gutter) 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: 32px 0 0;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  font-size: 13px;
+  color: var(--text-muted);
+}
