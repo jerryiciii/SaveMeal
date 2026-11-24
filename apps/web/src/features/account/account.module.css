@@ -1,8 +1,10 @@
+/* SaveMeal V2.1 Pixel (Orbix "Instant") — Account Hub */
+
 .body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 28px var(--gutter) 32px;
+  padding: 24px var(--gutter) 36px;
 }
 
 .h1 {
@@ -13,26 +15,90 @@
   color: var(--ink);
 }
 
-.profile {
+/* High-visibility Electric Lime + Ink pending seller confirmation banner */
+.pendingBanner {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px;
-  border-radius: var(--radius-card);
+  border-radius: 24px;
+  background: var(--lime);
+  color: var(--ink);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.pendingBanner:hover {
+  opacity: 0.95;
+}
+
+.pendingBanner:active {
+  transform: scale(0.99);
+}
+
+.pendingIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--lime);
+}
+
+.pendingText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pendingTitle {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.pendingCta {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink2);
+}
+
+/* White rounded-24 Profile Card */
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 24px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  font-size: 16px;
+  border: 1px solid var(--hair);
   color: var(--ink);
 }
 
 .avatar {
   flex: none;
-  width: 50px;
-  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
+  background: var(--ink);
+  color: var(--lime);
+  font-size: 20px;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--field);
-  border: 1px solid var(--line);
+  display: block;
 }
 
 .profileInfo {
@@ -42,107 +108,203 @@
   min-width: 0;
 }
 
-.profile span {
+.profileName {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.profileSub {
   font-size: 13px;
   color: var(--muted);
 }
 
 .verified {
   align-self: flex-start;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--limesoft);
-  color: var(--success) !important;
-  font-size: 11px !important;
+  color: var(--success);
+  font-size: 11px;
   font-weight: 500;
 }
 
+/* 3-column .stat cards */
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
-.stats div {
+.stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 14px 6px;
-  border-radius: 18px;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 8px;
+  border-radius: 20px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--hair);
 }
 
-.stats b {
-  font-size: 20px;
+.statAccent {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.statValue {
+  font-size: 22px;
   font-weight: 500;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 
-.stats span {
+.statValueAccent {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--lime);
+}
+
+.statLabel {
   font-size: 11px;
+  font-weight: 500;
   color: var(--muted);
   text-align: center;
 }
 
-.links {
+.statLabelAccent {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+/* White rounded-24 .group link list with 40x40 .icn circular badges */
+.group {
   display: flex;
   flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
-  border-radius: var(--radius-card);
+  border-radius: 24px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--hair);
   overflow: hidden;
 }
 
-.links li {
+.groupItem {
   border-bottom: 1px solid var(--hair);
 }
 
-.links li:last-child {
+.groupItem:last-child {
   border-bottom: 0;
 }
 
 .link {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   padding: 14px 16px;
   background: var(--surface);
-  font-size: 15px;
   color: var(--ink);
+  transition: background-color 0.15s ease;
 }
 
 .link:hover {
   background: var(--canvas);
 }
 
-.link span {
+.icn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.icnAdmin {
+  background: var(--lilac);
+  color: var(--violet);
+}
+
+.linkCopy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linkTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.linkSub {
   font-size: 12px;
   color: var(--muted);
+}
+
+.countBadge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chevron {
+  flex: none;
+  font-size: 18px;
+  color: var(--subtle);
+  line-height: 1;
 }
 
 .adminLink {
   background: var(--lilacsoft);
 }
 
-.adminLink b {
+.adminLink:hover {
+  background: var(--lilac);
+}
+
+.adminTitle {
+  font-size: 15px;
+  font-weight: 500;
   color: var(--violet);
 }
 
+/* Full-width #111 pill CTA */
 .primary {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 52px;
-  border-radius: var(--radius-button);
+  border-radius: 999px;
   background: var(--ink);
-  color: var(--surface);
+  color: #ffffff;
   font-size: 15px;
   font-weight: 500;
+  transition: opacity 0.15s ease;
+}
+
+.primary:hover {
+  opacity: 0.92;
 }
 
 .reset {

@@ -1,29 +1,212 @@
+/* SaveMeal V2.1 Pixel (Orbix "Instant") — Settings & PWA */
+
 .body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 10px var(--gutter) 44px;
+  padding: 12px var(--gutter) 44px;
+  background: var(--canvas);
 }
 
+/* ===== Featured Dark V2.1 PWA Install Hero Card ===== */
+.pwaHero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 24px;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.pwaTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pwaIconBadge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: var(--lime);
+  color: var(--ink);
+}
+
+.pwaTitleWrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.pwaTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.pwaPill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(215, 247, 91, 0.16);
+  color: var(--lime);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.pwaPillInstalled {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.pwaDesc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pwaCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.pwaCta:hover:not(:disabled) {
+  opacity: 0.94;
+}
+
+.pwaCta:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.pwaCta:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+.pwaInstalledPill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(215, 247, 91, 0.32);
+  color: var(--lime);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.pwaFeedbackSuccess {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(215, 247, 91, 0.14);
+  color: var(--lime);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.pwaFeedbackNote {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.pwaGuide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.pwaGuideLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--lime);
+}
+
+.pwaGuideText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #ffffff;
+}
+
+/* ===== Crisp White Rounded-24 Cards & Groups ===== */
 .card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border-radius: var(--radius-card);
+  gap: 14px;
+  padding: 20px;
+  border-radius: 24px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--hair);
 }
 
-/* Soft-pink danger card for Delete Account */
-.dangerCard {
+.group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border: 1px solid rgba(201, 37, 43, 0.24);
-  border-radius: var(--radius-card);
-  background: var(--danger-soft);
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+
+.groupRow {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.groupRow:last-child {
+  border-bottom: 0;
+}
+
+.groupSub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .cardHead {
@@ -33,6 +216,38 @@
   gap: 10px;
 }
 
+.cardHeadLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 40x40 circular icon tiles */
+.icn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.icnDanger {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(201, 37, 43, 0.12);
+  color: var(--danger);
+}
+
 .sectionTitle {
   margin: 0;
   font-size: 16px;
@@ -40,20 +255,33 @@
   color: var(--ink);
 }
 
-.dangerTitle {
+.subHead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.subTitle {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
-  color: var(--danger);
+  color: var(--ink);
 }
 
 .sectionDesc {
-  margin: -4px 0 0;
+  margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--muted);
 }
 
+.divider {
+  height: 1px;
+  background: var(--hair);
+  margin: 2px 0;
+}
+
+/* Avatar */
 .avatarRow {
   display: flex;
   align-items: center;
@@ -97,7 +325,7 @@
   min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
-  background: var(--field);
+  background: var(--canvas);
   border: 1px solid var(--line);
   color: var(--ink);
   font-size: 13px;
@@ -122,7 +350,7 @@
   padding: 6px 8px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -141,7 +369,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--canvas);
   border: 1px solid var(--hair);
 }
@@ -163,9 +391,10 @@
 }
 
 .badge {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 999px;
   background: var(--limesoft);
   color: var(--success);
@@ -186,107 +415,82 @@
   align-items: center;
 }
 
-.installSteps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.installStep {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--canvas);
-  border: 1px solid var(--hair);
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--muted);
-}
-
-.installStep b {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--ink);
-  font-size: 13px;
-}
-
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid rgba(201, 37, 43, 0.2);
-  font-size: 14px;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.checkboxRow input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--danger);
-}
-
-.bulletList {
-  margin: 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--ink2);
-}
-
-.dangerButton {
+/* Primary Dark Pill CTA */
+.btnDark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 50px;
+  min-height: 52px;
   padding: 0 20px;
-  border: 1px solid rgba(201, 37, 43, 0.35);
-  border-radius: var(--radius-button);
-  background: var(--danger);
-  color: var(--surface);
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
+  transition: opacity 0.15s ease;
 }
 
-.dangerButton:disabled {
+.btnDark:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btnDark:disabled {
   background: var(--disabled);
-  border-color: transparent;
   color: var(--disabled-text);
   cursor: not-allowed;
 }
 
-.inlineLinks {
+/* Default Seller Bank QR Upload Card (.upl) */
+.upl {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 116px;
+  padding: 18px 16px;
+  border-radius: 20px;
+  border: 1.5px dashed var(--sheet-handle);
+  background: var(--canvas);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.inlineLink {
-  color: var(--violet);
-  font-size: 13px;
+.upl:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--limesoft);
+}
+
+.upl:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.uplTitle {
+  font-size: 14px;
   font-weight: 500;
+  color: var(--ink);
 }
 
-/* Default Seller Bank QR card */
-.qrPreviewBox {
+.uplSub {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.uplFilled {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--canvas);
-  border: 1px solid var(--line);
+  border: 1px solid var(--hair);
 }
 
 .qrThumb {
@@ -341,41 +545,99 @@
   border-color: var(--ink);
 }
 
-.qrEmptyBtn {
+/* Session checkbox */
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ink);
+}
+
+/* ===== Soft-Pink Danger Zone (Delete Account) ===== */
+.dangerCard {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(201, 37, 43, 0.22);
+  border-radius: 24px;
+  background: var(--danger-soft);
+}
+
+.dangerTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.dangerDesc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #7a1c20;
+}
+
+.dangerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.strongText {
+  font-weight: 500;
+}
+
+.bulletList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink2);
+}
+
+.dangerButton {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   width: 100%;
-  min-height: 112px;
-  padding: 18px 16px;
-  border-radius: 18px;
-  border: 1.5px dashed var(--sheet-handle);
-  background: var(--surface);
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.qrEmptyBtn:hover:not(:disabled) {
-  border-color: var(--ink);
-  background: var(--limesoft);
-}
-
-.qrEmptyBtn:disabled {
-  cursor: progress;
-  opacity: 0.75;
-}
-
-.qrEmptyTitle {
-  font-size: 14px;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #ffffff;
+  font-size: 15px;
   font-weight: 500;
-  color: var(--ink);
+  cursor: pointer;
 }
 
-.qrEmptySub {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--muted);
+.dangerButton:disabled {
+  background: var(--disabled);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
+.inlineLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.inlineLink {
+  color: var(--violet);
+  font-size: 13px;
+  font-weight: 500;
 }
