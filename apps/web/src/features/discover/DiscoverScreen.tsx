@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Chip, FoodCard, Icon, IconButton } from "@/components/ui";
+import { useSession } from "@/features/auth/SessionProvider";
 import { CATEGORY_LABEL } from "@/features/post/labels";
 import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
@@ -89,6 +90,7 @@ const DEFAULT_DISCOVER_CENTER: ClientPoint = { lat: 16.0544, lng: 108.2022 };
 
 function DiscoverScreenInner() {
   const router = useRouter();
+  const session = useSession();
   const searchParams = useSearchParams();
   const searchKey = searchParams.toString();
   const filters = useMemo(() => parseFiltersFromSearchParams(new URLSearchParams(searchKey)), [searchKey]);
@@ -214,6 +216,12 @@ function DiscoverScreenInner() {
         setClientLocation(p);
         setMe(p);
         setCenter(p);
+        if (session.status === "authenticated" && session.me.nearbyAlerts?.enabled) {
+          void saveMeal
+            .updateMe({ nearbyAlerts: { lat: p.lat, lng: p.lng } })
+            .then((updated) => session.setMe(updated))
+            .catch(() => {});
+        }
       },
       () => setLocError("Chưa có quyền vị trí. Bạn vẫn có thể xem món quanh khu vực mặc định."),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },

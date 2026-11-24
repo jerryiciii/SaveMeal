@@ -113,6 +113,12 @@ export function endpoints(api: ApiClient) {
         defaultPickup?: PickupLocation | null;
         bankQrImageId?: string | null;
       };
+      nearbyAlerts?: {
+        enabled?: boolean;
+        lat?: number | null;
+        lng?: number | null;
+        radiusKm?: number;
+      };
     }) => data(api.request<Envelope<Me>>("PATCH", "/me", { body: patch })),
 
     /** IMG-1 */

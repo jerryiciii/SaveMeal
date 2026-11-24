@@ -67,6 +67,13 @@ export type PickupLocation = { address: string; lat: number; lng: number };
 
 export type SellerSummary = { id: string; name: string; type: SellerType | null; verified: boolean };
 
+export type NearbyAlertsSettings = {
+  enabled: boolean;
+  lat: number | null;
+  lng: number | null;
+  radiusKm: number;
+};
+
 export type Me = {
   id: string;
   displayName: string | null;
@@ -82,6 +89,7 @@ export type Me = {
     defaultPickup: PickupLocation | null;
     bankQrImage?: Image | null;
   };
+  nearbyAlerts?: NearbyAlertsSettings;
   stats: { portionsHandedOver: number; reservationsActive: number; listingsActive: number };
   createdAt: string;
 };

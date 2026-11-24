@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, Notice, ScreenHeader, SelectField, TextField } from "@/components/ui";
 import { useSession } from "@/features/auth/SessionProvider";
 import { saveMeal } from "@/lib/api";
@@ -11,6 +11,7 @@ import { SELLER_TYPES, type Me, type PickupLocation, type SellerType } from "@/l
 import { downscaleImage } from "@/lib/image";
 import { DeleteAccountSection } from "./DeleteAccountSection";
 import { SELLER_TYPE_LABEL } from "./labels";
+import { NearbyAlertsCard } from "./NearbyAlertsCard";
 import { PwaInstallCard } from "./PwaInstallCard";
 import styles from "./settings.module.css";
 
@@ -252,6 +253,10 @@ function SettingsForm({ me }: { me: Me }) {
       <ScreenHeader title="Cài đặt & PWA" backHref="/account" />
       <div className={styles.body}>
         <PwaInstallCard />
+
+        <Suspense fallback={null}>
+          <NearbyAlertsCard me={me} />
+        </Suspense>
 
         <form className={styles.card} onSubmit={saveProfile} noValidate>
           <div className={styles.cardHead}>
