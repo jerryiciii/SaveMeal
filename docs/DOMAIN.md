@@ -1,28 +1,34 @@
-# Domain model: SaveMeal (v1.2)
+# Domain model: SaveMeal (v1.3)
 
-This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` (v1.2) defines
+This file covers the entities, state machines and invariants. `docs/API_CONTRACT.md` (v1.3) defines
 how they are exposed. When the code disagrees with this file, the code is wrong.
 
 **Product spec (source of truth since v1.1):** the competition dossier
 (Google Doc `1iDYFYzvzIvq0EYeW5WbR5xJkG2lH2isRLgfXXHuFeP4`; "LastFood" is only the paper's title,
 and **the product is SaveMeal**). It outranks the older concept paper
 (`1ATLucNflZVs9cqfspVfIaZFR6b5d_toVrAcym4XqBlw`) wherever they conflict. References below like
-"spec §3.3" point to the dossier. The UI is Figma **V1** (page `0:1`).
+"spec §3.3" point to the dossier. The UI is Figma **V1** (page `0:1`) plus V2.1 P2P payment screens
+(`25b`, `21`, `30b`, `06b`).
 
-## 0. Scope: MVP vs Later (spec §2.3, updated in v1.2)
+## 0. Scope: MVP vs Later (spec §2.3, updated in v1.3)
 
 | MVP (build now) | Later (designed, not built; behind flags or not started) |
 |---|---|
-| Phone/email OTP login; one account that both buys and sells; map, search and filters (price, food type, distance, pickup time); posting a listing with the required-info checklist; portions; pickup window; atomic reservation; automated VietQR payment via SePay webhook + buyer-paid platform fee + refund/payout ledger (feature-flagged via `PAYMENTS_ENABLED`); QR handover; order status; violation reports; admin block/suspend; KPIs | Chat, push and in-app notifications, store dashboard and staff accounts, scheduled promotions, saved items, feedback/ratings, waste logs, Google login, CSV export, pause/resume of listings |
+| Phone/email OTP login; one account that both buys and sells; map, search and filters (price, food type, distance, pickup time); posting a listing with the required-info checklist; portions; pickup window; atomic reservation; P2P direct bank QR payment + buyer transfer proof upload + seller manual confirm/reject + Resend email notifications (feature-flagged via `PAYMENTS_ENABLED`); QR handover; order status; violation reports; admin block/suspend; KPIs | Automated payment gateway webhooks (SePay/PayOS), platform fee & refund/payout ledger, chat, push and in-app notifications, store dashboard and staff accounts, scheduled promotions, saved items, feedback/ratings, waste logs, Google login, CSV export, pause/resume of listings |
 
-**Payment modes (D2, v1.2).** Online VietQR payment is controlled by `PAYMENTS_ENABLED` (default
-`false` in env/tests; set to `true` when enabled).
-- When `PAYMENTS_ENABLED=false` (or for free listings where `total_price = 0`), no money flows
-  through SaveMeal; for paid items the buyer pays the seller directly at pickup.
-- When `PAYMENTS_ENABLED=true` and `total_price > 0`, the buyer pays via automated VietQR (SePay
-  webhook) including a buyer-paid platform fee (§6). SaveMeal holds the food amount until handover
-  (`COMPLETED` → `PENDING_PAYOUT` for the seller) or records `REFUND_DUE` in the admin refund
-  ledger on cancellation, withdrawal, block, or late/mismatched transfer.
+**Payment modes (D2, v1.3).** P2P direct bank QR payment is controlled by `PAYMENTS_ENABLED`
+(default `false` in env/tests until FE finishes wiring screens `25b`, `21`, `30b`, `06b`).
+- SaveMeal holds **no money** and charges **no platform fee** in v1.3 (`platform_fee = 0`,
+  `payable_amount = total_price`, `amount = total_price`). Automated gateway webhooks
+  (SePay/PayOS) and platform fees are deferred to Later.
+- When `PAYMENTS_ENABLED=false` (or for free listings where `total_price = 0`), the buyer skips
+  `PENDING_PAYMENT` and enters `RESERVED` immediately with a `pickupToken`; for paid items the buyer
+  pays the seller directly at pickup.
+- When `PAYMENTS_ENABLED=true` and `total_price > 0`, the seller uploads their own bank QR image
+  (`bank_qr_image_id` on account default or per listing). The buyer transfers `total_price` directly
+  to the seller, uploads a transfer receipt screenshot (`PAYMENT_PROOF`), and the seller manually
+  confirms or rejects the payment (with Resend email notifications on proof submission, confirmation
+  and rejection).
 - In both modes, the **pickup QR** confirms handover only. It is not a payment QR, and it is not a
   safety certificate.
 
@@ -43,13 +49,12 @@ The table names are snake_case and the Prisma models PascalCase (`FoodListing` �
 
 | Table | Key fields |
 |---|---|
-| **accounts** | id, phone? (E.164, unique), email? (unique), display_name, avatar_image_id?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, suspended_reason?, **seller fields** (all optional): seller_name, seller_type `INDIVIDUAL\|SHOP\|CAFE\|BAKERY\|CANTEEN`, seller_verified_at?, seller_verified_by?, default_pickup_address?, default_pickup_lat?, default_pickup_lng?, created_at, deleted_at? |
+| **accounts** | id, phone? (E.164, unique), email? (unique), display_name, avatar_image_id?, role `USER\|ADMIN`, status `ACTIVE\|SUSPENDED\|DELETED`, suspended_reason?, **seller fields** (all optional): seller_name, seller_type `INDIVIDUAL\|SHOP\|CAFE\|BAKERY\|CANTEEN`, seller_verified_at?, seller_verified_by?, default_pickup_address?, default_pickup_lat?, default_pickup_lng?, bank_qr_image_id? (default seller bank QR image), created_at, deleted_at? |
 | otp_requests, refresh_tokens | Auth support tables (hashed codes and tokens; see the contract §0) |
-| **food_listings** | id, seller_id → accounts, title, description?, category, origin (nguồn gốc, required), prepared_at (chế biến/đóng gói, required), storage `ROOM_TEMP\|CHILLED\|FROZEN`, storage_note?, ingredients?, allergens[] (optional info), original_price? (reference price, optional), price (sale price ≥ 0), quantity_total, quantity_available, pickup_start, pickup_end, pickup_address, pickup_lat, pickup_lng, declaration (json of the 6 seller attestations), declared_at?, status, under_review (bool), published_at?, closed_at?, close_reason?, blocked_reason?, created_at |
-| **listing_images** | id, listing_id? (null until attached), uploader_id, storage_key, width, height, bytes, position, created_at. EXIF/GPS is stripped on upload. |
-| **reservations** | id, listing_id, buyer_id, seller_id, quantity, unit_price, total_price, platform_fee (default 0), payable_amount (= total_price + platform_fee), code (4 digits, unique among the seller's active reservations, shown as `SM–4281`), code_hash, status (`PENDING_PAYMENT\|RESERVED\|COMPLETED\|CANCELLED\|EXPIRED`), payment_expires_at?, cancel_reason?, created_at, completed_at?, closed_at?, idempotency_key |
-| **payments** | id, reservation_id (unique → reservations), provider (`SEPAY\|MOCK`), provider_tx_id? (unique, webhook idempotency), status (`UNPAID\|PAID\|EXPIRED\|REFUND_DUE\|REFUNDED`), payout_status (`NONE\|PENDING_PAYOUT\|SETTLED`), food_amount (= total_price), platform_fee, payable_amount (= food_amount + platform_fee), seller_net (= food_amount), bank_code, account_no, account_name, transfer_content (unique, `SM<8 alphanumeric chars>`, e.g. `SM4281A9F2`), qr_image_url, checkout_url?, expires_at, paid_at?, refunded_at?, refund_note?, settled_at?, settle_note?, created_at, updated_at |
-| **seller_payout_accounts** | id, account_id (unique → accounts), bank_code, account_no, account_name, created_at, updated_at |
+| **food_listings** | id, seller_id → accounts, title, description?, category, origin (nguồn gốc, required), prepared_at (chế biến/đóng gói, required), storage `ROOM_TEMP\|CHILLED\|FROZEN`, storage_note?, ingredients?, allergens[] (optional info), original_price? (reference price, optional), price (sale price ≥ 0), quantity_total, quantity_available, pickup_start, pickup_end, pickup_address, pickup_lat, pickup_lng, bank_qr_image_id? (defaults to `accounts.bank_qr_image_id`), declaration (json of the 6 seller attestations), declared_at?, status, under_review (bool), published_at?, closed_at?, close_reason?, blocked_reason?, created_at |
+| **listing_images** | id, listing_id? (null until attached), uploader_id, purpose `LISTING\|REPORT\|AVATAR\|PAYMENT_QR\|PAYMENT_PROOF`, storage_key, width, height, bytes, position, created_at. EXIF/GPS is stripped on upload. |
+| **reservations** | id, listing_id, buyer_id, seller_id, quantity, unit_price, total_price, platform_fee (0 in v1.3), payable_amount (= total_price), code (4 digits, unique among the seller's active reservations, shown as `SM–4281`), code_hash, status (`PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM\|RESERVED\|COMPLETED\|CANCELLED\|EXPIRED`), payment_expires_at?, cancel_reason?, created_at, completed_at?, closed_at?, idempotency_key |
+| **payments** | id, reservation_id (unique → reservations), status (`UNPAID\|PROOF_SUBMITTED\|CONFIRMED\|REJECTED\|EXPIRED`), amount (= total_price), seller_qr_image_id? (snapshot of listing/seller bank QR), proof_image_id? (buyer transfer receipt screenshot), expires_at, proof_submitted_at?, confirmed_at?, rejected_at?, reject_reason?, created_at, updated_at |
 | **pickup_tokens** | id, reservation_id, token_hash (SHA-256), expires_at, used_at?, revoked_at?, created_at. The token is random and carries **no personal data** (spec §3.3). |
 | **reports** | id, reporter_id, type, listing_id?, reservation_id?, reported_account_id, description, image_ids[], status `OPEN\|IN_REVIEW\|RESOLVED\|DISMISSED`, action `NONE\|WARNING\|LISTING_BLOCKED\|ACCOUNT_SUSPENDED`?, resolution?, handled_by?, handled_at?, created_at |
 | **event_logs** | id, actor_id?, actor_type `USER\|ADMIN\|SYSTEM`, event (e.g. `LISTING_PUBLISHED`, `RESERVATION_COMPLETED`), entity_type, entity_id, data (json), at. This is append-only, and every state transition writes one. |
@@ -65,10 +70,8 @@ The table names are snake_case and the Prisma models PascalCase (`FoodListing` �
 - `Allergen` (optional, informational only, never a filter or a gate): `GLUTEN`, `MILK`, `EGG`,
   `PEANUT`, `TREE_NUT`, `SOY`, `FISH`, `SHELLFISH`, `SESAME`.
 - `ReportType` (V1/23): `WRONG_INFO`, `UNSAFE_FOOD`, `NOT_RECEIVED`, `SELLER_ABSENT`, `OTHER`.
-- `PaymentProvider`: `SEPAY`, `MOCK` (provider-agnostic `Payment` response allows PayOS or other
-  gateways to plug in later without FE changes).
-- `PaymentStatus`: `UNPAID`, `PAID`, `EXPIRED`, `REFUND_DUE`, `REFUNDED`.
-- `PayoutStatus`: `NONE`, `PENDING_PAYOUT`, `SETTLED`.
+- `ImagePurpose`: `LISTING`, `REPORT`, `AVATAR`, `PAYMENT_QR`, `PAYMENT_PROOF`.
+- `PaymentStatus`: `UNPAID`, `PROOF_SUBMITTED`, `CONFIRMED`, `REJECTED`, `EXPIRED`.
 
 ## 3. Listing state machine
 
@@ -91,7 +94,7 @@ The table names are snake_case and the Prisma models PascalCase (`FoodListing` �
 | `DRAFT` → `PUBLISHED` | `POST /listings/:id/publish` | Owner | **Required-info checklist** (§5) complete. All 6 declarations `true`. Window valid (§5). | Sets `quantity_available = quantity_total`, `published_at` and `declared_at`, and writes an event_log (which serves as evidence) |
 | `PUBLISHED` → `PUBLISHED` | `PATCH` (restricted, below) | Owner | — | — |
 | `PUBLISHED` → `EXPIRED` | JOB-1 at `pickup_end` | SYSTEM | — | `closed_at`. Remaining `RESERVED` orders are handled by JOB-2. |
-| `DRAFT\|PUBLISHED` → `WITHDRAWN` | `POST /listings/:id/withdraw` | Owner | — | Every `PENDING_PAYMENT` or `RESERVED` order → `CANCELLED` (`SELLER_WITHDREW`), its pickup tokens are revoked, `UNPAID` payments → `EXPIRED`, and `PAID` payments → `REFUND_DUE` |
+| `DRAFT\|PUBLISHED` → `WITHDRAWN` | `POST /listings/:id/withdraw` | Owner | — | Every `PENDING_PAYMENT`, `AWAITING_SELLER_CONFIRM`, or `RESERVED` order → `CANCELLED` (`SELLER_WITHDREW`), its pickup tokens are revoked, and `UNPAID` / `PROOF_SUBMITTED` payments → `EXPIRED` |
 | `PUBLISHED\|EXPIRED` → `BLOCKED` | `POST /admin/listings/:id/block`, or a report action | ADMIN | A reason is required | As for withdraw, but the reason is `LISTING_BLOCKED`. It counts in the safety KPI. |
 | `PUBLISHED` (`under_review` flag) | An `UNSAFE_FOOD` report | SYSTEM | — | The listing is hidden immediately and new reservations are refused. Existing ones stay valid. Only an admin clears it (ADM-2), or blocks the listing. |
 
@@ -112,47 +115,50 @@ is **derived** (`quantity_available = 0`) and is not a status; a cancellation ca
 ## 4. Reservation state machine
 
 ```
- POST /reservations (free OR PAYMENTS_ENABLED=false) ──────────────────────────┐
-                                                                               ▼
- POST /reservations (paid & PAYMENTS_ENABLED=true) ──► PENDING_PAYMENT ──► RESERVED ──► COMPLETED ("Hoàn tất")
-                                                         │     │  webhook/sim │  │  │  (seller scans QR / enters code)
-                                                         │     │              │  │  │
-                                    buyer cancel /       │     │ now ≥        │  │  └── now ≥ pickup_end + NO_SHOW_GRACE_MIN
-                                    withdraw / block ────┘     │ payment_     │  │      (JOB-2) ──► EXPIRED ("Hết giờ")
-                                    ──► CANCELLED              │ expires_at   │  │
-                                        (payment: EXPIRED)     │ (lazy/JOB-2) │  └── listing withdrawn / blocked ──► CANCELLED
-                                                               ▼              │      (paid → payment: REFUND_DUE)
-                                                            EXPIRED           └── buyer cancels (before pickup_end) ──► CANCELLED
-                                                            (stock released,         (paid → payment: REFUND_DUE)
-                                                             payment: EXPIRED)
+ POST /reservations (free OR PAYMENTS_ENABLED=false) ──────────────────────────────────────────────┐
+                                                                                                   ▼
+ POST /reservations (paid & PAYMENTS_ENABLED=true) ──► PENDING_PAYMENT ──► AWAITING_SELLER_CONFIRM ──► RESERVED ──► COMPLETED ("Hoàn tất")
+                                                         │   │  │  (buyer submits proof)  │  │  │       │  │  │  (seller scans QR / enters code)
+                                                         │   │  │                         │  │  │       │  │  │
+                                 seller confirm (direct) ├───┼──┼─────────────────────────┼──┼──┘       │  │  └── now ≥ pickup_end + NO_SHOW_GRACE_MIN
+                                 seller reject ──────────┤   │  │  seller confirm ────────┘  │          │  │      (JOB-2) ──► EXPIRED ("Hết giờ")
+                                 buyer cancel /          │   │  │  seller reject ────────────┤          │  │
+                                 withdraw / block ───────┘   │     (→ CANCELLED,             │          │  └── listing withdrawn / blocked ──► CANCELLED
+                                 ──► CANCELLED               │      PAYMENT_REJECTED,        │          │
+                                     (payment: EXPIRED /     │      stock released)          │          └── buyer cancels (before pickup_end) ──► CANCELLED
+                                      REJECTED)              │                               │
+                                                             │ now ≥ payment_expires_at      └── now ≥ pickup_end + NO_SHOW_GRACE_MIN
+                                                             │ (lazy / JOB-2)                    (JOB-2) ──► EXPIRED
+                                                             ▼
+                                                          EXPIRED
+                                                          (stock released,
+                                                           payment: EXPIRED)
 ```
 
 | From → To | Trigger | Actor | Guards | Stock & payment side effects |
 |---|---|---|---|---|
-| — → `PENDING_PAYMENT` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=true`, `total_price > 0`, `payment_expires_at ≤ pickup_end`, §6 | `quantity_available −= q` atomically. Creates `payments` row (`status = UNPAID`). `pickup_token` is `null`. |
+| — → `PENDING_PAYMENT` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=true`, `total_price > 0`, `payment_expires_at ≤ pickup_end`, §6 | `quantity_available −= q` atomically. Creates `payments` row (`status = UNPAID`, `amount = total_price`, `seller_qr_image_id`). `pickup_token` is `null`. |
 | — → `RESERVED` | `POST /reservations` | USER (not the seller) | `PAYMENTS_ENABLED=false` **or** `total_price = 0`, §6 | `quantity_available −= q` atomically. Issues the first pickup token. `payment` is `null`. |
-| `PENDING_PAYMENT` → `RESERVED` | `POST /webhooks/sepay` (or `PAY-DEV` when `PAYMENT_PROVIDER=mock`) | WEBHOOK / BUYER (mock) | Matching `transfer_content`, `transfer_amount ≥ payable_amount`, `now < payment_expires_at`. Idempotent on `provider_tx_id`. | Marks `payment.status = PAID`, `paid_at = now`. Issues the first pickup token. Writes `PAYMENT_PAID` + `RESERVATION_PAID`. |
-| `PENDING_PAYMENT` → `CANCELLED` | `POST /reservations/:id/cancel` or listing withdrawn/blocked | BUYER / SYSTEM | `now < pickup_end` (for buyer cancel) | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end`. Marks `payment.status = EXPIRED` (no money paid). |
+| `PENDING_PAYMENT` → `AWAITING_SELLER_CONFIRM` | `POST /reservations/:id/payment-proof` | BUYER | `reservation.status = PENDING_PAYMENT`, `payment.status = UNPAID`, valid `proofImageId` (`purpose = PAYMENT_PROOF`) | Marks `payment.status = PROOF_SUBMITTED`, sets `proof_image_id` & `proof_submitted_at`. Writes `PAYMENT_PROOF_SUBMITTED`. Sends Resend email to seller. Hold timer no longer auto-expires this order. |
+| `PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM` → `RESERVED` | `POST /reservations/:id/payment/confirm` | SELLER | `reservation.status IN (PENDING_PAYMENT, AWAITING_SELLER_CONFIRM)` | Atomically marks `payment.status = CONFIRMED` (`confirmed_at = now`). Issues the first pickup token. Writes `PAYMENT_CONFIRMED` + `RESERVATION_PAID`. Sends Resend email to buyer. |
+| `PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM` → `CANCELLED` | `POST /reservations/:id/payment/reject` | SELLER | `reservation.status IN (PENDING_PAYMENT, AWAITING_SELLER_CONFIRM)`, `reason` (3–300 chars) | `+= q` atomically if the listing is still `PUBLISHED` and `now < pickup_end`. Sets `cancel_reason = PAYMENT_REJECTED`, `payment.status = REJECTED` (`rejected_at = now`, `reject_reason`). Writes `PAYMENT_REJECTED` + `RESERVATION_CANCELLED`. Sends Resend email to buyer. |
+| `PENDING_PAYMENT\|AWAITING_SELLER_CONFIRM` → `CANCELLED` | `POST /reservations/:id/cancel` or listing withdrawn/blocked | BUYER / SYSTEM | `now < pickup_end` (for buyer cancel) | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end`. Marks `payment.status = EXPIRED`. |
 | `PENDING_PAYMENT` → `EXPIRED` | Lazy-expiry (§6) or JOB-2 | SYSTEM | `now ≥ payment_expires_at` | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end`. Marks `payment.status = EXPIRED`. |
-| `RESERVED` → `COMPLETED` | `POST /pickups/confirm` | The SELLER of the listing | The token is valid, unexpired and unused, **or** the code matches. `pickup_start − EARLY_PICKUP_MIN ≤ now ≤ pickup_end + NO_SHOW_GRACE_MIN`. The listing is not `BLOCKED`. | Sets `used_at` on the token, records the event, adds quantity to handed-over count. If payment is `PAID`, sets `payout_status = PENDING_PAYOUT` (`seller_net = total_price`). |
-| `RESERVED` → `CANCELLED` | `POST /reservations/:id/cancel` | BUYER | `now < pickup_end` | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end`. Revokes tokens. If payment is `PAID`, marks `payment.status = REFUND_DUE` (refund = `payable_amount`). |
-| `RESERVED` → `CANCELLED` | Listing withdrawn or blocked | SYSTEM | — | None (the listing is closed). Revokes tokens. If payment is `PAID`, marks `payment.status = REFUND_DUE` (refund = `payable_amount`). |
+| `AWAITING_SELLER_CONFIRM` → `EXPIRED` | JOB-2 | SYSTEM | `now ≥ pickup_end + NO_SHOW_GRACE_MIN` | None. Marks `payment.status = EXPIRED`. |
+| `RESERVED` → `COMPLETED` | `POST /pickups/confirm` | The SELLER of the listing | The token is valid, unexpired and unused, **or** the code matches. `pickup_start − EARLY_PICKUP_MIN ≤ now ≤ pickup_end + NO_SHOW_GRACE_MIN`. The listing is not `BLOCKED`. | Sets `used_at` on the token, records the event, adds quantity to handed-over count. |
+| `RESERVED` → `CANCELLED` | `POST /reservations/:id/cancel` | BUYER | `now < pickup_end` | `+= q` if the listing is still `PUBLISHED` and `now < pickup_end`. Revokes tokens. |
+| `RESERVED` → `CANCELLED` | Listing withdrawn or blocked | SYSTEM | — | None (the listing is closed). Revokes tokens. |
 | `RESERVED` → `EXPIRED` | JOB-2 | SYSTEM | `now ≥ pickup_end + NO_SHOW_GRACE_MIN` | None. Revokes tokens. |
 
-**Late, mismatched, or duplicate webhook transfers.** If `POST /webhooks/sepay` receives a valid
-transfer for a reservation that is already `EXPIRED` (or with an amount mismatch / duplicate
-payment), the payment is recorded as `REFUND_DUE` (with `provider_tx_id`) so buyer funds are never
-lost and appear in the admin refund ledger.
-
 `cancel_reason` is one of `BUYER_LATE`, `BUYER_WRONG_QTY`, `BUYER_CHANGED_PLAN`, `BUYER_OTHER`
-(V1/39), `SELLER_WITHDREW`, `LISTING_BLOCKED` or `ADMIN`.
+(V1/39), `PAYMENT_REJECTED`, `SELLER_WITHDREW`, `LISTING_BLOCKED` or `ADMIN`.
 
-**"Xác nhận đơn" (spec §2.1) = handover confirmation (D8).** A reservation is accepted instantly
-and atomically (or upon VietQR settlement when `PAYMENTS_ENABLED=true`), so the seller does not
-approve it. The seller "confirms" the order by scanning the buyer's QR (or entering the code) at
-handover, which moves it to `COMPLETED`. When `PAYMENTS_ENABLED=false`, payment happens offline at
-handover and the app shows `amountToCollect = totalPrice`; when paid online via VietQR,
-`amountToCollect = 0`.
+**"Xác nhận đơn" (spec §2.1) = handover confirmation (D8).** Reservations are accepted atomically
+on `POST /reservations`. When `PAYMENTS_ENABLED=true` and `price > 0`, the seller verifies receipt
+of the buyer's direct bank transfer (`PAY-3` / `PAY-4`) to unlock the pickup QR (`RESERVED`). At
+handover, the seller scans the buyer's QR (or enters the code), moving the order to `COMPLETED`.
+When `payment.status === "CONFIRMED"` (or the item is free), `amountToCollect = 0`; otherwise
+`amountToCollect = totalPrice`.
 
 ## 5. Listing checklist and seller declarations (spec §2.1, §2.2, §5)
 
@@ -170,6 +176,7 @@ item is present:
 | `STORAGE` | `storage` (+ `storage_note` optional) | |
 | `PICKUP_WINDOW` | `pickup_start`, `pickup_end` | `pickup_start < pickup_end`, `pickup_end > now`, `pickup_end − pickup_start ≤ MAX_WINDOW_HOURS` (4) |
 | `PICKUP_LOCATION` | `pickup_address`, `pickup_lat`, `pickup_lng` | Defaults to the account's default pickup location |
+| `PAYMENT_QR` *(conditional)* | `bank_qr_image_id` | Required to publish **only** when `PAYMENTS_ENABLED=true` and `price > 0` (defaults to `accounts.bank_qr_image_id`; free listings with `price = 0` do not require one) |
 
 **Seller declarations.** The seller ticks all six in V1/26. They are sent with `publish` and stored
 in `declaration`:
@@ -209,37 +216,41 @@ INSERT INTO reservations (...);  INSERT INTO pickup_tokens (...);  INSERT INTO e
   `0 ≤ quantity_available ≤ quantity_total`.
 - Limits:
   - `MAX_QTY_PER_RESERVATION` = 2;
-  - `MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT` = 3 (counts `PENDING_PAYMENT` and `RESERVED`);
-  - one active reservation (`PENDING_PAYMENT` or `RESERVED`) per account per listing.
+  - `MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT` = 3 (counts `PENDING_PAYMENT`, `AWAITING_SELLER_CONFIRM`, and `RESERVED`);
+  - one active reservation (`PENDING_PAYMENT`, `AWAITING_SELLER_CONFIRM`, or `RESERVED`) per account per listing.
 - The `Idempotency-Key` header is required. A repeat within 24 h replays the first result.
 
-**Platform fee (buyer-paid, v1.2):**
+**P2P Direct QR pricing & fees (v1.3):**
 
-- Free items (`total_price = 0`): `platform_fee = 0`, `payable_amount = 0`, `seller_net = 0`. Skips
-  `PENDING_PAYMENT` and enters `RESERVED` immediately with a `pickupToken`.
+- No platform fee in v1.3: `platform_fee = 0`, `payable_amount = total_price`, `amount = total_price`.
+- Free items (`total_price = 0`): skip `PENDING_PAYMENT` and enter `RESERVED` immediately with a
+  `pickupToken` (`payment = null`). No `bank_qr_image_id` is required on the listing.
 - Paid items (`total_price > 0`) when `PAYMENTS_ENABLED=false`: `platform_fee = 0`,
-  `payable_amount = total_price`, `payment = null`. Enters `RESERVED` immediately (offline payment).
-- Paid items (`total_price > 0`) when `PAYMENTS_ENABLED=true`:
-  - If `total_price > PLATFORM_FEE_THRESHOLD_VND` (default `20000`):
-    `platform_fee = Math.round(total_price * PLATFORM_FEE_PERCENT / 100)` (default `5%`).
-  - If `total_price ≤ PLATFORM_FEE_THRESHOLD_VND`:
-    `platform_fee = PLATFORM_FEE_FLAT_VND` (default `2000`).
-  - `payable_amount = total_price + platform_fee` (the VietQR amount the buyer transfers).
-  - `seller_net = total_price` (seller receives 100% of the food price upon `COMPLETED` handover).
+  `payable_amount = total_price`, `payment = null`. Enters `RESERVED` immediately (offline payment
+  at pickup).
+- Paid items (`total_price > 0`) when `PAYMENTS_ENABLED=true`: enters `PENDING_PAYMENT` with a
+  `payments` row (`status = UNPAID`, `amount = total_price`, `seller_qr_image_id` copied from
+  listing or account default). Buyer pays the seller directly via the seller's bank QR image,
+  uploads a transfer receipt screenshot (`PAYMENT_PROOF`), and the seller manually confirms or
+  rejects the transfer (`PAY-3` / `PAY-4`).
 
-**Hold duration (`holdMinutes`) & lazy-expiry (v1.2):**
+**Hold duration (`holdMinutes`) & lazy-expiry (v1.3):**
 
 - When `PAYMENTS_ENABLED=true` and `total_price > 0`, the buyer may pass `holdMinutes` (integer,
   ≥ `MIN_PAYMENT_HOLD_MIN` = `5`, default `DEFAULT_PAYMENT_HOLD_MIN` = `10`).
 - `payment_expires_at = now + holdMinutes` must satisfy `payment_expires_at ≤ listing.pickup_end`;
   otherwise the request fails with `422 PAYMENT_HOLD_INVALID`.
-- While `PENDING_PAYMENT`, stock is already decremented atomically (`quantity_available −= q`) and
-  `pickupToken` is `null`.
+- While `PENDING_PAYMENT` or `AWAITING_SELLER_CONFIRM`, stock is already decremented atomically
+  (`quantity_available −= q`) and `pickupToken` is `null`.
 - **Lazy-expiry (serverless-safe):** before listing search (`LIST-1` / `LIST-2`), reservation
   creation (`RES-1`), and reservation read (`RES-2` / `RES-3` / `PAY-1`), expired `PENDING_PAYMENT`
   orders (`now ≥ payment_expires_at`) are atomically transitioned to `EXPIRED` (`payment.status =
   EXPIRED`) and their stock is released back (`quantity_available += q`) if the listing is still
   `PUBLISHED` and `now < pickup_end`. `JOB-2` also sweeps them.
+- **No hold-timer expiry after proof submission:** lazy-expiry does **not** expire
+  `AWAITING_SELLER_CONFIRM` reservations on `payment_expires_at`. Once the buyer submits payment
+  proof, the order waits for seller confirmation (`PAY-3`) or rejection (`PAY-4`), or expires via
+  `JOB-2` after `pickup_end + NO_SHOW_GRACE_MIN`.
 
 **Pickup QR (spec §3.3):**
 
@@ -260,7 +271,7 @@ INSERT INTO reservations (...);  INSERT INTO pickup_tokens (...);  INSERT INTO e
 | Job | Every | Does |
 |---|---|---|
 | JOB-1 listing expiry | 1 min | `PUBLISHED` and `now ≥ pickup_end` → `EXPIRED` |
-| JOB-2 reservation expiry | 1 min | `PENDING_PAYMENT` and `now ≥ payment_expires_at` → `EXPIRED` (releases stock if listing is `PUBLISHED` and `now < pickup_end`, marks payment `EXPIRED`); `RESERVED` and `now ≥ pickup_end + NO_SHOW_GRACE_MIN` → `EXPIRED` (revokes tokens). |
+| JOB-2 reservation expiry | 1 min | `PENDING_PAYMENT` and `now ≥ payment_expires_at` → `EXPIRED` (releases stock if listing is `PUBLISHED` and `now < pickup_end`, marks payment `EXPIRED`); `AWAITING_SELLER_CONFIRM` and `now ≥ pickup_end + NO_SHOW_GRACE_MIN` → `EXPIRED` (marks payment `EXPIRED`; does not expire on hold timer); `RESERVED` and `now ≥ pickup_end + NO_SHOW_GRACE_MIN` → `EXPIRED` (revokes tokens). |
 | JOB-3 cleanup | daily | Purges expired OTPs, refresh tokens and pickup tokens older than 7 days. Deletes images not attached within 24 h. |
 | JOB-4 metrics | nightly + on demand | Rebuilds `transaction_metrics` from `event_logs` |
 
@@ -283,7 +294,7 @@ A handed-over portion is **not** reported as "waste avoided" (spec §2.2 step 5,
 | # | Topic | Decision | Status |
 |---|---|---|---|
 | D1 | Seller model | **No store entity in the MVP.** The spec's data model has none, and individuals sell (spec §1.3). Seller identity (name, type, default pickup location, verified badge) lives on `accounts`, and pickup location is per listing. Staff accounts and the store dashboard are Later. | Decided (v1.1) |
-| D2 | Payments | **Option C: Automated VietQR via SePay webhook + buyer-paid platform fee.** Provider-agnostic `Payment` contract (`PAYMENT_PROVIDER=sepay\|mock`) so PayOS/others can plug in without FE changes. Buyer pays `totalPrice + platformFee` (`5%` if `totalPrice > 20.000đ`, flat `2.000đ` if `≤ 20.000đ`; `0` for free items). Seller receives 100% of `totalPrice` (`sellerNet`) upon `COMPLETED` handover. Refund & payout ledger managed by Admin. Controlled by `PAYMENTS_ENABLED` (default `false` in env/tests; `true` when enabled). | Decided (v1.2) |
+| D2 | Payments | **v1.3 P2P Direct Bank QR + Transfer Proof + Resend Email.** SaveMeal holds no money and charges no platform fee (`platformFee = 0`, `payableAmount = totalPrice`, `amount = totalPrice`). Sellers upload their own bank QR image (`bankQrImageId` on account default or per listing; required to publish paid listings when `PAYMENTS_ENABLED=true`, optional for free items). Buyers transfer directly to the seller, upload a transfer receipt screenshot (`PAYMENT_PROOF`), and sellers manually confirm (`PAY-3` → `RESERVED` + `pickupToken`) or reject (`PAY-4` → `CANCELLED` + stock released). Resend emails notify the seller on proof submission and the buyer on confirmation or rejection. Automated gateway webhooks (SePay/PayOS) and platform fees are deferred to Later. Feature flag `PAYMENTS_ENABLED` stays `false` until FE finishes wiring screens `25b`, `21`, `30b`, `06b`. | Decided (v1.3) |
 | D3 | Login | OTP via SMS (primary) or email. Google is Later. | Decided |
 | D4 | Moderation | **Admin verification is NOT required to publish in the MVP.** Moderation instead = the required-info checklist, the seller declarations, reports, admin block and suspend, and spam limits. A **"Đã xác minh" badge** marks sellers an admin has checked. | **Pending user confirmation** |
 | D5 | Allergens | Optional information only. They are not a required check and not a search filter. | **Pending user confirmation** |
@@ -325,9 +336,7 @@ and JOB-2. That is **21 endpoints and 2 jobs**.
 `MAX_QTY_PER_RESERVATION=2`, `MAX_ACTIVE_RESERVATIONS_PER_ACCOUNT=3`, `EARLY_PICKUP_MIN=30`,
 `NO_SHOW_GRACE_MIN=15`, `PICKUP_TOKEN_TTL_MIN=10`, `OTP_TTL_SEC=300`, `OTP_RESEND_SEC=60`,
 `OTP_MAX_ATTEMPTS=5`, `ACCESS_TOKEN_TTL=15m`, `REFRESH_TOKEN_TTL=30d`,
-`PAYMENTS_ENABLED=false` (set `true` when VietQR payments are enabled),
-`PAYMENT_PROVIDER=sepay` (`sepay|mock`), `SEPAY_WEBHOOK_SECRET`, `SEPAY_BANK_CODE`,
-`SEPAY_ACCOUNT_NO`, `SEPAY_ACCOUNT_NAME`, `PLATFORM_FEE_PERCENT=5`,
-`PLATFORM_FEE_THRESHOLD_VND=20000`, `PLATFORM_FEE_FLAT_VND=2000`,
+`PAYMENTS_ENABLED=false` (remains `false` until FE finishes wiring screens `25b`, `21`, `30b`, `06b`),
 `MIN_PAYMENT_HOLD_MIN=5`, `DEFAULT_PAYMENT_HOLD_MIN=10`,
-`GOOGLE_LOGIN_ENABLED=false` (Later).
+`RESEND_API_KEY`, `EMAIL_FROM` (for P2P payment confirmation emails),
+`GOOGLE_LOGIN_ENABLED=false` (Later). Automated gateway env vars (SePay/PayOS) are Later.
