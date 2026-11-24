@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "LASTBITE REST API (NestJS + Prisma + PostgreSQL), served under /api/v1.",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "postinstall": "prisma generate",
     "build:shared": "npm run build -w @savemeal/shared",
-    "prebuild": "npm run build:shared",
+    "prebuild": "npm run build:shared && npm run prisma:generate",
     "build": "tsc -p tsconfig.build.json",
     "predev": "npm run build:shared",
     "dev": "nest start --watch",
