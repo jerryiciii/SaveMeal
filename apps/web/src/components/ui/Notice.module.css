@@ -1,0 +1,25 @@
+.notice {
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.info {
+  background: var(--surface-card);
+  color: var(--text-secondary);
+}
+
+.error {
+  background: rgba(255, 130, 139, 0.14);
+  color: var(--color-alert);
+}
+
+.success {
+  background: rgba(101, 228, 179, 0.14);
+  color: var(--text-accent);
+}
