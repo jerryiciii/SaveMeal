@@ -71,9 +71,9 @@ export function LocationPermissionScreen() {
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <path
                 d="M14 4C9.58 4 6 7.58 6 12C6 17.25 12.2 22.85 13.34 23.82C13.72 24.14 14.28 24.14 14.66 23.82C15.8 22.85 22 17.25 22 12C22 7.58 18.42 4 14 4Z"
-                fill="#65E4B3"
+                fill="#111111"
               />
-              <circle cx="14" cy="12" r="3.2" fill="#142E29" />
+              <circle cx="14" cy="12" r="3.4" fill="#d7f75b" />
             </svg>
           </div>
         </div>

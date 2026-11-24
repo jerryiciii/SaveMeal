@@ -211,31 +211,29 @@ function DiscoverScreenInner() {
 
   const topBar = (
     <div className={sheetExpanded ? styles.topBarInline : styles.topBar}>
-      <div className={styles.searchRow}>
-        <div className={styles.searchTriggerWrap}>
-          <Link href={searchHref} className={styles.searchTrigger} aria-label="Tìm món ăn gần bạn">
-            <Icon name="search" size={22} color="var(--text-primary)" />
-            <span className={filters.q ? styles.searchValue : styles.searchPlaceholder}>
-              {filters.q || "Tìm món ăn gần bạn"}
-            </span>
-          </Link>
-          {filters.q ? (
-            <button
-              type="button"
-              className={styles.clearQuery}
-              aria-label="Xóa từ khóa tìm kiếm"
-              onClick={() => applyFilters({ ...filters, q: undefined })}
-            >
-              ×
-            </button>
-          ) : null}
-        </div>
+      <div className={styles.searchPill}>
+        <Link href={searchHref} className={styles.searchTrigger} aria-label="Tìm món ăn, cửa hàng">
+          <Icon name="search" size={20} color="var(--ink)" />
+          <span className={filters.q ? styles.searchValue : styles.searchPlaceholder}>
+            {filters.q || "Tìm món ăn, cửa hàng..."}
+          </span>
+        </Link>
+        {filters.q ? (
+          <button
+            type="button"
+            className={styles.clearQuery}
+            aria-label="Xóa từ khóa tìm kiếm"
+            onClick={() => applyFilters({ ...filters, q: undefined })}
+          >
+            ×
+          </button>
+        ) : null}
         <Link href={filtersHref} className={styles.filterBtn} aria-label="Bộ lọc nâng cao">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path
               d="M3 5H17M5.5 10H14.5M8 15H12"
               stroke="currentColor"
-              strokeWidth="1.9"
+              strokeWidth="2"
               strokeLinecap="round"
             />
           </svg>
@@ -311,11 +309,18 @@ function DiscoverScreenInner() {
         </button>
 
         <div className={styles.sheetHeader}>
-          <div>
-            <h2 className={styles.sheetTitle}>{hasAnyFilter(filters) ? "Món phù hợp" : "Gần bạn hôm nay"}</h2>
+          <div className={styles.sheetHeading}>
+            <div className={styles.titleRow}>
+              <h2 className={styles.sheetTitle}>{hasAnyFilter(filters) ? "Món phù hợp" : "Gần bạn"}</h2>
+              {state.kind === "ready" ? (
+                <span className={styles.countBadge} aria-label={`${state.cards.length} món`}>
+                  {state.cards.length}
+                </span>
+              ) : null}
+            </div>
             {state.kind === "ready" ? (
               <p className={styles.sheetSubtitle}>
-                {state.cards.length} món đang mở nhận · trong {filters.radiusKm ?? DEFAULT_RADIUS_KM} km
+                Đang mở nhận · trong {filters.radiusKm ?? DEFAULT_RADIUS_KM} km
               </p>
             ) : null}
           </div>

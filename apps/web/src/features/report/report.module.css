@@ -2,37 +2,39 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 8px var(--gutter) 36px;
+  padding: 10px var(--gutter) 36px;
 }
 
 .targetCard {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 14px 16px;
+  padding: 16px;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 .targetEyebrow {
   margin: 0;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-accent);
+  color: var(--muted);
 }
 
 .targetTitle {
   margin: 0;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .targetMeta {
   margin: 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .section {
@@ -47,9 +49,11 @@
 .legend {
   margin: 0 0 6px;
   padding: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
 .option {
@@ -57,21 +61,22 @@
   align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid transparent;
+  border: 1.5px solid var(--line);
   border-radius: 16px;
-  background: var(--surface-card);
+  background: var(--surface);
+  color: var(--ink);
   cursor: pointer;
   transition: border-color 140ms ease, background 140ms ease;
 }
 
 .optionSelected {
-  border-color: var(--color-mint);
-  background: rgba(101, 228, 179, 0.08);
+  border-color: var(--ink);
+  background: var(--limesoft);
 }
 
 .optionDanger {
-  border-color: var(--color-alert);
-  background: rgba(255, 130, 139, 0.1);
+  border-color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .optionDisabled {
@@ -84,7 +89,11 @@
   width: 18px;
   height: 18px;
   margin-top: 2px;
-  accent-color: var(--color-mint);
+  accent-color: var(--ink);
+}
+
+.optionDanger input {
+  accent-color: var(--danger);
 }
 
 .optionText {
@@ -95,35 +104,38 @@
 
 .optionTitle {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.3;
+  color: var(--ink);
 }
 
 .optionHint {
   font-size: 12px;
   line-height: 1.4;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
+/* Soft-pink danger banner for UNSAFE_FOOD warning */
 .unsafeBanner {
   padding: 14px 16px;
-  border: 1px solid rgba(255, 182, 108, 0.45);
+  border: 1px solid rgba(201, 37, 43, 0.28);
   border-radius: 16px;
-  background: rgba(255, 182, 108, 0.12);
-  color: var(--color-orange);
+  background: var(--danger-soft);
+  color: var(--danger);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .unsafeBanner b {
   display: block;
   margin-bottom: 4px;
   font-size: 14px;
+  color: var(--danger);
 }
 
 .unsafeBanner p {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--ink2);
 }
 
 .counterRow {
@@ -132,12 +144,12 @@
   align-items: center;
   margin-top: -8px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .counterError {
-  color: var(--color-alert);
-  font-weight: 600;
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .photosSection {
@@ -157,7 +169,8 @@
   aspect-ratio: 1 / 1;
   border-radius: 14px;
   overflow: hidden;
-  background: var(--surface-card);
+  background: var(--field);
+  border: 1px solid var(--line);
 }
 
 .thumb img {
@@ -178,8 +191,8 @@
   height: 26px;
   border: 0;
   border-radius: 50%;
-  background: rgba(17, 25, 35, 0.85);
-  color: var(--text-primary);
+  background: rgba(17, 17, 17, 0.85);
+  color: var(--surface);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
@@ -195,10 +208,10 @@
   aspect-ratio: 1 / 1;
   border: 1.5px dashed var(--sheet-handle);
   border-radius: 14px;
-  background: var(--surface-card);
-  color: var(--text-secondary);
+  background: var(--surface);
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
   padding: 8px;
   cursor: pointer;
@@ -214,7 +227,7 @@
 .photoHint {
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .done {
@@ -230,36 +243,38 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: var(--color-mint);
-  color: var(--text-on-mint);
+  background: var(--lime);
+  border: 2px solid var(--ink);
+  color: var(--ink);
   font-size: 34px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .doneTitle {
   margin: 0;
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .doneText {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .doneCard {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  padding: 4px 16px;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
   text-align: left;
   font-size: 13px;
 }
@@ -268,14 +283,21 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hair);
+}
+
+.doneRow:last-child {
+  border-bottom: 0;
 }
 
 .doneRow span:first-child {
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .doneRow span:last-child {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink);
   text-align: right;
 }
 
@@ -284,10 +306,11 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border-radius: var(--radius-button);
-  background: var(--color-mint);
-  color: var(--text-on-mint);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -296,9 +319,11 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border-radius: var(--radius-button);
-  background: var(--color-raised);
-  color: #f6fafe;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 600;
 }

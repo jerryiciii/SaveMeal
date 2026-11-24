@@ -6,15 +6,51 @@
 }
 
 .h1 {
-  margin: 40px 0 0;
+  margin: 24px 0 0;
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--ink);
 }
 
 .lead {
-  margin: -8px 0 4px;
+  margin: -6px 0 4px;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--muted);
+}
+
+/* 3-step V2.1 progress stepper */
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.stepPill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.stepActive {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--lime);
+}
+
+.stepDone {
+  background: var(--limesoft);
+  border-color: rgba(169, 210, 31, 0.4);
+  color: var(--success);
 }
 
 .photo {
@@ -22,14 +58,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 170px;
+  height: 176px;
   border: 1.5px dashed var(--sheet-handle);
   border-radius: var(--radius-card);
-  background: var(--surface-card);
-  color: var(--text-secondary);
-  font-weight: 600;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
   overflow: hidden;
   cursor: pointer;
+}
+
+.photo:hover {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .photo img {
@@ -59,33 +100,78 @@
 
 .sectionLabel {
   margin: 4px 0 -6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
+/* Step 3 · 6 safety declaration cards */
 .check {
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 14px 16px;
   border-radius: 16px;
-  background: var(--surface-card);
-  font-size: 15px;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink2);
   cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.checkChecked {
+  border-color: var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .check input {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--color-mint);
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.checkBox {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 7px;
+  border: 1.5px solid var(--line);
+  background: var(--field);
+  color: transparent;
+  font-size: 13px;
+  font-weight: 900;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.checkChecked .checkBox {
+  background: var(--lime);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.check:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .warn {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-orange);
+  color: var(--warn);
 }
 
 .done {
@@ -93,7 +179,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 100px var(--gutter) 32px;
+  padding: 88px var(--gutter) 32px;
   text-align: center;
 }
 
@@ -101,13 +187,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: var(--color-mint);
-  color: var(--text-on-mint);
+  background: var(--lime);
+  border: 2px solid var(--ink);
+  color: var(--ink);
   font-size: 34px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .linkBtn {
@@ -115,10 +202,11 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border-radius: var(--radius-button);
-  background: var(--color-mint);
-  color: var(--text-on-mint);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -127,10 +215,12 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 54px;
+  min-height: 52px;
   border-radius: var(--radius-button);
-  background: var(--color-raised);
-  color: #f6fafe;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -143,22 +233,22 @@
 .locationBtn {
   min-height: 44px;
   padding: 0 12px;
-  border-radius: 14px;
+  border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .geoHint {
   margin: -6px 0 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--color-orange);
+  color: var(--warn);
 }
 
 .mapSkeleton {
   width: 100%;
   height: 220px;
   border-radius: 16px;
-  background: var(--surface-card);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--field);
+  border: 1px solid var(--line);
 }

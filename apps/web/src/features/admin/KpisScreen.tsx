@@ -147,24 +147,22 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
   return (
     <>
       <section className={styles.kpiGrid} aria-label="Các chỉ số KPI chính">
-        {/* 1. Suất đã bàn giao — NEVER label as "lượng thực phẩm cứu được" / "waste avoided" (DOMAIN §8) */}
-        <article className={styles.kpiCard}>
+        {/* 1. Featured Dark — Suất đã bàn giao (NEVER label as waste avoided / kg saved, DOMAIN §8) */}
+        <article className={`${styles.kpiCard} ${styles.kpiCardDark}`}>
           <h2 className={styles.kpiLabel}>Suất đã bàn giao</h2>
-          <p className={`${styles.kpiValue} ${styles.kpiValueMint}`}>
-            {metrics.portionsHandedOver.toLocaleString("vi-VN")}
-          </p>
+          <p className={styles.kpiValue}>{metrics.portionsHandedOver.toLocaleString("vi-VN")}</p>
           <p className={styles.kpiHint}>Tổng số suất từ các đơn đã hoàn tất bàn giao trực tiếp tại điểm nhận.</p>
         </article>
 
-        {/* 2. Tỷ lệ hoàn tất */}
-        <article className={styles.kpiCard}>
+        {/* 2. Featured Lime — Tỷ lệ hoàn tất */}
+        <article className={`${styles.kpiCard} ${styles.kpiCardLime}`}>
           <h2 className={styles.kpiLabel}>Tỷ lệ hoàn tất</h2>
-          <p className={`${styles.kpiValue} ${styles.kpiValueMint}`}>
+          <p className={styles.kpiValue}>
             {metrics.reservations.created > 0 ? formatPercent(metrics.completionRate) : "—"}
           </p>
           <div className={styles.progressTrack} aria-hidden="true">
             <div
-              className={styles.progressBarMint}
+              className={styles.progressBarInk}
               style={{ width: `${Math.min(100, Math.round(metrics.completionRate * 100))}%` }}
             />
           </div>
@@ -188,10 +186,10 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
           </div>
         </article>
 
-        {/* 3. Tỷ lệ tin hết hạn còn suất */}
+        {/* 3. Clean White — Tỷ lệ tin hết hạn còn suất */}
         <article className={styles.kpiCard}>
           <h2 className={styles.kpiLabel}>Tỷ lệ tin hết hạn còn suất</h2>
-          <p className={`${styles.kpiValue} ${styles.kpiValueOrange}`}>
+          <p className={styles.kpiValue}>
             {metrics.listings.published > 0 ? formatPercent(metrics.listingExpiredRate) : "—"}
           </p>
           <div className={styles.progressTrack} aria-hidden="true">
@@ -212,10 +210,10 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
           </div>
         </article>
 
-        {/* 4. Mức giảm giá thực tế */}
+        {/* 4. Clean White — Mức giảm giá thực tế */}
         <article className={styles.kpiCard}>
           <h2 className={styles.kpiLabel}>Mức giảm giá thực tế</h2>
-          <p className={`${styles.kpiValue} ${styles.kpiValueSky}`}>
+          <p className={styles.kpiValue}>
             {metrics.discount.samples > 0 ? formatPercent(metrics.discount.avgRate) : "—"}
           </p>
           <div className={styles.progressTrack} aria-hidden="true">
@@ -228,9 +226,18 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
             Cỡ mẫu: <b>{metrics.discount.samples}</b> đơn hoàn tất có giá gốc tham chiếu.
           </p>
         </article>
+
+        {/* 5. Alert / Soft Pink — Báo cáo chờ xử lý */}
+        <article className={`${styles.kpiCard} ${styles.kpiCardAlert}`}>
+          <h2 className={styles.kpiLabel}>Báo cáo chờ xử lý</h2>
+          <p className={styles.kpiValue}>{metrics.reports.open}</p>
+          <p className={styles.kpiHint}>
+            Tổng <b>{metrics.reports.total}</b> báo cáo trong kỳ · <b>{blockedFromReports}</b> tin bị khóa từ báo cáo.
+          </p>
+        </article>
       </section>
 
-      {/* 5. Báo cáo & an toàn */}
+      {/* Báo cáo & an toàn breakdown */}
       <section className={styles.sectionCard} aria-label="Báo cáo và an toàn">
         <h2 className={styles.sectionTitle}>Báo cáo &amp; an toàn</h2>
 
@@ -241,7 +248,7 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
           </div>
           <div className={styles.miniStat}>
             <span className={styles.miniStatLabel}>Đang mở / chờ xử lý</span>
-            <span className={styles.miniStatVal} style={{ color: metrics.reports.open > 0 ? "var(--color-alert)" : undefined }}>
+            <span className={styles.miniStatVal} style={{ color: metrics.reports.open > 0 ? "var(--danger, #c9252b)" : undefined }}>
               {metrics.reports.open}
             </span>
           </div>
@@ -269,7 +276,7 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
                   </div>
                   <div className={styles.progressTrack} aria-hidden="true">
                     <div
-                      className={type === "UNSAFE_FOOD" ? styles.progressBarOrange : styles.progressBarSky}
+                      className={type === "UNSAFE_FOOD" ? styles.progressBarDanger : styles.progressBarSky}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -299,12 +306,14 @@ function KpiMetricsView({ metrics }: { metrics: AdminMetrics }) {
         </div>
       </section>
 
-      <Notice>
-        <p>
-          Các chỉ số được tính trực tiếp từ lịch sử giao dịch và báo cáo trong kỳ. Dữ liệu nền về thất thoát thực phẩm
-          được thu thập độc lập ngoài ứng dụng.
-        </p>
-      </Notice>
+      <aside className={styles.privacyBanner} role="note" aria-label="Quy tắc bảo mật mã nhận món">
+        <span className={styles.privacyIcon} aria-hidden="true">
+          i
+        </span>
+        <div>
+          <span className={styles.privacyTitle}>Bảo mật bàn giao:</span> Mã nhận món (<code className={styles.mono}>pickupToken</code> / QR) không bao giờ hiển thị trên giao diện Admin. Các chỉ số được tính trực tiếp từ lịch sử giao dịch và báo cáo trong kỳ; dữ liệu nền về thất thoát thực phẩm được thu thập độc lập ngoài ứng dụng.
+        </div>
+      </aside>
     </>
   );
 }

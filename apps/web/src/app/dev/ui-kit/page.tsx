@@ -23,18 +23,30 @@ const sample: ListingCard = {
   seller: { id: "acc-may", name: "Tiệm bánh Mây", type: "BAKERY", verified: true },
 };
 
-/** Dev-only gallery of the Figma V1 components (13:48 + screen 01) for visual checks. */
+const SWATCHES = [
+  { name: "canvas", bg: "var(--canvas)", fg: "var(--ink)" },
+  { name: "surface", bg: "var(--surface)", fg: "var(--ink)" },
+  { name: "ink", bg: "var(--ink)", fg: "var(--surface)" },
+  { name: "lime", bg: "var(--lime)", fg: "var(--ink)" },
+  { name: "limesoft", bg: "var(--limesoft)", fg: "var(--ink)" },
+  { name: "peach", bg: "var(--peach)", fg: "var(--ink)" },
+  { name: "lilacsoft", bg: "var(--lilacsoft)", fg: "var(--violet)" },
+  { name: "danger-soft", bg: "var(--danger-soft)", fg: "var(--danger)" },
+  { name: "danger", bg: "var(--danger)", fg: "var(--surface)" },
+] as const;
+
+/** Dev-only gallery of the SaveMeal V2.1 Pixel components for visual checks. */
 export default function UiKitPage() {
   if (process.env.NODE_ENV === "production") notFound();
   return (
     <div className={styles.page}>
-      <h1>SaveMeal · UI kit (Figma V1)</h1>
+      <h1>SaveMeal · UI kit (V2.1 Pixel)</h1>
       <section>
-        <h2>Màu</h2>
+        <h2>Màu V2.1</h2>
         <div className={styles.swatches}>
-          {["night", "raised", "mint", "orange", "sky", "alert"].map((c) => (
-            <div key={c} className={styles.swatch} style={{ background: `var(--color-${c})` }}>
-              {c}
+          {SWATCHES.map((s) => (
+            <div key={s.name} className={styles.swatch} style={{ background: s.bg, color: s.fg }}>
+              {s.name}
             </div>
           ))}
         </div>
@@ -42,7 +54,9 @@ export default function UiKitPage() {
       <section>
         <h2>Nút</h2>
         <Button>Đặt giữ món này</Button>
+        <Button variant="lime">Đăng món mới</Button>
         <Button variant="secondary">Hủy / quay lại</Button>
+        <Button variant="danger">Xóa tài khoản</Button>
         <Button disabled>Chưa thể tiếp tục</Button>
       </section>
       <section>

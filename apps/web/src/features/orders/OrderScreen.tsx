@@ -79,18 +79,9 @@ export function OrderScreen({ id }: { id: string }) {
     <>
       <ScreenHeader title={active ? "Mã nhận món" : "Chi tiết đơn hàng"} backHref="/orders" />
       <div className={styles.body}>
-        {active ? (
-          <>
-            {isNew ? <Notice tone="success">Đã giữ suất thành công!</Notice> : null}
-            <p className={styles.center}>Đưa mã này cho người bán khi nhận món</p>
-            {current ? <QrCode value={current.qrPayload} label={`Mã QR nhận món ${r.code}`} /> : <div className={styles.qrWait} aria-busy="true" />}
-            <p className={styles.code}>{r.code}</p>
-            <p className={styles.centerSmall}>
-              {current ? `Mã QR tự làm mới sau ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} · dùng một lần` : "Đang tạo mã…"}
-            </p>
-            {tokenError ? <Notice tone="error">{tokenError}</Notice> : null}
-          </>
-        ) : (
+        {active && isNew ? <Notice tone="success">Đã giữ suất thành công!</Notice> : null}
+
+        {!active ? (
           <Notice tone={r.status === "COMPLETED" ? "success" : "info"}>
             <p>
               <b>{RESERVATION_STATUS_LABEL[r.status]}</b>
@@ -99,42 +90,70 @@ export function OrderScreen({ id }: { id: string }) {
               {r.status === "EXPIRED" ? " · Đơn đã quá giờ nhận." : null}
             </p>
           </Notice>
-        )}
+        ) : null}
 
-        <section className={styles.card}>
-          <p className={styles.cardTitle}>
-            {r.listing.title} · {r.quantity} suất
-          </p>
-          <p className={styles.cardMeta}>{r.seller.name}</p>
-          <dl className={styles.facts}>
-            <div>
-              <dt>Trạng thái</dt>
-              <dd>{RESERVATION_STATUS_LABEL[r.status]}</dd>
-            </div>
-            <div>
-              <dt>Giờ nhận</dt>
-              <dd>
-                {formatPickupDay(r.listing.pickupStart)} {formatPickupWindow(r.listing.pickupStart, r.listing.pickupEnd)}
-              </dd>
-            </div>
-            <div>
-              <dt>Địa điểm</dt>
-              <dd>{r.listing.pickup.address}</dd>
-            </div>
-            <div>
-              <dt>Trả trực tiếp cho người bán</dt>
-              <dd>{r.totalPrice === 0 ? "Miễn phí" : formatVnd(r.totalPrice)}</dd>
-            </div>
-          </dl>
-          <a
-            className={styles.link}
-            href={`https://www.openstreetmap.org/?mlat=${r.listing.pickup.lat}&mlon=${r.listing.pickup.lng}#map=18/${r.listing.pickup.lat}/${r.listing.pickup.lng}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Chỉ đường đến điểm nhận
-          </a>
-        </section>
+        <article className={styles.ticket}>
+          {active ? (
+            <>
+              <div className={styles.ticketTop}>
+                <div className={styles.ticketBadgeRow}>
+                  <span className={styles.statusPill}>{RESERVATION_STATUS_LABEL[r.status]}</span>
+                  <span className={styles.centerSmall}>Đưa mã cho người bán</span>
+                </div>
+                <div className={styles.qrWrap}>
+                  {current ? (
+                    <QrCode value={current.qrPayload} label={`Mã QR nhận món ${r.code}`} />
+                  ) : (
+                    <div className={styles.qrWait} aria-busy="true" />
+                  )}
+                </div>
+                <p className={styles.codePill}>{r.code}</p>
+                <p className={styles.centerSmall}>
+                  {current
+                    ? `Mã QR tự làm mới sau ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} · dùng một lần`
+                    : "Đang tạo mã…"}
+                </p>
+                {tokenError ? <Notice tone="error">{tokenError}</Notice> : null}
+              </div>
+              <div className={styles.perforation} aria-hidden="true" />
+            </>
+          ) : null}
+
+          <div className={styles.ticketBottom}>
+            <p className={styles.cardTitle}>
+              {r.listing.title} · {r.quantity} suất
+            </p>
+            <p className={styles.cardMeta}>{r.seller.name}</p>
+            <dl className={styles.facts}>
+              <div>
+                <dt>Trạng thái</dt>
+                <dd>{RESERVATION_STATUS_LABEL[r.status]}</dd>
+              </div>
+              <div>
+                <dt>Giờ nhận</dt>
+                <dd>
+                  {formatPickupDay(r.listing.pickupStart)} {formatPickupWindow(r.listing.pickupStart, r.listing.pickupEnd)}
+                </dd>
+              </div>
+              <div>
+                <dt>Địa điểm</dt>
+                <dd>{r.listing.pickup.address}</dd>
+              </div>
+              <div>
+                <dt>Trả trực tiếp cho người bán</dt>
+                <dd>{r.totalPrice === 0 ? "Miễn phí" : formatVnd(r.totalPrice)}</dd>
+              </div>
+            </dl>
+            <a
+              className={styles.directionBtn}
+              href={`https://www.openstreetmap.org/?mlat=${r.listing.pickup.lat}&mlon=${r.listing.pickup.lng}#map=18/${r.listing.pickup.lat}/${r.listing.pickup.lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chỉ đường đến điểm nhận
+            </a>
+          </div>
+        </article>
 
         {r.canCancel ? (
           <Link className={styles.danger} href={`/orders/${r.id}/cancel`}>

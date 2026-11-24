@@ -15,9 +15,9 @@ export function OrdersScreen() {
   const { state, reload } = useLoad(() => saveMeal.myReservations(tab), [tab], 30_000);
 
   return (
-    <section className={styles.body} style={{ paddingTop: 56 }}>
-      <h1 style={{ margin: 0, fontSize: 28 }}>Đơn của tôi</h1>
-      <p style={{ margin: "-6px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>Theo dõi các suất đã giữ</p>
+    <section className={`${styles.body} ${styles.pageHeader}`}>
+      <h1 className={styles.pageTitle}>Đơn của tôi</h1>
+      <p className={styles.pageSubtitle}>Theo dõi các suất đã giữ</p>
       <div className={styles.tabs} role="tablist">
         <Chip selected={tab === "upcoming"} onClick={() => setTab("upcoming")} role="tab" aria-selected={tab === "upcoming"}>
           Đang nhận

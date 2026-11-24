@@ -1,56 +1,261 @@
-.screen {
+/* Login screen (10 · Đăng nhập Email OTP) */
+.loginShell {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px var(--gutter) 32px;
+  min-height: 100dvh;
+  background: var(--canvas);
 }
 
-.brand {
-  margin: 40px 0 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-accent);
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: clamp(290px, 42vh, 370px);
+  padding: calc(18px + env(safe-area-inset-top, 0px)) var(--gutter) 44px;
+  background: var(--ink2);
+  overflow: hidden;
 }
 
+.brandLockup {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sparkBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--lime);
+  flex: none;
+}
+
+.wordmark {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.heroArt {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 280px;
+  margin: 8px auto 0;
+}
+
+.heroImg {
+  object-fit: contain;
+}
+
+.loginSheet {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: -28px;
+  padding: 28px var(--gutter) calc(32px + env(safe-area-inset-bottom, 0px));
+  border-radius: 32px 32px 0 0;
+  background: var(--canvas);
+}
+
+/* Shared typography */
 .title {
   margin: 0;
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.2;
+  color: var(--ink);
 }
 
 .lead {
   margin: 0;
   font-size: 14px;
-  color: var(--text-secondary);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.lead b {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
-.code input {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.5em;
-  text-align: center;
+.loginField input {
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+}
+
+.loginField input:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px rgba(215, 247, 91, 0.7);
+}
+
+.submitBtn {
+  min-height: 54px;
+}
+
+/* OTP screen (40 · Xác minh OTP) */
+.otpShell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--canvas);
+}
+
+.otpScreen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px var(--gutter) calc(32px + env(safe-area-inset-bottom, 0px));
+}
+
+.otpField {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.otpLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.otpBoxesWrap {
+  position: relative;
+  cursor: text;
+}
+
+.otpHiddenInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-size: 16px;
+  caret-color: transparent;
+}
+
+.otpBoxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.otpBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 58px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.otpBoxFilled {
+  border-color: var(--ink);
+}
+
+.otpBoxActive {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px rgba(215, 247, 91, 0.7);
+}
+
+.otpBoxError {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.otpError {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.verifyingBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--limesoft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(17, 17, 17, 0.18);
+  border-top-color: var(--ink);
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.resendWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .muted {
   margin: 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
   text-align: center;
+}
+
+.countdown {
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .link {
   border: 0;
-  background: none;
-  color: var(--color-sky);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }

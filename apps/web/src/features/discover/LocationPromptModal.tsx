@@ -68,7 +68,7 @@ export function LocationPromptModal({ open, onGranted, onDismiss }: Props) {
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="location-prompt-title" aria-describedby="location-prompt-desc">
       <div className={styles.card}>
         <div className={styles.iconBadge} aria-hidden="true">
-          <Icon name="navigation" size={26} color="var(--color-mint)" />
+          <Icon name="navigation" size={24} color="var(--ink)" />
         </div>
         <h2 id="location-prompt-title" className={styles.title}>
           Cho phép dùng vị trí gần bạn?

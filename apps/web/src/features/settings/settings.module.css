@@ -2,26 +2,28 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 8px var(--gutter) 44px;
+  padding: 10px var(--gutter) 44px;
 }
 
 .card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
+  padding: 18px;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
+/* Soft-pink danger card for Delete Account */
 .dangerCard {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid rgba(255, 130, 139, 0.32);
+  padding: 18px;
+  border: 1px solid rgba(201, 37, 43, 0.24);
   border-radius: var(--radius-card);
-  background: rgba(255, 130, 139, 0.06);
+  background: var(--danger-soft);
 }
 
 .cardHead {
@@ -34,21 +36,22 @@
 .sectionTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .dangerTitle {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
-  color: var(--color-alert);
+  font-weight: 800;
+  color: var(--danger);
 }
 
 .sectionDesc {
   margin: -4px 0 0;
   font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-secondary);
+  line-height: 1.5;
+  color: var(--muted);
 }
 
 .avatarRow {
@@ -65,10 +68,10 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--color-raised);
-  color: var(--text-accent);
+  background: var(--ink);
+  color: var(--lime);
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
   overflow: hidden;
 }
 
@@ -93,12 +96,17 @@
   justify-content: center;
   min-height: 38px;
   padding: 0 14px;
-  border-radius: 14px;
-  background: var(--color-raised);
-  color: var(--text-primary);
+  border-radius: 999px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  color: var(--ink);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.uploadLabel:hover {
+  background: var(--limesoft);
 }
 
 .uploadLabel input {
@@ -112,7 +120,7 @@
   border: 0;
   background: none;
   padding: 6px 8px;
-  color: var(--text-secondary);
+  color: var(--muted);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -122,9 +130,9 @@
   border: 0;
   background: none;
   padding: 6px 8px;
-  color: var(--color-alert);
+  color: var(--danger);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -134,33 +142,35 @@
   gap: 4px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: var(--surface-sheet);
+  background: var(--canvas);
+  border: 1px solid var(--hair);
 }
 
 .readonlyLabel {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .readonlyValue {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .readonlyHint {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--subtle);
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 9px;
-  border-radius: 10px;
-  background: var(--surface-chip-active);
-  color: var(--text-accent);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--limesoft);
+  color: var(--success);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .two {
@@ -182,22 +192,23 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .installStep {
   padding: 12px 14px;
   border-radius: 14px;
-  background: var(--surface-sheet);
+  background: var(--canvas);
+  border: 1px solid var(--hair);
   font-size: 13px;
   line-height: 1.45;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .installStep b {
   display: block;
   margin-bottom: 2px;
-  color: var(--text-primary);
+  color: var(--ink);
   font-size: 13px;
 }
 
@@ -207,15 +218,17 @@
   gap: 10px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: var(--surface-sheet);
+  background: var(--surface);
+  border: 1px solid rgba(201, 37, 43, 0.2);
   font-size: 14px;
+  color: var(--ink);
   cursor: pointer;
 }
 
 .checkboxRow input {
   width: 18px;
   height: 18px;
-  accent-color: var(--color-mint);
+  accent-color: var(--danger);
 }
 
 .bulletList {
@@ -226,7 +239,7 @@
   gap: 6px;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--text-secondary);
+  color: var(--ink2);
 }
 
 .dangerButton {
@@ -236,19 +249,19 @@
   width: 100%;
   min-height: 50px;
   padding: 0 20px;
-  border: 1px solid rgba(255, 130, 139, 0.5);
+  border: 1px solid rgba(201, 37, 43, 0.35);
   border-radius: var(--radius-button);
-  background: rgba(255, 130, 139, 0.16);
-  color: var(--color-alert);
+  background: var(--danger);
+  color: var(--surface);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .dangerButton:disabled {
-  background: var(--color-muted);
+  background: var(--disabled);
   border-color: transparent;
-  color: var(--text-secondary);
+  color: var(--disabled-text);
   cursor: not-allowed;
 }
 
@@ -260,7 +273,7 @@
 }
 
 .inlineLink {
-  color: var(--color-sky);
+  color: var(--violet);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }

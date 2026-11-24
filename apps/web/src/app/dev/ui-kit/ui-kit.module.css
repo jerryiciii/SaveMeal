@@ -2,20 +2,23 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 24px var(--gutter) 0;
+  padding: 24px var(--gutter) 40px;
 }
 
 .page h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .page h2 {
   margin: 0 0 10px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .page section {
@@ -43,13 +46,11 @@
   height: 64px;
   padding: 8px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
   font-size: 11px;
   font-weight: 700;
-  color: #f6fafe;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .note {
-  color: var(--text-secondary);
+  color: var(--muted);
 }

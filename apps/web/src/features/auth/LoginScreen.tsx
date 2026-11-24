@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Notice, TextField } from "@/components/ui";
@@ -19,7 +20,7 @@ export function safeNext(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
 
-/** Figma V1 10 · Sign in / Sign up: one form for both (OTP creates the account on first verify). */
+/** Figma V2.1 10 · Đăng nhập Email OTP: dark hero + warm cream sheet. */
 export function LoginScreen() {
   const router = useRouter();
   const params = useSearchParams();
@@ -56,34 +57,65 @@ export function LoginScreen() {
   }
 
   return (
-    <section className={styles.screen}>
-      <p className={styles.brand}>✦ SaveMeal</p>
-      <h1 className={styles.title}>Chào mừng trở lại.</h1>
-      <p className={styles.lead}>Một tài khoản để vừa mua vừa đăng món.</p>
-      <form className={styles.form} onSubmit={submit} noValidate>
-        <TextField
-          label={isMockApi ? "Số điện thoại hoặc email" : "Email"}
-          placeholder={isMockApi ? "Nhập email hoặc số điện thoại" : "ban@example.com"}
-          type={isMockApi ? "text" : "email"}
-          inputMode="email"
-          autoComplete={isMockApi ? "username" : "email"}
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          hint={!isMockApi ? "Nhập email của bạn để nhận mã OTP 6 số từ SaveMeal." : undefined}
-          error={error}
-        />
-        <Button type="submit" disabled={busy}>
-          {busy ? "Đang gửi mã…" : "Tiếp tục"}
-        </Button>
-      </form>
-      {isMockApi ? (
-        <Notice>
-          <p>
-            Chế độ demo (mock): người bán <b>{DEMO_SELLER_PHONE}</b>, người mua <b>{DEMO_BUYER_PHONE}</b>, quản trị{" "}
-            <b>{DEMO_ADMIN_PHONE}</b>. Mã OTP luôn là <b>123456</b>.
-          </p>
-        </Notice>
-      ) : null}
-    </section>
+    <div className={styles.loginShell}>
+      <header className={styles.hero}>
+        <div className={styles.brandLockup}>
+          <span className={styles.sparkBadge} aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M8 1.5L9.75 6.25L14.5 8L9.75 9.75L8 14.5L6.25 9.75L1.5 8L6.25 6.25L8 1.5Z"
+                fill="#111111"
+              />
+            </svg>
+          </span>
+          <span className={styles.wordmark}>SaveMeal</span>
+        </div>
+        <div className={styles.heroArt}>
+          <Image
+            src="/illustrations/login-hero.png"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 430px) 280px, 320px"
+            className={styles.heroImg}
+          />
+        </div>
+      </header>
+
+      <section className={styles.loginSheet}>
+        <h1 className={styles.title}>Chào mừng đến SaveMeal</h1>
+        <p className={styles.lead}>Một tài khoản để vừa mua vừa đăng món.</p>
+
+        <form className={styles.form} onSubmit={submit} noValidate>
+          <TextField
+            className={styles.loginField}
+            label={isMockApi ? "Số điện thoại hoặc email" : "Email"}
+            placeholder={isMockApi ? "Nhập email hoặc số điện thoại" : "ban@example.com"}
+            type={isMockApi ? "text" : "email"}
+            inputMode="email"
+            autoComplete={isMockApi ? "username" : "email"}
+            value={identifier}
+            onChange={(e) => {
+              setIdentifier(e.target.value);
+              if (error) setError(null);
+            }}
+            hint={!isMockApi ? "Nhập email của bạn để nhận mã OTP 6 số từ SaveMeal." : undefined}
+            error={error}
+          />
+          <Button type="submit" disabled={busy} className={styles.submitBtn}>
+            {busy ? "Đang gửi mã…" : "Tiếp tục"}
+          </Button>
+        </form>
+
+        {isMockApi ? (
+          <Notice>
+            <p>
+              Chế độ demo (mock): người bán <b>{DEMO_SELLER_PHONE}</b>, người mua <b>{DEMO_BUYER_PHONE}</b>, quản trị{" "}
+              <b>{DEMO_ADMIN_PHONE}</b>. Mã OTP luôn là <b>123456</b>.
+            </p>
+          </Notice>
+        ) : null}
+      </section>
+    </div>
   );
 }

@@ -51,6 +51,15 @@ export function ReservationsScreen() {
         </button>
       </div>
 
+      <aside className={styles.privacyBanner} role="note" aria-label="Quy tắc bảo mật mã nhận món">
+        <span className={styles.privacyIcon} aria-hidden="true">
+          i
+        </span>
+        <div>
+          <span className={styles.privacyTitle}>Bảo mật bàn giao:</span> Mã QR nhận món (<code className={styles.mono}>pickupToken</code>) không bao giờ được hiển thị trên giao diện Admin.
+        </div>
+      </aside>
+
       <section className={styles.filterPanel} aria-label="Bộ lọc đơn giữ chỗ">
         <div className={styles.chipRow}>
           <Chip selected={statusFilter === ""} onClick={() => setStatusFilter("")}>

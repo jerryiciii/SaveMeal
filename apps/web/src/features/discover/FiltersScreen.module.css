@@ -2,15 +2,16 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
+  background: var(--canvas);
 }
 
 .resetBtn {
   border: 0;
   padding: 0;
   background: transparent;
-  color: var(--color-sky);
+  color: var(--ink);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -30,11 +31,11 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-accent);
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
 .chips {
@@ -53,7 +54,8 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-card);
-  background: var(--surface-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
   overflow: hidden;
 }
 
@@ -63,11 +65,11 @@
   justify-content: space-between;
   padding: 15px 16px;
   border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--hair);
   background: transparent;
   font-size: 15px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--ink);
   cursor: pointer;
   text-align: left;
 }
@@ -77,26 +79,26 @@
 }
 
 .sortSelected {
-  color: var(--text-accent);
-  font-weight: 600;
+  color: var(--ink);
+  font-weight: 700;
 }
 
 .radioDot {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--text-secondary);
+  border: 2px solid var(--subtle);
 }
 
 .sortSelected .radioDot {
-  border-color: var(--color-mint);
-  background: radial-gradient(circle, var(--color-mint) 0 45%, transparent 50%);
+  border-color: var(--ink);
+  background: radial-gradient(circle, var(--lime) 0 42%, var(--ink) 48%);
 }
 
 .footer {
   position: sticky;
   bottom: 0;
   padding: 14px var(--gutter) calc(18px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(180deg, rgba(17, 25, 34, 0.65) 0%, var(--surface-app) 28%);
+  background: linear-gradient(180deg, rgba(244, 244, 240, 0) 0%, var(--canvas) 28%);
   backdrop-filter: blur(8px);
 }

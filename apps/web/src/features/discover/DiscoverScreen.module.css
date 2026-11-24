@@ -2,11 +2,12 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  background: var(--canvas);
 }
 
 .map {
   position: relative;
-  height: clamp(280px, 40vh, 340px);
+  height: clamp(290px, 42vh, 360px);
   flex: none;
 }
 
@@ -18,65 +19,57 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .topBarInline {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--gutter) 14px;
-  background: var(--surface-app);
-}
-
-.searchRow {
-  display: flex;
-  align-items: center;
   gap: 10px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--gutter) 14px;
+  background: var(--canvas);
 }
 
-.searchTriggerWrap {
-  position: relative;
+.searchPill {
   display: flex;
-  flex: 1;
-  min-width: 0;
   align-items: center;
+  gap: 6px;
+  height: 52px;
+  padding: 0 7px 0 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  box-shadow: 0 4px 16px rgba(17, 17, 17, 0.08);
 }
 
 .searchTrigger {
   display: flex;
   flex: 1;
   min-width: 0;
+  height: 100%;
   align-items: center;
-  gap: 12px;
-  height: 50px;
-  padding: 0 40px 0 15px;
-  border-radius: var(--radius-field);
-  background: rgba(27, 33, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 6px 18px rgba(17, 25, 34, 0.3);
-  backdrop-filter: blur(10px);
-  font-size: 15px;
+  gap: 10px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .searchPlaceholder {
-  color: var(--text-secondary);
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .searchValue {
-  color: var(--text-primary);
+  color: var(--ink);
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .clearQuery {
-  position: absolute;
-  right: 10px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -84,9 +77,10 @@
   height: 28px;
   border: 0;
   border-radius: 50%;
-  background: var(--color-raised);
-  color: var(--text-primary);
+  background: var(--field);
+  color: var(--ink);
   font-size: 16px;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -96,31 +90,39 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 50px;
-  height: 50px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: rgba(27, 33, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 6px 18px rgba(17, 25, 34, 0.3);
-  backdrop-filter: blur(10px);
-  color: var(--text-primary);
+  background: var(--ink);
+  color: #ffffff;
+  transition: background-color 120ms ease, transform 100ms ease;
+}
+
+.filterBtn:hover {
+  background: var(--ink2);
+}
+
+.filterBtn:active {
+  transform: scale(0.95);
 }
 
 .filterBadge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: -3px;
+  right: -3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 19px;
-  height: 19px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--color-mint);
-  color: var(--text-on-mint);
-  font-size: 11px;
-  font-weight: 700;
+  background: var(--lime);
+  border: 2px solid var(--surface);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .chips {
@@ -129,41 +131,54 @@
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
 }
 
 .topBar .chips button {
-  background: rgba(27, 33, 42, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 12px rgba(17, 25, 34, 0.28);
-  backdrop-filter: blur(8px);
+  background: var(--surface);
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  color: var(--ink);
+  box-shadow: 0 4px 12px rgba(17, 17, 17, 0.08);
 }
 
 .topBar .chips button[aria-pressed="true"] {
-  background: rgba(34, 82, 71, 0.95);
-  border-color: rgba(101, 228, 179, 0.45);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(17, 17, 17, 0.18);
 }
 
 .locate {
   position: absolute;
   right: 16px;
-  bottom: 12px;
+  bottom: 14px;
   z-index: 2;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 6px 16px rgba(17, 25, 34, 0.35);
+  width: 44px;
+  height: 44px;
+  background: var(--surface);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(17, 17, 17, 0.12);
 }
 
 .sheet {
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 6px 20px 24px;
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  background: var(--surface-sheet);
+  padding: 6px var(--gutter) 28px;
+  border-radius: 28px 28px 0 0;
+  background: var(--canvas);
+  box-shadow: 0 -8px 24px rgba(17, 17, 17, 0.06);
 }
 
 .sheetExpanded {
-  border-radius: 24px 24px 0 0;
-  padding-bottom: 32px;
+  border-radius: 28px 28px 0 0;
+  padding-bottom: 36px;
+  box-shadow: none;
 }
 
 .handleBtn {
@@ -178,10 +193,10 @@
 }
 
 .handleBar {
-  width: 76px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--sheet-handle);
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: #d8d8d0;
 }
 
 .sheetHeader {
@@ -191,30 +206,61 @@
   gap: 12px;
 }
 
+.sheetHeading {
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .sheetTitle {
   margin: 0;
   font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .sheetSubtitle {
   margin: 4px 0 0;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .expandToggle {
   flex: none;
-  padding: 8px 13px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--color-raised);
-  color: var(--color-sky);
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.expandToggle:hover {
+  background: var(--field);
 }
 
 .activeSummary {
@@ -227,9 +273,10 @@
 
 .summaryTag {
   padding: 4px 10px;
-  border-radius: 10px;
-  background: var(--surface-chip-active);
-  color: var(--text-accent);
+  border-radius: 999px;
+  background: var(--limesoft);
+  border: 1px solid rgba(169, 210, 31, 0.35);
+  color: var(--ink);
   font-size: 12px;
   font-weight: 600;
 }
@@ -238,9 +285,10 @@
   padding: 4px 8px;
   border: 0;
   background: transparent;
-  color: var(--color-sky);
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+  text-decoration: underline;
   cursor: pointer;
 }
 
@@ -254,16 +302,17 @@
 
 .section {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-accent);
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 
 .freeShortcut {
   flex: none;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--color-sky);
+  font-weight: 700;
+  color: var(--ink);
   white-space: nowrap;
 }
 
@@ -285,8 +334,9 @@
 .skeleton {
   height: 124px;
   border-radius: var(--radius-card);
-  background: linear-gradient(90deg, var(--surface-card) 0%, #333a46 50%, var(--surface-card) 100%);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--field) 50%, var(--surface) 100%);
   background-size: 200% 100%;
+  border: 1px solid var(--hair);
   animation: shimmer 1.2s linear infinite;
 }
 
@@ -300,8 +350,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--muted);
 }
 
 .message p {
@@ -311,11 +365,15 @@
 .mapPlaceholder {
   position: absolute;
   inset: 0 0 -28px;
-  background: #d9e2dc;
+  background: #e5ece6;
 }
 
 .hint {
   margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--warn-soft);
   font-size: 12px;
-  color: var(--color-orange);
+  font-weight: 500;
+  color: var(--warn);
 }
