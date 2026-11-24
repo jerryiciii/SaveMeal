@@ -23,7 +23,7 @@ export const mockConfig: AppConfig = {
   },
   defaultCenter: { lat: 16.0495, lng: 108.2405, label: "Mỹ An, Đà Nẵng" },
   popularSearches: ["Bánh mì", "Bánh ngọt", "Cơm trưa", "Món miễn phí"],
-  map: { styleUrl: "https://tiles.openfreemap.org/styles/dark", attribution: "© OpenStreetMap contributors" },
+  map: { styleUrl: "https://tiles.openfreemap.org/styles/liberty", attribution: "© OpenStreetMap contributors" },
 };
 
 /** Mock "me" location near Mỹ An, used when the buyer has not chosen one. */

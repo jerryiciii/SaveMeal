@@ -1,7 +1,41 @@
 .map {
   position: absolute;
   inset: 0 0 -28px;
-  background: #16202b;
+  background: #d9e2dc;
+}
+
+.map :global(.maplibregl-ctrl-bottom-left) {
+  left: 12px;
+  bottom: 38px;
+}
+
+.map :global(.maplibregl-ctrl-attrib.maplibregl-compact) {
+  margin: 0;
+  min-height: 26px;
+  border-radius: 14px;
+  background: rgba(17, 25, 34, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(17, 25, 34, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.map :global(.maplibregl-ctrl-attrib.maplibregl-compact-show) {
+  padding: 2px 10px 2px 28px;
+}
+
+.map :global(.maplibregl-ctrl-attrib-button) {
+  background-color: transparent;
+  filter: invert(1) brightness(1.8);
+}
+
+.map :global(.maplibregl-ctrl-attrib-inner) {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.map :global(.maplibregl-ctrl-attrib-inner a) {
+  color: var(--color-sky);
 }
 
 .me {
@@ -11,5 +45,7 @@
   border: 3px solid #f7f9fb;
   border-radius: 50%;
   background: var(--color-sky);
-  box-shadow: 0 0 0 6px rgba(131, 189, 255, 0.25);
+  box-shadow:
+    0 0 0 2px rgba(17, 25, 34, 0.45),
+    0 0 0 7px rgba(131, 189, 255, 0.35);
 }

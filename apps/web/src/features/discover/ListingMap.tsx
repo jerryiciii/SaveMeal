@@ -45,8 +45,17 @@ export default function ListingMap({ styleUrl, center, pins, selectedId = null, 
       style: styleUrl,
       center: [center.lng, center.lat],
       zoom: 14,
-      attributionControl: { compact: true },
+      attributionControl: false,
     });
+    m.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+    const collapseAttribution = () => {
+      const attrib = box.current?.querySelector(".maplibregl-ctrl-attrib");
+      if (!attrib) return;
+      attrib.classList.remove("maplibregl-compact-show");
+      attrib.removeAttribute("open");
+    };
+    collapseAttribution();
+    m.once("load", collapseAttribution);
     m.on("click", () => {
       onClearRef.current?.();
     });

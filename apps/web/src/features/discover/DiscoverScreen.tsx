@@ -242,9 +242,6 @@ function DiscoverScreenInner() {
         <Chip selected={isQuickFilterActive(filters, "near")} onClick={() => toggleChip("near")}>
           Gần tôi
         </Chip>
-        <Link href="/free" className={styles.freeLinkChip}>
-          Miễn phí hôm nay
-        </Link>
       </div>
     </div>
   );
@@ -334,7 +331,12 @@ function DiscoverScreenInner() {
 
         {locError ? <p className={styles.hint}>{locError}</p> : null}
 
-        <p className={styles.section}>{sectionHeading(filters)}</p>
+        <div className={styles.sectionRow}>
+          <p className={styles.section}>{sectionHeading(filters)}</p>
+          <Link href="/free" className={styles.freeShortcut}>
+            Miễn phí hôm nay →
+          </Link>
+        </div>
 
         {state.kind === "loading" ? (
           <div className={styles.skeletonList} aria-busy="true" aria-label="Đang tải món gần bạn">
