@@ -133,7 +133,7 @@ describe('Auth (AUTH-1..4) and the auth guard', () => {
           avatar: null,
           role: 'USER',
           status: 'ACTIVE',
-          seller: { name: null, type: null, verified: false, defaultPickup: null },
+          seller: { name: null, type: null, verified: false, defaultPickup: null, bankQrImage: null },
           stats: { portionsHandedOver: 0, reservationsActive: 0, listingsActive: 0 },
           createdAt: expect.stringMatching(API_TIME),
         },

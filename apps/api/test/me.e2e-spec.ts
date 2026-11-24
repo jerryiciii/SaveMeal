@@ -132,7 +132,13 @@ describe('Me (ME-1..3)', () => {
         .set(bearer(session))
         .send({ seller: { defaultPickup: null } })
         .expect(200);
-      expect(res.body.data.seller).toEqual({ name: 'Tiệm bánh Mây', type: 'BAKERY', verified: false, defaultPickup: null });
+      expect(res.body.data.seller).toEqual({
+        name: 'Tiệm bánh Mây',
+        type: 'BAKERY',
+        verified: false,
+        defaultPickup: null,
+        bankQrImage: null,
+      });
       expect(res.body.data.displayName).toBe('Minh');
     });
 

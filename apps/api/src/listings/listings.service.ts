@@ -36,14 +36,20 @@ export class ListingsService {
   async portionCounts(ids: string[]): Promise<Map<string, PortionCounts>> {
     const groups = await this.prisma.reservation.groupBy({
       by: ['listingId', 'status'],
-      where: { listingId: { in: ids }, status: { in: ['PENDING_PAYMENT', 'RESERVED', 'COMPLETED'] } },
+      where: {
+        listingId: { in: ids },
+        status: { in: ['PENDING_PAYMENT', 'AWAITING_SELLER_CONFIRM', 'RESERVED', 'COMPLETED'] },
+      },
       _sum: { quantity: true },
     });
     const map = new Map<string, PortionCounts>(ids.map((id) => [id, { reserved: 0, completed: 0 }]));
     for (const g of groups) {
       const counts = map.get(g.listingId)!;
-      if (g.status === 'PENDING_PAYMENT' || g.status === 'RESERVED') counts.reserved += g._sum.quantity ?? 0;
-      else counts.completed = g._sum.quantity ?? 0;
+      if (g.status === 'PENDING_PAYMENT' || g.status === 'AWAITING_SELLER_CONFIRM' || g.status === 'RESERVED') {
+        counts.reserved += g._sum.quantity ?? 0;
+      } else {
+        counts.completed = g._sum.quantity ?? 0;
+      }
     }
     return map;
   }
@@ -52,7 +58,7 @@ export class ListingsService {
     const row = await this.loadRow(id);
     if (!row) throw new AppException('LISTING_NOT_FOUND');
     const counts = (await this.portionCounts([id])).get(id)!;
-    return toOwnerView(row, counts, new Date(), this.config.listings.maxWindowHours);
+    return toOwnerView(row, counts, new Date(), this.config.listings.maxWindowHours, this.config.features.payments);
   }
 
   /** Loads a listing the caller owns; others get 404 (or 403 if the listing is public anyway). */
@@ -89,7 +95,11 @@ export class ListingsService {
       : [];
     const publicVisible = row.status === 'PUBLISHED' && row.seller.status === 'ACTIVE';
     if (!publicVisible && mine.length === 0) throw new AppException('LISTING_NOT_FOUND');
-    return toDetail(row, mine.find((r) => r.status === 'RESERVED' || r.status === 'PENDING_PAYMENT')?.id ?? null);
+    return toDetail(
+      row,
+      mine.find((r) => r.status === 'RESERVED' || r.status === 'PENDING_PAYMENT' || r.status === 'AWAITING_SELLER_CONFIRM')
+        ?.id ?? null,
+    );
   }
 
   // ------------------------------------------------------------------------------------------
@@ -101,8 +111,13 @@ export class ListingsService {
     const id = await this.prisma.$transaction(async (tx) => {
       // Serialises listing creation per seller so the limit cannot be raced.
       const [seller] = await tx.$queryRaw<
-        { default_pickup_address: string | null; default_pickup_lat: number | null; default_pickup_lng: number | null }[]
-      >`SELECT default_pickup_address, default_pickup_lat, default_pickup_lng FROM accounts WHERE id = ${account.id}::uuid FOR UPDATE`;
+        {
+          default_pickup_address: string | null;
+          default_pickup_lat: number | null;
+          default_pickup_lng: number | null;
+          bank_qr_image_id: string | null;
+        }[]
+      >`SELECT default_pickup_address, default_pickup_lat, default_pickup_lng, bank_qr_image_id FROM accounts WHERE id = ${account.id}::uuid FOR UPDATE`;
       const active = await tx.foodListing.count({ where: { sellerId: account.id, status: { in: ['DRAFT', 'PUBLISHED'] } } });
       if (active >= this.config.listings.maxActivePerSeller) throw new AppException('LISTING_LIMIT');
 
@@ -111,6 +126,22 @@ export class ListingsService {
         data.pickupAddress = seller.default_pickup_address;
         data.pickupLat = seller.default_pickup_lat;
         data.pickupLng = seller.default_pickup_lng;
+      }
+      if (dto.bankQrImageId !== undefined) {
+        if (dto.bankQrImageId === null) {
+          data.bankQrImageId = null;
+        } else {
+          await this.assertValidBankQrImage(tx, account.id, dto.bankQrImageId);
+          data.bankQrImageId = dto.bankQrImageId;
+          if (!seller?.bank_qr_image_id) {
+            await tx.account.update({
+              where: { id: account.id },
+              data: { bankQrImageId: dto.bankQrImageId },
+            });
+          }
+        }
+      } else if (seller?.bank_qr_image_id) {
+        data.bankQrImageId = seller.bank_qr_image_id;
       }
       this.assertConsistent({} as FoodListing, data);
       const created = await tx.foodListing.create({
@@ -169,6 +200,25 @@ export class ListingsService {
         }
       }
 
+      if (dto.bankQrImageId !== undefined) {
+        if (dto.bankQrImageId === null) {
+          data.bankQrImageId = null;
+        } else {
+          await this.assertValidBankQrImage(tx, account.id, dto.bankQrImageId);
+          data.bankQrImageId = dto.bankQrImageId;
+          const seller = await tx.account.findUnique({
+            where: { id: account.id },
+            select: { bankQrImageId: true },
+          });
+          if (!seller?.bankQrImageId) {
+            await tx.account.update({
+              where: { id: account.id },
+              data: { bankQrImageId: dto.bankQrImageId },
+            });
+          }
+        }
+      }
+
       this.assertConsistent(listing, data);
       await tx.foodListing.update({ where: { id }, data });
       if (dto.imageIds !== undefined) await this.attachImages(tx, account.id, id, dto.imageIds);
@@ -211,8 +261,17 @@ export class ListingsService {
         throw new AppException('INVALID_STATE_TRANSITION', { from: listing.status, action: 'publish' });
       }
       const now = new Date();
-      const imageCount = await tx.listingImage.count({ where: { listingId: id } });
-      const missing = missingChecklist({ ...listing, imageCount }, now, this.config.listings.maxWindowHours);
+      const [imageCount, seller] = await Promise.all([
+        tx.listingImage.count({ where: { listingId: id } }),
+        tx.account.findUnique({ where: { id: account.id }, select: { bankQrImageId: true } }),
+      ]);
+      const effectiveBankQrImageId = listing.bankQrImageId ?? seller?.bankQrImageId ?? null;
+      const missing = missingChecklist(
+        { ...listing, bankQrImageId: effectiveBankQrImageId, imageCount },
+        now,
+        this.config.listings.maxWindowHours,
+        this.config.features.payments,
+      );
       if (missing.length > 0) throw new AppException('LISTING_INCOMPLETE', { missing });
       const undeclared = missingDeclarations(declaration as Record<string, unknown>);
       if (undeclared.length > 0) throw new AppException('DECLARATION_INCOMPLETE', { missing: undeclared });
@@ -227,6 +286,7 @@ export class ListingsService {
         data: {
           status: 'PUBLISHED',
           quantityAvailable: listing.quantityTotal!,
+          bankQrImageId: effectiveBankQrImageId,
           publishedAt: now,
           declaredAt: now,
           declaration: declared,
@@ -275,9 +335,9 @@ export class ListingsService {
   }
 
   /**
-   * Cancels every PENDING_PAYMENT and RESERVED order of a closed listing, revokes their pickup
-   * tokens, expires UNPAID payments, and marks PAID payments as REFUND_DUE. Stock is not released:
-   * the listing is closed (D§4). Shared with admin block (M5).
+   * Cancels every PENDING_PAYMENT, AWAITING_SELLER_CONFIRM, and RESERVED order of a closed listing,
+   * revokes their pickup tokens, and expires UNPAID / PROOF_SUBMITTED payments. Stock is not
+   * released: the listing is closed (D§4). Shared with admin block (M5).
    */
   async cancelActiveReservations(
     tx: Tx,
@@ -290,7 +350,8 @@ export class ListingsService {
     const cancelled = await tx.$queryRaw<{ id: string }[]>`
       UPDATE reservations
          SET status = 'CANCELLED', cancel_reason = ${reason}::"CancelReason", closed_at = ${now}, updated_at = ${now}
-       WHERE listing_id = ${listingId}::uuid AND status IN ('PENDING_PAYMENT', 'RESERVED')
+       WHERE listing_id = ${listingId}::uuid
+         AND status IN ('PENDING_PAYMENT', 'AWAITING_SELLER_CONFIRM', 'RESERVED')
       RETURNING id`;
     if (cancelled.length === 0) return 0;
     const ids = cancelled.map((r) => r.id);
@@ -304,14 +365,7 @@ export class ListingsService {
       UPDATE payments
          SET status = 'EXPIRED', updated_at = ${now}
        WHERE reservation_id IN (${Prisma.join(idParams)})
-         AND status = 'UNPAID'
-      RETURNING id, reservation_id`;
-
-    const refundDuePayments = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
-      UPDATE payments
-         SET status = 'REFUND_DUE', refund_note = ${reason}, updated_at = ${now}
-       WHERE reservation_id IN (${Prisma.join(idParams)})
-         AND status = 'PAID'
+         AND status IN ('UNPAID', 'PROOF_SUBMITTED')
       RETURNING id, reservation_id`;
 
     for (const payment of expiredPayments) {
@@ -319,16 +373,6 @@ export class ListingsService {
         actorId,
         actorType,
         event: 'PAYMENT_EXPIRED',
-        entityType: 'payment',
-        entityId: payment.id,
-        data: { reservationId: payment.reservation_id, reason },
-      });
-    }
-    for (const payment of refundDuePayments) {
-      await logEvent(tx, {
-        actorId,
-        actorType,
-        event: 'PAYMENT_REFUND_DUE',
         entityType: 'payment',
         entityId: payment.id,
         data: { reservationId: payment.reservation_id, reason },
@@ -367,7 +411,9 @@ export class ListingsService {
     const counts = await this.portionCounts(items.map((r) => r.id));
     const now = new Date();
     return {
-      data: items.map((r) => toOwnerView(r, counts.get(r.id)!, now, this.config.listings.maxWindowHours)),
+      data: items.map((r) =>
+        toOwnerView(r, counts.get(r.id)!, now, this.config.listings.maxWindowHours, this.config.features.payments),
+      ),
       page,
     };
   }
@@ -426,6 +472,7 @@ export class ListingsService {
         (dto.pickup.address.trim() !== listing.pickupAddress ||
           dto.pickup.lat !== listing.pickupLat ||
           dto.pickup.lng !== listing.pickupLng),
+      bankQrImageId: dto.bankQrImageId !== undefined && dto.bankQrImageId !== listing.bankQrImageId,
     };
     return Object.entries(changes)
       .filter(([field, changed]) => changed && !(PUBLISHED_EDITABLE as readonly string[]).includes(field))
@@ -445,6 +492,20 @@ export class ListingsService {
     await tx.listingImage.updateMany({ where: { listingId, id: { notIn: unique } }, data: { listingId: null } });
     for (const [position, id] of unique.entries()) {
       await tx.listingImage.update({ where: { id }, data: { listingId, position } });
+    }
+  }
+
+  /** Validates that `bankQrImageId` belongs to the caller and has purpose `PAYMENT_QR`. */
+  private async assertValidBankQrImage(tx: Tx, uploaderId: string, imageId: string): Promise<void> {
+    const image = await tx.listingImage.findFirst({
+      where: { id: imageId, uploaderId },
+      select: { id: true, purpose: true },
+    });
+    if (!image) throw new AppException('IMAGE_NOT_FOUND');
+    if (image.purpose !== 'PAYMENT_QR') {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { bankQrImageId: 'image must be uploaded with purpose PAYMENT_QR' },
+      });
     }
   }
 }

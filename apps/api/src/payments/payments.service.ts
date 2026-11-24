@@ -1,39 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import {
-  formatOrderCode,
-  type AdminSettlePayoutResponse,
-  type MyPayoutsResponse,
-  type PageInfo,
-  type Payment,
-  type PayoutAccount,
-  type PayoutItem,
-  type Reservation,
-} from '@savemeal/shared';
-import { randomUUID } from 'node:crypto';
+import { formatOrderCode, type Payment, type Reservation } from '@savemeal/shared';
 import type { AuthAccount } from '../auth/auth.guard';
 import { AppException } from '../common/errors/app-exception';
 import { logEvent } from '../common/event-log';
-import { decodeCursor, DEFAULT_LIMIT, paginate } from '../common/pagination';
-import { toApiTime, toApiTimeOrNull } from '../common/time';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import { computePickupTokenExpiry, generatePickupToken } from '../reservations/pickup-token';
 import { RESERVATION_INCLUDE, toReservation } from '../reservations/reservation.mapper';
-import type {
-  AdminMarkRefundedDto,
-  AdminPaymentsQueryDto,
-  AdminSettlePayoutDto,
-  MyPayoutsQueryDto,
-  SePayWebhookDto,
-  UpdatePayoutAccountDto,
-} from './payment.dto';
-import { extractTransferContent, verifySePayApiKey } from './payment.gateway';
-import { toPayment } from './payment.mapper';
+import type { RejectPaymentDto, SubmitPaymentProofDto } from './payment.dto';
+import { PAYMENT_MAILER, type PaymentMailer } from './payment-mailer';
+import { PAYMENT_INCLUDE, toPayment } from './payment.mapper';
 
 type Tx = Prisma.TransactionClient;
 
-export type ExpirePendingFilter = {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type ExpireScope = {
   listingId?: string;
   buyerId?: string;
   reservationId?: string;
@@ -44,30 +27,40 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
+    @Inject(PAYMENT_MAILER) private readonly mailer: PaymentMailer,
   ) {}
 
   // ------------------------------------------------------------------------------------------
-  // Lazy-expiry & JOB-2 helper
+  // Lazy-expiry & JOB-2 helper (D§6, v1.3)
   // ------------------------------------------------------------------------------------------
 
   /**
-   * Atomically expires `PENDING_PAYMENT` reservations whose `payment_expires_at <= now`,
-   * marks their `UNPAID` payments `EXPIRED`, releases stock back to `PUBLISHED` listings still
-   * before `pickup_end`, and appends `RESERVATION_EXPIRED` + `PAYMENT_EXPIRED` event logs.
+   * Atomically expires overdue PENDING_PAYMENT reservations (payment_expires_at <= now),
+   * marks their UNPAID payment EXPIRED, and returns stock to PUBLISHED listings before pickupEnd.
+   * Does NOT expire AWAITING_SELLER_CONFIRM reservations on the hold timer.
    */
-  async expirePendingPayments(tx?: Tx, filter?: ExpirePendingFilter, now = new Date()): Promise<number> {
-    if (tx) return this.expirePendingPaymentsInTx(tx, filter, now);
-    return this.prisma.$transaction((innerTx) => this.expirePendingPaymentsInTx(innerTx, filter, now));
+  async expirePendingPayments(
+    tx?: Tx,
+    scope?: ExpireScope,
+    now = new Date(),
+  ): Promise<number> {
+    if (tx) return this.expirePendingPaymentsInTx(tx, scope, now);
+    return this.prisma.$transaction((innerTx) => this.expirePendingPaymentsInTx(innerTx, scope, now));
   }
 
-  private async expirePendingPaymentsInTx(tx: Tx, filter: ExpirePendingFilter | undefined, now: Date): Promise<number> {
+  private async expirePendingPaymentsInTx(
+    tx: Tx,
+    scope: ExpireScope | undefined,
+    now: Date,
+  ): Promise<number> {
     const conditions: Prisma.Sql[] = [
       Prisma.sql`status = 'PENDING_PAYMENT'`,
+      Prisma.sql`payment_expires_at IS NOT NULL`,
       Prisma.sql`payment_expires_at <= ${now}`,
     ];
-    if (filter?.listingId) conditions.push(Prisma.sql`listing_id = ${filter.listingId}::uuid`);
-    if (filter?.buyerId) conditions.push(Prisma.sql`buyer_id = ${filter.buyerId}::uuid`);
-    if (filter?.reservationId) conditions.push(Prisma.sql`id = ${filter.reservationId}::uuid`);
+    if (scope?.listingId) conditions.push(Prisma.sql`listing_id = ${scope.listingId}::uuid`);
+    if (scope?.buyerId) conditions.push(Prisma.sql`buyer_id = ${scope.buyerId}::uuid`);
+    if (scope?.reservationId) conditions.push(Prisma.sql`id = ${scope.reservationId}::uuid`);
 
     const expired = await tx.$queryRaw<
       { id: string; listing_id: string; seller_id: string; quantity: number }[]
@@ -79,7 +72,23 @@ export class PaymentsService {
 
     if (expired.length === 0) return 0;
 
-    const idParams = expired.map((r) => Prisma.sql`${r.id}::uuid`);
+    // Release stock per listing atomically (only if still PUBLISHED and before pickup_end).
+    const stockByListing = new Map<string, number>();
+    for (const row of expired) {
+      stockByListing.set(row.listing_id, (stockByListing.get(row.listing_id) ?? 0) + row.quantity);
+    }
+    for (const [listingId, qty] of stockByListing) {
+      await tx.$executeRaw`
+        UPDATE food_listings
+           SET quantity_available = quantity_available + ${qty}::int,
+               updated_at = ${now}
+         WHERE id = ${listingId}::uuid
+           AND status = 'PUBLISHED'
+           AND pickup_end > ${now}`;
+    }
+
+    const reservationIds = expired.map((r) => r.id);
+    const idParams = reservationIds.map((id) => Prisma.sql`${id}::uuid`);
     const expiredPayments = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
       UPDATE payments
          SET status = 'EXPIRED', updated_at = ${now}
@@ -87,15 +96,18 @@ export class PaymentsService {
          AND status = 'UNPAID'
       RETURNING id, reservation_id`;
 
-    for (const row of expired) {
-      await tx.$executeRaw`
-        UPDATE food_listings
-           SET quantity_available = quantity_available + ${row.quantity}::int,
-               updated_at = ${now}
-         WHERE id = ${row.listing_id}::uuid
-           AND status = 'PUBLISHED'
-           AND pickup_end > ${now}`;
+    for (const p of expiredPayments) {
+      await logEvent(tx, {
+        actorId: null,
+        actorType: 'SYSTEM',
+        event: 'PAYMENT_EXPIRED',
+        entityType: 'payment',
+        entityId: p.id,
+        data: { reservationId: p.reservation_id, reason: 'PAYMENT_HOLD_EXPIRED' },
+      });
+    }
 
+    for (const row of expired) {
       await logEvent(tx, {
         actorId: null,
         actorType: 'SYSTEM',
@@ -106,19 +118,8 @@ export class PaymentsService {
           listingId: row.listing_id,
           sellerId: row.seller_id,
           quantity: row.quantity,
-          reason: 'PAYMENT_EXPIRED',
+          reason: 'PAYMENT_HOLD_EXPIRED',
         },
-      });
-    }
-
-    for (const payment of expiredPayments) {
-      await logEvent(tx, {
-        actorId: null,
-        actorType: 'SYSTEM',
-        event: 'PAYMENT_EXPIRED',
-        entityType: 'payment',
-        entityId: payment.id,
-        data: { reservationId: payment.reservation_id },
       });
     }
 
@@ -126,7 +127,7 @@ export class PaymentsService {
   }
 
   // ------------------------------------------------------------------------------------------
-  // PAY-1: GET /reservations/:reservationId/payment
+  // PAY-1 · GET /reservations/:reservationId/payment
   // ------------------------------------------------------------------------------------------
 
   async getForReservation(account: AuthAccount, reservationId: string): Promise<Payment> {
@@ -134,235 +135,161 @@ export class PaymentsService {
 
     const reservation = await this.prisma.reservation.findUnique({
       where: { id: reservationId },
-      include: { payment: true },
+      include: { payment: { include: PAYMENT_INCLUDE } },
     });
-    if (!reservation || (account.id !== reservation.buyerId && account.role !== 'ADMIN')) {
-      throw new AppException('RESERVATION_NOT_FOUND');
-    }
-    if (!reservation.payment) {
-      throw new AppException('PAYMENT_NOT_FOUND');
-    }
+    if (!reservation) throw new AppException('RESERVATION_NOT_FOUND');
+
+    const allowed =
+      account.id === reservation.buyerId ||
+      account.id === reservation.sellerId ||
+      account.role === 'ADMIN';
+    if (!allowed) throw new AppException('RESERVATION_NOT_FOUND');
+
+    if (!reservation.payment) throw new AppException('PAYMENT_NOT_FOUND');
     return toPayment(reservation.payment);
   }
 
   // ------------------------------------------------------------------------------------------
-  // PAY-2: POST /webhooks/sepay
+  // PAY-2 · POST /reservations/:reservationId/payment-proof (BUYER)
   // ------------------------------------------------------------------------------------------
 
-  verifyWebhookAuth(authHeader: string | undefined): void {
-    const secret = this.config.payments.sepay.webhookSecret;
-    if (!secret || !verifySePayApiKey(authHeader, secret)) {
-      throw new AppException('UNAUTHENTICATED');
+  async submitProof(
+    account: AuthAccount,
+    reservationId: string,
+    dto: SubmitPaymentProofDto,
+  ): Promise<Reservation> {
+    const proofImageId = dto.proofImageId?.trim();
+    if (!proofImageId) {
+      throw new AppException('PROOF_REQUIRED');
     }
-  }
-
-  async handleSePayWebhook(authHeader: string | undefined, body: SePayWebhookDto): Promise<{ received: true }> {
-    this.verifyWebhookAuth(authHeader);
-
-    if (body.transferType !== 'in') {
-      return { received: true };
-    }
-
-    const transferContent =
-      extractTransferContent(body.content ?? '') ?? extractTransferContent(body.description ?? '');
-    if (!transferContent) {
-      return { received: true };
-    }
-
-    const providerTxId = String(body.id);
-
-    const existingByTx = await this.prisma.payment.findUnique({
-      where: { providerTxId },
-      select: { id: true },
-    });
-    if (existingByTx) {
-      return { received: true };
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      const locked = await tx.$queryRaw<{ id: string; reservation_id: string }[]>`
-        SELECT id, reservation_id
-          FROM payments
-         WHERE transfer_content = ${transferContent}
-         FOR UPDATE`;
-      if (locked.length === 0) return;
-
-      // Re-check idempotency inside the lock in case of concurrent duplicate deliveries.
-      const dup = await tx.payment.findUnique({
-        where: { providerTxId },
-        select: { id: true },
-      });
-      if (dup) return;
-
-      const paymentRef = locked[0]!;
-      await tx.$executeRaw`SELECT 1 FROM reservations WHERE id = ${paymentRef.reservation_id}::uuid FOR UPDATE`;
-
-      const payment = await tx.payment.findUnique({
-        where: { id: paymentRef.id },
-        include: {
-          reservation: {
-            include: { listing: { select: { pickupEnd: true } } },
-          },
-        },
-      });
-      if (!payment) return;
-
-      const now = new Date();
-      const reservation = payment.reservation;
-      const canSettle =
-        payment.status === 'UNPAID' &&
-        reservation.status === 'PENDING_PAYMENT' &&
-        now.getTime() < payment.expiresAt.getTime() &&
-        body.transferAmount >= payment.payableAmount;
-
-      if (canSettle) {
-        await tx.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: 'PAID',
-            providerTxId,
-            paidAt: now,
-          },
-        });
-
-        await tx.reservation.update({
-          where: { id: reservation.id },
-          data: { status: 'RESERVED' },
-        });
-
-        const generated = generatePickupToken();
-        const tokenExpiresAt = computePickupTokenExpiry(
-          now,
-          reservation.listing.pickupEnd!,
-          this.config.reservations.pickupTokenTtlMin,
-          this.config.reservations.noShowGraceMin,
-        );
-        await tx.pickupToken.create({
-          data: {
-            reservationId: reservation.id,
-            tokenHash: generated.hash,
-            expiresAt: tokenExpiresAt,
-          },
-        });
-
-        await logEvent(tx, {
-          actorId: null,
-          actorType: 'SYSTEM',
-          event: 'PAYMENT_PAID',
-          entityType: 'payment',
-          entityId: payment.id,
-          data: {
-            reservationId: reservation.id,
-            providerTxId,
-            transferAmount: body.transferAmount,
-            payableAmount: payment.payableAmount,
-          },
-        });
-
-        await logEvent(tx, {
-          actorId: null,
-          actorType: 'SYSTEM',
-          event: 'RESERVATION_PAID',
-          entityType: 'reservation',
-          entityId: reservation.id,
-          data: {
-            paymentId: payment.id,
-            providerTxId,
-          },
-        });
-        return;
-      }
-
-      const refundNote = this.buildRefundNote(payment, reservation.status, body.transferAmount, providerTxId, now);
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'REFUND_DUE',
-          providerTxId: payment.providerTxId ?? providerTxId,
-          refundNote,
-        },
-      });
-
-      await logEvent(tx, {
-        actorId: null,
-        actorType: 'SYSTEM',
-        event: 'PAYMENT_REFUND_DUE',
-        entityType: 'payment',
-        entityId: payment.id,
-        data: {
-          reservationId: reservation.id,
-          providerTxId,
-          transferAmount: body.transferAmount,
-          payableAmount: payment.payableAmount,
-          reason: refundNote,
-        },
-      });
-    });
-
-    return { received: true };
-  }
-
-  private buildRefundNote(
-    payment: { status: string; payableAmount: number; expiresAt: Date },
-    reservationStatus: string,
-    transferAmount: number,
-    providerTxId: string,
-    now: Date,
-  ): string {
-    if (transferAmount < payment.payableAmount) {
-      return `Underpaid: received ${transferAmount}, expected ${payment.payableAmount} (tx ${providerTxId})`;
-    }
-    if (now.getTime() >= payment.expiresAt.getTime() || reservationStatus === 'EXPIRED') {
-      return `Late payment after expiry (tx ${providerTxId}, amount ${transferAmount})`;
-    }
-    return `Unexpected payment in state payment=${payment.status}, reservation=${reservationStatus} (tx ${providerTxId}, amount ${transferAmount})`;
-  }
-
-  // ------------------------------------------------------------------------------------------
-  // PAY-DEV: POST /reservations/:reservationId/payment/simulate
-  // ------------------------------------------------------------------------------------------
-
-  async simulatePayment(account: AuthAccount, reservationId: string): Promise<Reservation> {
-    if (!this.config.features.payments || this.config.payments.provider !== 'mock') {
-      throw new AppException('FEATURE_DISABLED');
+    if (!UUID_REGEX.test(proofImageId)) {
+      throw new AppException('IMAGE_NOT_FOUND');
     }
 
     const now = new Date();
-    await this.expirePendingPayments(undefined, { reservationId }, now);
-
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT 1 FROM reservations WHERE id = ${reservationId}::uuid FOR UPDATE`;
+      await this.expirePendingPaymentsInTx(tx, { reservationId }, now);
 
       const row = await tx.reservation.findUnique({
         where: { id: reservationId },
-        include: RESERVATION_INCLUDE,
+        include: {
+          payment: true,
+          listing: { select: { title: true } },
+          buyer: { select: { displayName: true } },
+          seller: { select: { email: true, sellerName: true, displayName: true } },
+        },
       });
-      if (!row || row.buyerId !== account.id) {
-        throw new AppException('RESERVATION_NOT_FOUND');
-      }
-      if (!row.payment) {
-        throw new AppException('PAYMENT_NOT_FOUND');
-      }
-      if (row.status !== 'PENDING_PAYMENT') {
-        throw new AppException('INVALID_STATE_TRANSITION', { from: row.status, action: 'simulate_payment' });
+      if (!row || row.buyerId !== account.id) throw new AppException('RESERVATION_NOT_FOUND');
+      if (!row.payment) throw new AppException('PAYMENT_NOT_FOUND');
+      if (row.status !== 'PENDING_PAYMENT' || row.payment.status !== 'UNPAID') {
+        throw new AppException('PAYMENT_NOT_CONFIRMABLE');
       }
 
-      const providerTxId = `MOCK-${randomUUID()}`;
+      const image = await tx.listingImage.findFirst({
+        where: { id: proofImageId, uploaderId: account.id },
+        select: { id: true, purpose: true },
+      });
+      if (!image) throw new AppException('IMAGE_NOT_FOUND');
+      if (image.purpose !== 'PAYMENT_PROOF') {
+        throw new AppException('VALIDATION_FAILED', {
+          fields: { proofImageId: 'image must be uploaded with purpose PAYMENT_PROOF' },
+        });
+      }
+
       await tx.payment.update({
         where: { id: row.payment.id },
         data: {
-          status: 'PAID',
-          providerTxId,
-          paidAt: now,
+          status: 'PROOF_SUBMITTED',
+          proofImageId: image.id,
+          proofSubmittedAt: now,
         },
       });
 
       const updated = await tx.reservation.update({
-        where: { id: row.id },
-        data: { status: 'RESERVED' },
+        where: { id: reservationId },
+        data: { status: 'AWAITING_SELLER_CONFIRM' },
         include: RESERVATION_INCLUDE,
       });
 
+      await logEvent(tx, {
+        actorId: account.id,
+        actorType: 'USER',
+        event: 'PAYMENT_PROOF_SUBMITTED',
+        entityType: 'payment',
+        entityId: row.payment.id,
+        data: {
+          reservationId,
+          proofImageId: image.id,
+          amount: row.payment.amount,
+        },
+      });
+
+      return {
+        updated,
+        sellerEmail: row.seller.email,
+        sellerName: row.seller.sellerName ?? row.seller.displayName ?? 'Người bán',
+        buyerName: row.buyer.displayName ?? 'Người mua',
+        listingTitle: row.listing.title,
+        orderCode: formatOrderCode(row.code),
+        amount: row.payment.amount,
+      };
+    });
+
+    if (result.sellerEmail) {
+      await this.mailer.sendProofSubmittedToSeller({
+        toEmail: result.sellerEmail,
+        sellerName: result.sellerName,
+        buyerName: result.buyerName,
+        listingTitle: result.listingTitle,
+        orderCode: result.orderCode,
+        amount: result.amount,
+        reservationId,
+      });
+    }
+
+    return toReservation(result.updated, 'BUYER', null, now);
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // PAY-3 · POST /reservations/:reservationId/payment/confirm (SELLER)
+  // ------------------------------------------------------------------------------------------
+
+  async confirmPayment(account: AuthAccount, reservationId: string): Promise<Reservation> {
+    const now = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM reservations WHERE id = ${reservationId}::uuid FOR UPDATE`;
+      await this.expirePendingPaymentsInTx(tx, { reservationId }, now);
+
+      const row = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        include: {
+          payment: true,
+          listing: { select: { title: true, pickupEnd: true } },
+          buyer: { select: { email: true, displayName: true } },
+          seller: { select: { sellerName: true, displayName: true } },
+        },
+      });
+      if (!row || row.sellerId !== account.id) throw new AppException('RESERVATION_NOT_FOUND');
+      if (!row.payment) throw new AppException('PAYMENT_NOT_FOUND');
+      if (row.status !== 'PENDING_PAYMENT' && row.status !== 'AWAITING_SELLER_CONFIRM') {
+        throw new AppException('PAYMENT_NOT_CONFIRMABLE');
+      }
+
+      await tx.payment.update({
+        where: { id: row.payment.id },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: now,
+          paidAt: now,
+        },
+      });
+
+      // Issue first pickup token for the buyer.
+      await tx.pickupToken.updateMany({
+        where: { reservationId, usedAt: null, revokedAt: null },
+        data: { revokedAt: now },
+      });
       const generated = generatePickupToken();
       const tokenExpiresAt = computePickupTokenExpiry(
         now,
@@ -372,270 +299,173 @@ export class PaymentsService {
       );
       await tx.pickupToken.create({
         data: {
-          reservationId: row.id,
+          reservationId,
           tokenHash: generated.hash,
           expiresAt: tokenExpiresAt,
         },
       });
 
+      const updated = await tx.reservation.update({
+        where: { id: reservationId },
+        data: { status: 'RESERVED' },
+        include: RESERVATION_INCLUDE,
+      });
+
       await logEvent(tx, {
         actorId: account.id,
         actorType: 'USER',
-        event: 'PAYMENT_PAID',
+        event: 'PAYMENT_CONFIRMED',
         entityType: 'payment',
         entityId: row.payment.id,
-        data: {
-          reservationId: row.id,
-          providerTxId,
-          simulated: true,
-        },
+        data: { reservationId, amount: row.payment.amount },
       });
-
       await logEvent(tx, {
         actorId: account.id,
         actorType: 'USER',
         event: 'RESERVATION_PAID',
         entityType: 'reservation',
-        entityId: row.id,
-        data: {
-          paymentId: row.payment.id,
-          providerTxId,
-          simulated: true,
-        },
+        entityId: reservationId,
+        data: { paymentId: row.payment.id, amount: row.payment.amount },
       });
 
-      return toReservation(
+      return {
         updated,
-        'BUYER',
-        { qrPayload: generated.qrPayload, expiresAt: toApiTime(tokenExpiresAt) },
-        now,
-      );
-    });
-  }
-
-  // ------------------------------------------------------------------------------------------
-  // PAY-3: GET /me/payouts
-  // ------------------------------------------------------------------------------------------
-
-  async myPayouts(
-    account: AuthAccount,
-    query: MyPayoutsQueryDto,
-  ): Promise<{ data: MyPayoutsResponse; page: PageInfo }> {
-    const limit = query.limit ?? DEFAULT_LIMIT;
-    const offset = decodeCursor(query.cursor);
-
-    const aggregates = await this.prisma.payment.groupBy({
-      by: ['payoutStatus'],
-      where: {
-        sellerId: account.id,
-        status: 'PAID',
-        payoutStatus: { in: ['PENDING_PAYOUT', 'SETTLED'] },
-      },
-      _sum: { sellerNet: true },
+        buyerEmail: row.buyer.email,
+        buyerName: row.buyer.displayName ?? 'Người mua',
+        sellerName: row.seller.sellerName ?? row.seller.displayName ?? 'Người bán',
+        listingTitle: row.listing.title,
+        orderCode: formatOrderCode(row.code),
+        amount: row.payment.amount,
+      };
     });
 
-    let pendingPayoutVnd = 0;
-    let settledVnd = 0;
-    for (const row of aggregates) {
-      if (row.payoutStatus === 'PENDING_PAYOUT') pendingPayoutVnd = row._sum.sellerNet ?? 0;
-      else if (row.payoutStatus === 'SETTLED') settledVnd = row._sum.sellerNet ?? 0;
+    if (result.buyerEmail) {
+      await this.mailer.sendPaymentConfirmedToBuyer({
+        toEmail: result.buyerEmail,
+        buyerName: result.buyerName,
+        sellerName: result.sellerName,
+        listingTitle: result.listingTitle,
+        orderCode: result.orderCode,
+        amount: result.amount,
+        reservationId,
+      });
     }
 
-    const rows = await this.prisma.payment.findMany({
-      where: {
-        sellerId: account.id,
-        status: 'PAID',
-        payoutStatus: query.payoutStatus ? query.payoutStatus : { in: ['PENDING_PAYOUT', 'SETTLED'] },
-      },
-      include: {
-        reservation: {
-          select: {
-            id: true,
-            code: true,
-            completedAt: true,
-            listing: { select: { title: true } },
-          },
-        },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      skip: offset,
-      take: limit + 1,
-    });
-
-    const { items: rawItems, page } = paginate(rows, offset, limit);
-    const items: PayoutItem[] = rawItems.map((row) => ({
-      paymentId: row.id,
-      reservationId: row.reservationId,
-      reservationCode: formatOrderCode(row.reservation.code),
-      listingTitle: row.reservation.listing.title,
-      foodAmount: row.foodAmount,
-      sellerNet: row.sellerNet,
-      payoutStatus: row.payoutStatus,
-      completedAt: toApiTimeOrNull(row.reservation.completedAt),
-      settledAt: toApiTimeOrNull(row.settledAt),
-    }));
-
-    return {
-      data: {
-        summary: {
-          pendingPayoutVnd,
-          settledVnd,
-          totalFoodRevenueVnd: pendingPayoutVnd + settledVnd,
-        },
-        items,
-      },
-      page,
-    };
+    return toReservation(result.updated, 'SELLER', null, now);
   }
 
   // ------------------------------------------------------------------------------------------
-  // PAY-4: PUT /me/payout-account
+  // PAY-4 · POST /reservations/:reservationId/payment/reject (SELLER)
   // ------------------------------------------------------------------------------------------
 
-  async upsertPayoutAccount(account: AuthAccount, dto: UpdatePayoutAccountDto): Promise<PayoutAccount> {
-    const bankCode = dto.bankCode.trim().toUpperCase();
-    const accountNo = dto.accountNo.trim();
-    const accountName = dto.accountName.trim();
-
-    const row = await this.prisma.$transaction(async (tx) => {
-      const saved = await tx.sellerPayoutAccount.upsert({
-        where: { accountId: account.id },
-        create: { accountId: account.id, bankCode, accountNo, accountName },
-        update: { bankCode, accountNo, accountName },
+  async rejectPayment(
+    account: AuthAccount,
+    reservationId: string,
+    dto: RejectPaymentDto,
+  ): Promise<Reservation> {
+    const reason = dto.reason.trim();
+    if (reason.length < 3 || reason.length > 300) {
+      throw new AppException('VALIDATION_FAILED', {
+        fields: { reason: 'must be between 3 and 300 characters' },
       });
+    }
+
+    const now = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM reservations WHERE id = ${reservationId}::uuid FOR UPDATE`;
+      await this.expirePendingPaymentsInTx(tx, { reservationId }, now);
+
+      const row = await tx.reservation.findUnique({
+        where: { id: reservationId },
+        include: {
+          payment: true,
+          listing: { select: { id: true, title: true } },
+          buyer: { select: { email: true, displayName: true } },
+          seller: { select: { sellerName: true, displayName: true } },
+        },
+      });
+      if (!row || row.sellerId !== account.id) throw new AppException('RESERVATION_NOT_FOUND');
+      if (!row.payment) throw new AppException('PAYMENT_NOT_FOUND');
+      if (row.status !== 'PENDING_PAYMENT' && row.status !== 'AWAITING_SELLER_CONFIRM') {
+        throw new AppException('PAYMENT_NOT_CONFIRMABLE');
+      }
+
+      await tx.payment.update({
+        where: { id: row.payment.id },
+        data: {
+          status: 'REJECTED',
+          rejectedAt: now,
+          rejectReason: reason,
+        },
+      });
+
+      const updated = await tx.reservation.update({
+        where: { id: reservationId },
+        data: {
+          status: 'CANCELLED',
+          cancelReason: 'PAYMENT_REJECTED',
+          cancelNote: reason.slice(0, 200),
+          closedAt: now,
+        },
+        include: RESERVATION_INCLUDE,
+      });
+
+      // Release stock atomically if listing is still PUBLISHED and before pickup_end.
+      await tx.$executeRaw`
+        UPDATE food_listings
+           SET quantity_available = quantity_available + ${row.quantity}::int,
+               updated_at = ${now}
+         WHERE id = ${row.listingId}::uuid
+           AND status = 'PUBLISHED'
+           AND pickup_end > ${now}`;
 
       await logEvent(tx, {
         actorId: account.id,
         actorType: 'USER',
-        event: 'PAYOUT_ACCOUNT_UPDATED',
-        entityType: 'account',
-        entityId: account.id,
-        data: { bankCode },
-      });
-
-      return saved;
-    });
-
-    return {
-      bankCode: row.bankCode,
-      accountNo: row.accountNo,
-      accountName: row.accountName,
-      updatedAt: toApiTime(row.updatedAt),
-    };
-  }
-
-  // ------------------------------------------------------------------------------------------
-  // PAY-5: Admin payment & payout management
-  // ------------------------------------------------------------------------------------------
-
-  async adminListPayments(query: AdminPaymentsQueryDto): Promise<{ data: Payment[]; page: PageInfo }> {
-    const limit = query.limit ?? DEFAULT_LIMIT;
-    const offset = decodeCursor(query.cursor);
-
-    const rows = await this.prisma.payment.findMany({
-      where: {
-        ...(query.status ? { status: query.status } : {}),
-        ...(query.payoutStatus ? { payoutStatus: query.payoutStatus } : {}),
-        ...(query.sellerId ? { sellerId: query.sellerId } : {}),
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      skip: offset,
-      take: limit + 1,
-    });
-
-    const { items, page } = paginate(rows, offset, limit);
-    return {
-      data: items.map(toPayment),
-      page,
-    };
-  }
-
-  async adminMarkRefunded(admin: AuthAccount, paymentId: string, dto: AdminMarkRefundedDto): Promise<Payment> {
-    const now = new Date();
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM payments WHERE id = ${paymentId}::uuid FOR UPDATE`;
-
-      const row = await tx.payment.findUnique({ where: { id: paymentId } });
-      if (!row) throw new AppException('PAYMENT_NOT_FOUND');
-      if (row.status !== 'REFUND_DUE') throw new AppException('PAYMENT_NOT_REFUNDABLE');
-
-      const saved = await tx.payment.update({
-        where: { id: paymentId },
-        data: {
-          status: 'REFUNDED',
-          refundedAt: now,
-          refundNote: dto.note.trim(),
-        },
-      });
-
-      await logEvent(tx, {
-        actorId: admin.id,
-        actorType: 'ADMIN',
-        event: 'PAYMENT_REFUNDED',
+        event: 'PAYMENT_REJECTED',
         entityType: 'payment',
-        entityId: paymentId,
-        data: {
-          reservationId: row.reservationId,
-          payableAmount: row.payableAmount,
-          note: dto.note.trim(),
-        },
+        entityId: row.payment.id,
+        data: { reservationId, reason },
       });
-
-      return saved;
-    });
-
-    return toPayment(updated);
-  }
-
-  async adminSettlePayout(
-    admin: AuthAccount,
-    sellerId: string,
-    dto: AdminSettlePayoutDto,
-  ): Promise<AdminSettlePayoutResponse> {
-    const seller = await this.prisma.account.findUnique({
-      where: { id: sellerId },
-      select: { id: true },
-    });
-    if (!seller) throw new AppException('ACCOUNT_NOT_FOUND');
-
-    const now = new Date();
-    const note = dto.note.trim();
-
-    return this.prisma.$transaction(async (tx) => {
-      const settled = await tx.$queryRaw<{ id: string; seller_net: number }[]>`
-        UPDATE payments
-           SET payout_status = 'SETTLED',
-               settled_at = ${now},
-               settle_note = ${note},
-               updated_at = ${now}
-         WHERE seller_id = ${sellerId}::uuid
-           AND status = 'PAID'
-           AND payout_status = 'PENDING_PAYOUT'
-        RETURNING id, seller_net`;
-
-      const settledCount = settled.length;
-      const settledAmountVnd = settled.reduce((sum, r) => sum + r.seller_net, 0);
-
       await logEvent(tx, {
-        actorId: admin.id,
-        actorType: 'ADMIN',
-        event: 'PAYOUT_SETTLED',
-        entityType: 'account',
-        entityId: sellerId,
+        actorId: account.id,
+        actorType: 'USER',
+        event: 'RESERVATION_CANCELLED',
+        entityType: 'reservation',
+        entityId: reservationId,
         data: {
-          settledCount,
-          settledAmountVnd,
-          note,
-          paymentIds: settled.map((r) => r.id),
+          reason: 'PAYMENT_REJECTED',
+          note: reason,
+          listingId: row.listingId,
+          sellerId: row.sellerId,
+          quantity: row.quantity,
         },
       });
 
       return {
-        sellerId,
-        settledCount,
-        settledAmountVnd,
-        settledAt: toApiTime(now),
+        updated,
+        buyerEmail: row.buyer.email,
+        buyerName: row.buyer.displayName ?? 'Người mua',
+        sellerName: row.seller.sellerName ?? row.seller.displayName ?? 'Người bán',
+        listingTitle: row.listing.title,
+        orderCode: formatOrderCode(row.code),
+        amount: row.payment.amount,
       };
     });
+
+    if (result.buyerEmail) {
+      await this.mailer.sendPaymentRejectedToBuyer({
+        toEmail: result.buyerEmail,
+        buyerName: result.buyerName,
+        sellerName: result.sellerName,
+        listingTitle: result.listingTitle,
+        orderCode: result.orderCode,
+        amount: result.amount,
+        reason,
+        reservationId,
+      });
+    }
+
+    return toReservation(result.updated, 'SELLER', null, now);
   }
 }

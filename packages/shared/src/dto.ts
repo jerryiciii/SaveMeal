@@ -1,4 +1,4 @@
-// Request and response shapes from docs/API_CONTRACT.md v1.2 (MVP endpoints only). Times are
+// Request and response shapes from docs/API_CONTRACT.md v1.3 (MVP endpoints only). Times are
 // ISO 8601 strings with +07:00, money is integer VND, IDs are UUID strings, absent optionals are
 // `null`.
 import type {
@@ -15,9 +15,7 @@ import type {
   ListingTab,
   ListingView,
   OtpChannel,
-  PaymentProvider,
   PaymentStatus,
-  PayoutStatus,
   PickupBlockingReason,
   PickupDay,
   ReportAction,
@@ -61,6 +59,7 @@ export type MeSeller = {
   type: SellerType | null;
   verified: boolean;
   defaultPickup: PickupLocation | null;
+  bankQrImage: Image | null;
 };
 
 export type Me = {
@@ -130,6 +129,8 @@ export type ListingOwnerView = ListingDetail & {
   quantityTotal: number;
   reservedCount: number;
   completedCount: number;
+  /** Listing bank QR (falls back to me.seller.bankQrImage). */
+  bankQrImage: Image | null;
   /** Empty = ready to publish. */
   missing: ChecklistKey[];
   editableFields: string[];
@@ -148,43 +149,16 @@ export type PickupToken = {
 export type Payment = {
   id: string;
   reservationId: string;
-  provider: PaymentProvider;
   status: PaymentStatus;
-  payoutStatus: PayoutStatus;
-  foodAmount: number;
-  platformFee: number;
-  payableAmount: number;
-  sellerNet: number;
-  bankCode: string;
-  accountNo: string;
-  accountName: string;
-  /** Unique code e.g. "SM4281A9F2". */
-  transferContent: string;
-  qrImageUrl: string;
-  checkoutUrl: string | null;
+  /** = totalPrice (0 platform fee in v1.3). */
+  amount: number;
+  sellerQrImage: Image | null;
+  proofImage: Image | null;
   expiresAt: string;
-  paidAt: string | null;
-  refundedAt: string | null;
-  settledAt: string | null;
-};
-
-export type PayoutAccount = {
-  bankCode: string;
-  accountNo: string;
-  accountName: string;
-  updatedAt: string;
-};
-
-export type PayoutItem = {
-  paymentId: string;
-  reservationId: string;
-  reservationCode: string;
-  listingTitle: string;
-  foodAmount: number;
-  sellerNet: number;
-  payoutStatus: PayoutStatus;
-  completedAt: string | null;
-  settledAt: string | null;
+  proofSubmittedAt: string | null;
+  confirmedAt: string | null;
+  rejectedAt: string | null;
+  rejectReason: string | null;
 };
 
 export type Reservation = {
@@ -264,6 +238,8 @@ export type ListingInput = {
   pickupEnd: string;
   /** Defaults to me.seller.defaultPickup. */
   pickup?: PickupLocation;
+  /** Defaults to me.seller.bankQrImageId; required for paid listings when PAYMENTS_ENABLED=true. */
+  bankQrImageId?: string | null;
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -343,7 +319,12 @@ export type LogoutBody = { allDevices?: boolean };
 export type UpdateMeBody = {
   displayName?: string;
   avatarImageId?: string | null;
-  seller?: { name?: string | null; type?: SellerType | null; defaultPickup?: PickupLocation | null };
+  seller?: {
+    name?: string | null;
+    type?: SellerType | null;
+    defaultPickup?: PickupLocation | null;
+    bankQrImageId?: string | null;
+  };
 };
 
 /** ME-3 */
@@ -502,36 +483,11 @@ export type AdminMetrics = {
 };
 
 // ---------------------------------------------------------------------------------------------
-// Payments and payouts (§12)
+// Payments (§12, v1.3 P2P)
 // ---------------------------------------------------------------------------------------------
 
-/** PAY-3 */
-export type MyPayoutsResponse = {
-  summary: {
-    pendingPayoutVnd: number;
-    settledVnd: number;
-    totalFoodRevenueVnd: number;
-  };
-  items: PayoutItem[];
-};
+/** PAY-2 */
+export type SubmitPaymentProofBody = { proofImageId: string };
 
 /** PAY-4 */
-export type UpdatePayoutAccountBody = {
-  bankCode: string;
-  accountNo: string;
-  accountName: string;
-};
-
-/** PAY-5 */
-export type AdminMarkRefundedBody = { note: string };
-
-/** PAY-5 */
-export type AdminSettlePayoutBody = { note: string };
-
-/** PAY-5 */
-export type AdminSettlePayoutResponse = {
-  sellerId: string;
-  settledCount: number;
-  settledAmountVnd: number;
-  settledAt: string;
-};
+export type RejectPaymentBody = { reason: string };

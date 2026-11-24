@@ -31,6 +31,11 @@ export class UpdateSellerDto {
   @ValidateNested()
   @Type(() => PickupLocationDto)
   defaultPickup?: PickupLocationDto | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID()
+  bankQrImageId?: string | null;
 }
 
 /** ME-2 */

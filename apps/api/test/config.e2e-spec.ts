@@ -40,9 +40,9 @@ describe('SYS-2 · GET /api/v1/config', () => {
           defaultPaymentHoldMin: 10,
         },
         fees: {
-          percent: 5,
-          thresholdVnd: 20000,
-          flatVnd: 2000,
+          percent: 0,
+          thresholdVnd: 0,
+          flatVnd: 0,
           paidBy: 'BUYER',
         },
         defaultCenter: { lat: 16.0544, lng: 108.2022, label: 'Đà Nẵng' },

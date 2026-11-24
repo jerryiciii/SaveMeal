@@ -58,16 +58,34 @@ export class ImagesService {
     return toImage(row);
   }
 
-  /** IMG-2. Only the uploader; refused while the image is on a published listing or a report. */
+  /**
+   * IMG-2. Only the uploader; refused while the image is on a published listing, a report,
+   * a seller bank QR, or a payment proof.
+   */
   async remove(uploaderId: string, imageId: string): Promise<void> {
     const image = await this.prisma.listingImage.findFirst({
       where: { id: imageId, uploaderId },
-      include: { listing: { select: { status: true } } },
+      include: {
+        listing: { select: { status: true } },
+        _count: {
+          select: {
+            accountBankQrOf: true,
+            listingBankQrOf: true,
+            paymentSellerQrOf: true,
+            paymentProofOf: true,
+          },
+        },
+      },
     });
     if (!image) throw new AppException('IMAGE_NOT_FOUND');
     const onPublished = image.listing !== null && image.listing.status !== 'DRAFT';
     const onReport = (await this.prisma.report.count({ where: { imageIds: { has: imageId } } })) > 0;
-    if (onPublished || onReport) throw new AppException('IMAGE_IN_USE');
+    const inPaymentOrQr =
+      image._count.accountBankQrOf > 0 ||
+      image._count.listingBankQrOf > 0 ||
+      image._count.paymentSellerQrOf > 0 ||
+      image._count.paymentProofOf > 0;
+    if (onPublished || onReport || inPaymentOrQr) throw new AppException('IMAGE_IN_USE');
     await this.prisma.listingImage.delete({ where: { id: imageId } });
     await this.storage.remove(image.storageKey);
   }

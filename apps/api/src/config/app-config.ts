@@ -74,6 +74,8 @@ export class AppConfig {
     serviceRoleKey: string | null;
     bucket: string;
   };
+  /** Public URL of the PWA for links inside transactional emails (no trailing slash). */
+  readonly appPublicUrl: string;
   /** Public base URL prefix for stored images (no trailing slash). */
   readonly mediaPublicBaseUrl: string;
 
@@ -95,6 +97,7 @@ export class AppConfig {
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
       bucket: env.SUPABASE_STORAGE_BUCKET,
     };
+    this.appPublicUrl = env.APP_PUBLIC_URL.replace(/\/+$/, '');
     this.mediaPublicBaseUrl = env.MEDIA_PUBLIC_BASE_URL
       ? env.MEDIA_PUBLIC_BASE_URL.replace(/\/+$/, '')
       : env.MEDIA_STORAGE === 'supabase' && supabaseUrl
@@ -122,9 +125,9 @@ export class AppConfig {
       minHoldMin: env.MIN_PAYMENT_HOLD_MIN,
       defaultHoldMin: env.DEFAULT_PAYMENT_HOLD_MIN,
       fees: {
-        percent: env.PLATFORM_FEE_PERCENT,
-        thresholdVnd: env.PLATFORM_FEE_THRESHOLD_VND,
-        flatVnd: env.PLATFORM_FEE_FLAT_VND,
+        percent: 0,
+        thresholdVnd: 0,
+        flatVnd: 0,
         paidBy: 'BUYER',
       },
       sepay: {

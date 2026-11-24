@@ -1,27 +1,30 @@
-import type { Payment as PrismaPayment } from '@prisma/client';
-import type { Payment } from '@savemeal/shared';
+import type { ListingImage, Payment as PrismaPayment } from '@prisma/client';
+import type { Payment, PaymentStatus } from '@savemeal/shared';
+import { toImage } from '../common/images';
 import { toApiTime, toApiTimeOrNull } from '../common/time';
 
-export function toPayment(row: PrismaPayment): Payment {
+export type PaymentRow = PrismaPayment & {
+  sellerQrImage?: ListingImage | null;
+  proofImage?: ListingImage | null;
+};
+
+export const PAYMENT_INCLUDE = {
+  sellerQrImage: true,
+  proofImage: true,
+};
+
+export function toPayment(row: PaymentRow): Payment {
   return {
     id: row.id,
     reservationId: row.reservationId,
-    provider: row.provider,
-    status: row.status,
-    payoutStatus: row.payoutStatus,
-    foodAmount: row.foodAmount,
-    platformFee: row.platformFee,
-    payableAmount: row.payableAmount,
-    sellerNet: row.sellerNet,
-    bankCode: row.bankCode,
-    accountNo: row.accountNo,
-    accountName: row.accountName,
-    transferContent: row.transferContent,
-    qrImageUrl: row.qrImageUrl,
-    checkoutUrl: row.checkoutUrl,
+    status: row.status as PaymentStatus,
+    amount: row.amount,
+    sellerQrImage: row.sellerQrImage ? toImage(row.sellerQrImage) : null,
+    proofImage: row.proofImage ? toImage(row.proofImage) : null,
     expiresAt: toApiTime(row.expiresAt),
-    paidAt: toApiTimeOrNull(row.paidAt),
-    refundedAt: toApiTimeOrNull(row.refundedAt),
-    settledAt: toApiTimeOrNull(row.settledAt),
+    proofSubmittedAt: toApiTimeOrNull(row.proofSubmittedAt),
+    confirmedAt: toApiTimeOrNull(row.confirmedAt),
+    rejectedAt: toApiTimeOrNull(row.rejectedAt),
+    rejectReason: row.rejectReason,
   };
 }

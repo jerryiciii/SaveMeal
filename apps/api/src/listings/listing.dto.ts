@@ -120,6 +120,11 @@ class ListingFieldsDto {
   @ValidateNested()
   @Type(() => PickupLocationDto)
   pickup?: PickupLocationDto;
+
+  @IsOptional()
+  @nullable()
+  @IsUUID()
+  bankQrImageId?: string | null;
 }
 
 /** LIST-4: any subset of ListingInput. */
