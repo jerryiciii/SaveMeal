@@ -2,7 +2,14 @@ import type { CSSProperties } from "react";
 import styles from "./Icon.module.css";
 
 /** Icon files exported from Figma V1 (apps/web/public/icons). */
-export type IconName = "search" | "navigation" | "nav-discover" | "nav-saved" | "nav-post" | "nav-account";
+export type IconName =
+  | "search"
+  | "navigation"
+  | "nav-discover"
+  | "nav-saved"
+  | "nav-notifications"
+  | "nav-post"
+  | "nav-account";
 
 type IconProps = {
   name: IconName;
