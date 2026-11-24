@@ -4,10 +4,18 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button, Chip, Notice } from "@/components/ui";
 import { saveMeal } from "@/lib/api";
+import type { ReservationStatus } from "@/lib/contract/types";
 import { formatPickupDay, formatPickupWindow } from "@/lib/format";
 import { useLoad } from "@/lib/useLoad";
 import { RESERVATION_STATUS_LABEL } from "./labels";
 import styles from "./orders.module.css";
+
+function statusClass(status: ReservationStatus): string | undefined {
+  if (status === "PENDING_PAYMENT") return styles.statusWarn;
+  if (status === "AWAITING_SELLER_CONFIRM") return styles.statusLilac;
+  if (status === "RESERVED" || status === "COMPLETED") return styles.status;
+  return styles.statusMuted;
+}
 
 /** Figma V1 17 · Đơn của tôi (8:2): "Đang nhận" / "Lịch sử" (RES-2, polled every 30 s). */
 export function OrdersScreen() {
@@ -52,7 +60,7 @@ export function OrdersScreen() {
               <Link className={styles.order} href={`/orders/${r.id}`}>
                 <span className={styles.orderTop}>
                   <span>{r.listing.title}</span>
-                  <span className={r.status === "RESERVED" || r.status === "COMPLETED" ? styles.status : styles.statusMuted}>
+                  <span className={statusClass(r.status)}>
                     {RESERVATION_STATUS_LABEL[r.status]}
                   </span>
                 </span>

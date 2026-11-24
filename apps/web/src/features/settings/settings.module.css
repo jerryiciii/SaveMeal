@@ -277,3 +277,105 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+/* Default Seller Bank QR card */
+.qrPreviewBox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+}
+
+.qrThumb {
+  flex: none;
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  object-fit: contain;
+}
+
+.qrMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qrStatus {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qrActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.qrActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.qrActionBtn:hover:not(:disabled) {
+  background: var(--limesoft);
+  border-color: var(--ink);
+}
+
+.qrEmptyBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 112px;
+  padding: 18px 16px;
+  border-radius: 18px;
+  border: 1.5px dashed var(--sheet-handle);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.qrEmptyBtn:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--limesoft);
+}
+
+.qrEmptyBtn:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.qrEmptyTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qrEmptySub {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}

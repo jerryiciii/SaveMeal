@@ -252,3 +252,237 @@
   background: var(--field);
   border: 1px solid var(--line);
 }
+
+/* Screen 25b · Seller Bank QR upload card (V2.1) */
+.qrCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.qrHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.qrTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.qrPill {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--limesoft);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.upl {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.empty {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-height: 124px;
+  padding: 20px 16px;
+  border: 1.5px dashed var(--sheet-handle);
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.empty:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: var(--limesoft);
+}
+
+.empty:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.qrUploadTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qrUploadSub {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.qrThumb {
+  flex: none;
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  object-fit: contain;
+}
+
+.qrMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qrStatus {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qrSub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.qrActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.qrActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.qrActionBtn:hover:not(:disabled) {
+  background: var(--limesoft);
+  border-color: var(--ink);
+}
+
+.qrRemoveBtn {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.qrSpinRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.qrSpinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  border-top-color: var(--ink);
+  animation: qrSpin 0.7s linear infinite;
+}
+
+@keyframes qrSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.freeQrNote {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Missing checklist items banner in PostChecklist */
+.missingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 24px;
+  background: var(--warn-soft);
+  border: 1px solid rgba(163, 78, 9, 0.22);
+}
+
+.missingTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.missingList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink2);
+}
+
+.missingLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+}

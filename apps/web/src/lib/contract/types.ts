@@ -9,6 +9,7 @@ export type Page = { nextCursor: string | null; limit: number };
 export type ListEnvelope<T> = { data: T[]; page: Page };
 
 export type Image = { id: string; url: string; width: number; height: number };
+export type ImagePurpose = "LISTING" | "REPORT" | "AVATAR" | "PAYMENT_QR" | "PAYMENT_PROOF";
 
 export type AccountStatus = "ACTIVE" | "SUSPENDED";
 export const SELLER_TYPES = ["INDIVIDUAL", "SHOP", "CAFE", "BAKERY", "CANTEEN"] as const;
@@ -19,7 +20,14 @@ export type Storage = "ROOM_TEMP" | "CHILLED" | "FROZEN";
 export const ALLERGENS = ["GLUTEN", "MILK", "EGG", "PEANUT", "TREE_NUT", "SOY", "FISH", "SHELLFISH", "SESAME"] as const;
 export type Allergen = (typeof ALLERGENS)[number];
 export type ListingStatus = "DRAFT" | "PUBLISHED" | "EXPIRED" | "WITHDRAWN" | "BLOCKED";
-export type ReservationStatus = "RESERVED" | "COMPLETED" | "CANCELLED" | "EXPIRED";
+export type ReservationStatus =
+  | "PENDING_PAYMENT"
+  | "AWAITING_SELLER_CONFIRM"
+  | "RESERVED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "EXPIRED";
+export type PaymentStatus = "UNPAID" | "PROOF_SUBMITTED" | "CONFIRMED" | "REJECTED" | "EXPIRED";
 export const BUYER_CANCEL_REASONS = [
   "BUYER_LATE",
   "BUYER_WRONG_QTY",
@@ -29,6 +37,7 @@ export const BUYER_CANCEL_REASONS = [
 export type BuyerCancelReason = (typeof BUYER_CANCEL_REASONS)[number];
 export type CancelReason =
   | BuyerCancelReason
+  | "PAYMENT_REJECTED"
   | "SELLER_WITHDREW"
   | "LISTING_BLOCKED"
   | "ADMIN";
@@ -51,7 +60,8 @@ export type ChecklistKey =
   | "PREPARED_AT"
   | "STORAGE"
   | "PICKUP_WINDOW"
-  | "PICKUP_LOCATION";
+  | "PICKUP_LOCATION"
+  | "PAYMENT_QR";
 
 export type PickupLocation = { address: string; lat: number; lng: number };
 
@@ -65,7 +75,13 @@ export type Me = {
   avatar: Image | null;
   role: "USER" | "ADMIN";
   status: AccountStatus;
-  seller: { name: string | null; type: SellerType | null; verified: boolean; defaultPickup: PickupLocation | null };
+  seller: {
+    name: string | null;
+    type: SellerType | null;
+    verified: boolean;
+    defaultPickup: PickupLocation | null;
+    bankQrImage?: Image | null;
+  };
   stats: { portionsHandedOver: number; reservationsActive: number; listingsActive: number };
   createdAt: string;
 };
@@ -120,6 +136,7 @@ export type ListingOwnerView = ListingDetail & {
   quantityTotal: number;
   reservedCount: number;
   completedCount: number;
+  bankQrImage?: Image | null;
   missing: ChecklistKey[];
   editableFields: string[];
   closeReason: string | null;
@@ -130,6 +147,20 @@ export type ListingOwnerView = ListingDetail & {
 
 export type PickupToken = { qrPayload: string; expiresAt: string };
 
+export type Payment = {
+  id: string;
+  reservationId: string;
+  status: PaymentStatus;
+  amount: number;
+  sellerQrImage: Image | null;
+  proofImage: Image | null;
+  expiresAt: string;
+  proofSubmittedAt: string | null;
+  confirmedAt: string | null;
+  rejectedAt: string | null;
+  rejectReason: string | null;
+};
+
 export type Reservation = {
   id: string;
   code: string;
@@ -137,6 +168,8 @@ export type Reservation = {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  platformFee?: number;
+  payableAmount?: number;
   listing: {
     id: string;
     title: string;
@@ -149,6 +182,7 @@ export type Reservation = {
   seller: SellerSummary;
   buyer: { displayName: string } | null;
   pickupToken: PickupToken | null;
+  payment?: Payment | null;
   cancelReason: CancelReason | null;
   createdAt: string;
   completedAt: string | null;

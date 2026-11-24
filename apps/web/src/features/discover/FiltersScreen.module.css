@@ -20,7 +20,7 @@
   flex: 1;
   flex-direction: column;
   gap: 24px;
-  padding: 8px var(--gutter) 110px;
+  padding: 8px var(--gutter) calc(112px + env(safe-area-inset-bottom, 0px));
 }
 
 .section {

@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Notice, ScreenHeader } from "@/components/ui";
+import { Button, Chip, Notice, ScreenHeader } from "@/components/ui";
 import { saveMeal } from "@/lib/api";
 import { ApiError } from "@/lib/contract/errors";
 import { formatCardPrice, formatPickupDay, formatPickupWindow, formatVnd } from "@/lib/format";
 import { useLoad } from "@/lib/useLoad";
 import styles from "./reserve.module.css";
+
+const HOLD_MINUTES_OPTIONS = [5, 10, 15] as const;
 
 function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -18,6 +20,7 @@ export function ReserveScreen({ id }: { id: string }) {
   const router = useRouter();
   const { state } = useLoad(() => Promise.all([saveMeal.getListing(id), saveMeal.getConfig()]), [id]);
   const [qty, setQty] = useState(1);
+  const [holdMinutes, setHoldMinutes] = useState<number>(10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One key per screen visit: a double tap or retry never creates two reservations.
@@ -41,7 +44,7 @@ export function ReserveScreen({ id }: { id: string }) {
     setBusy(true);
     setError(null);
     try {
-      const r = await saveMeal.reserve(l.id, qty, idemKey);
+      const r = await saveMeal.reserve(l.id, qty, idemKey, l.price > 0 ? holdMinutes : undefined);
       router.replace(`/orders/${r.id}?new=1`);
     } catch (err) {
       if (err instanceof ApiError && err.code === "ALREADY_RESERVED" && typeof err.details?.reservationId === "string") {
@@ -76,6 +79,19 @@ export function ReserveScreen({ id }: { id: string }) {
           </div>
         </section>
 
+        {l.price > 0 ? (
+          <section className={styles.holdRow}>
+            <span className={styles.holdLabel}>Thời gian giữ suất để chuyển khoản</span>
+            <div className={styles.holdChips} role="group" aria-label="Thời gian giữ suất để chuyển khoản">
+              {HOLD_MINUTES_OPTIONS.map((mins) => (
+                <Chip key={mins} selected={holdMinutes === mins} onClick={() => setHoldMinutes(mins)}>
+                  {mins} phút
+                </Chip>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className={styles.row}>
           <span>Đến nhận</span>
           <b>
@@ -87,14 +103,16 @@ export function ReserveScreen({ id }: { id: string }) {
           <b className={styles.addr}>{l.pickup.address}</b>
         </section>
         <section className={styles.row}>
-          <span>Thanh toán khi nhận</span>
+          <span>{l.price > 0 ? "Tổng tiền (0đ phí sàn)" : "Thanh toán khi nhận"}</span>
           <b>{formatVnd(l.price * qty)}</b>
         </section>
 
         <Notice>
           <p>
-            <b>Lưu ý:</b> Bạn nhận tại quầy và trả tiền trực tiếp cho người bán (tiền mặt hoặc chuyển khoản). SaveMeal không giữ tiền.
-            QR xác nhận giao nhận, không bảo đảm chất lượng thực phẩm.
+            <b>Lưu ý:</b>{" "}
+            {l.price > 0
+              ? "Sau khi bấm đặt giữ, bạn sẽ xem QR ngân hàng của người bán (nếu bật thanh toán trước) hoặc thanh toán trực tiếp khi nhận. 0đ phí sàn."
+              : "Bạn nhận tại quầy theo khung giờ đã chọn. QR xác nhận giao nhận, không bảo đảm chất lượng thực phẩm."}
           </p>
         </Notice>
         {error ? <Notice tone="error">{error}</Notice> : null}

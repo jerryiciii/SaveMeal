@@ -169,7 +169,7 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 6px var(--gutter) 28px;
+  padding: 6px var(--gutter) calc(92px + env(safe-area-inset-bottom, 0px));
   border-radius: 28px 28px 0 0;
   background: var(--canvas);
   box-shadow: 0 -8px 24px rgba(17, 17, 17, 0.06);
@@ -177,7 +177,7 @@
 
 .sheetExpanded {
   border-radius: 28px 28px 0 0;
-  padding-bottom: 36px;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   box-shadow: none;
 }
 

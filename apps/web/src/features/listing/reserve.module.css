@@ -102,3 +102,25 @@
   font-weight: 500;
   color: var(--ink);
 }
+
+.holdRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.holdLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.holdChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
