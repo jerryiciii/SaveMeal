@@ -2,21 +2,15 @@ import type { NextConfig } from "next";
 
 /**
  * The browser always calls `/api/v1/*` on the web origin. When the API is real
- * (NEXT_PUBLIC_API_MOCK=0), Next rewrites those calls to the NestJS API so the
- * refresh cookie `lb_rt` stays first-party (docs/ARCHITECTURE.md).
+ * (NEXT_PUBLIC_API_MOCK=0), the Route Handler at `src/app/api/v1/[...path]/route.ts`
+ * proxies those calls to the NestJS API while preserving `Set-Cookie` (`lb_rt`)
+ * as a first-party cookie (docs/ARCHITECTURE.md).
  */
-const apiOrigin = (process.env.API_ORIGIN ?? "http://localhost:4000").replace(/\/+$/, "");
-const useMock = process.env.NEXT_PUBLIC_API_MOCK !== "0";
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
     unoptimized: true,
-  },
-  async rewrites() {
-    if (useMock) return [];
-    return [{ source: "/api/v1/:path*", destination: `${apiOrigin}/api/v1/:path*` }];
   },
   async headers() {
     return [

@@ -1,0 +1,89 @@
+.barTrack {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  background: rgba(101, 228, 179, 0.12);
+}
+
+.barFill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--color-mint), #9ff5d4);
+  box-shadow: 0 0 10px rgba(101, 228, 179, 0.65);
+  animation: navProgress 6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pillWrap {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: none;
+  animation: pillIn 0.18s ease-out forwards;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(27, 33, 42, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(154, 170, 189, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 2px solid rgba(101, 228, 179, 0.25);
+  border-top-color: var(--color-mint);
+  animation: navSpin 0.7s linear infinite;
+}
+
+@keyframes navProgress {
+  0% {
+    transform: scaleX(0.08);
+  }
+  20% {
+    transform: scaleX(0.45);
+  }
+  60% {
+    transform: scaleX(0.78);
+  }
+  100% {
+    transform: scaleX(0.92);
+  }
+}
+
+@keyframes pillIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes navSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
